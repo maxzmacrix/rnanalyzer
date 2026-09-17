@@ -101,7 +101,7 @@ export function confirmDialog(message, opts = {}) {
       h('div', { style: { padding: '12px 16px', lineHeight: '1.45' } }, message),
       h('div.row', { style: { padding: '8px 16px 16px', justifyContent: 'flex-end' } },
         h('button.btn.ghost', { on: { click: () => { s.close(); resolve(false); } } }, t('cancel')),
-        h('button.btn', { class: opts.danger ? 'danger' : '', on: { click: () => { s.close(); resolve(true); } } }, opts.okLabel || t('ok'))),
+        h('button.btn', { class: opts.danger ? 'danger' : '', on: { click: () => { resolve(true); s.close(); } } }, opts.okLabel || t('ok'))),
     ], { onClose: () => resolve(false) });
   });
 }
@@ -120,7 +120,7 @@ export function promptDialog(title, fields) {
       ...nodes,
       h('div.row', { style: { padding: '12px 16px 16px', justifyContent: 'flex-end' } },
         h('button.btn.ghost', { on: { click: () => { s.close(); resolve(null); } } }, t('cancel')),
-        h('button.btn', { on: { click: () => { const out = {}; for (const k of Object.keys(inputs)) out[k] = inputs[k].value; s.close(); resolve(out); } } }, t('save'))),
+        h('button.btn', { on: { click: () => { const out = {}; for (const k of Object.keys(inputs)) out[k] = inputs[k].value; resolve(out); s.close(); } } }, t('save'))),
     ], { onClose: () => resolve(null) });
     setTimeout(() => { const first = Object.values(inputs)[0]; first && first.focus(); }, 50);
   });

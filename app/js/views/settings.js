@@ -7,6 +7,7 @@ import { db } from '../db.js';
 import { APP_VERSION } from '../main.js';
 import { isNative as isNativeApp_ } from '../deviceNative.js';
 import { startTour, hasDemoData, removeDemoData } from '../tour.js';
+import { checkForAppUpdate, updateCheckAvailable } from '../update.js';
 const isNativeApp = isNativeApp_();
 
 export function mount(main) {
@@ -65,6 +66,10 @@ export function mount(main) {
     h('div.item', h('div.lbl', h('div', t('tour_start')), h('div.sub', t('tour_start_hint'))), h('button.btn.ghost', { on: { click: () => startTour() } }, t('tour_start_btn'))),
     hasDemoData() ? h('div.item', h('div.lbl', h('div', t('tour_remove')), h('div.sub', t('demo_data_hint'))), h('button.btn.danger', { on: { click: async () => { await removeDemoData(); toast(t('tour_removed')); main.innerHTML = ''; mount(main); } } }, t('delete'))) : null,
     isIOS && !standalone ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
+    updateCheckAvailable() ? h('div.item', h('div.lbl', h('div', t('check_update')), h('div.sub', t('check_update_hint'))), h('button.btn.ghost', { on: { click: async (e) => {
+      const btn = e.currentTarget; btn.disabled = true; const r = await checkForAppUpdate({ manual: true }); btn.disabled = false;
+      toast(r === 'available' ? t('update_found') : r === 'current' ? t('update_none') : t('update_error'), 4000);
+    } } }, t('check_update_btn'))) : null,
     h('div.item', h('div.lbl', h('div.sub', 'Race Navigator · RN Vision GmbH · race-navigator.com'))),
   ].filter(Boolean));
   main.appendChild(root);

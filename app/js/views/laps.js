@@ -137,6 +137,7 @@ function lapRow(l, isBest, an) {
       h('div.l2', `${t('lap_n', { n: l.lapNumber })} · ${fmtTimeOfDay(l.startMs)}${l.note ? ' · ' + l.note : ''}`),
       secs.length ? h('div.secs', secs.map((s, j) => h('span.sec.mono', { class: an && an.bestSecLap[j] === l.id ? 'best' : '', title: an && an.bestSecLap[j] === l.id ? t('best_sector') : '' }, h('b', `S${j + 1}`), fmtSec(s)))) : null),
     h('div.right',
+      sel ? h('span.selmark', { style: { background: color }, html: icons.check, title: t('selected', { n: state.selected.indexOf(l.id) + 1 }) }) : null,
       hv ? h('span.badge.video', t('video')) : (l.video ? h('span.badge', t('no_video')) : null),
       isBest ? h('span.badge.best', t('best_lap')) : null),
     h('button.more', { html: icons.more, 'aria-label': t('options'), on: { click: (e) => { e.stopPropagation(); lapMenu(l); } } }),

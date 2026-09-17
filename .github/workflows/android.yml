@@ -67,11 +67,9 @@ jobs:
           ls "$R"
           # build identity for the in-app update check (app/js/update.js)
           TAG="${GITHUB_REF#refs/tags/}"; case "$GITHUB_REF" in refs/tags/*) ;; *) TAG="";; esac
-          printf '{"platform":"android","version":"%s","build":%s,"tag":"%s"}
-' "$MARKETING_VERSION" "${{ github.run_number }}" "$TAG" > android/app/src/main/assets/public/build.json
+          echo "{\"platform\":\"android\",\"version\":\"$MARKETING_VERSION\",\"build\":${{ github.run_number }},\"tag\":\"$TAG\"}" > android/app/src/main/assets/public/build.json
           mkdir -p "$RUNNER_TEMP/out"
-          printf '{"platform":"android","version":"%s","build":%s,"tag":"%s","apk":"https://github.com/%s/releases/latest/download/RN-Analyzer.apk","release":"https://github.com/%s/releases/tag/%s"}
-' "$MARKETING_VERSION" "${{ github.run_number }}" "$TAG" "$GITHUB_REPOSITORY" "$GITHUB_REPOSITORY" "$TAG" > "$RUNNER_TEMP/out/latest.json"
+          echo "{\"platform\":\"android\",\"version\":\"$MARKETING_VERSION\",\"build\":${{ github.run_number }},\"tag\":\"$TAG\",\"apk\":\"https://github.com/$GITHUB_REPOSITORY/releases/latest/download/RN-Analyzer.apk\",\"release\":\"https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG\"}" > "$RUNNER_TEMP/out/latest.json"
           cat android/app/src/main/assets/public/build.json "$RUNNER_TEMP/out/latest.json"
 
       - name: Signing config

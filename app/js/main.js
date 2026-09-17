@@ -7,6 +7,7 @@ import * as lapsView from './views/laps.js';
 import * as analyzeView from './views/analyze.js';
 import * as deviceView from './views/device.js';
 import * as settingsView from './views/settings.js';
+import { checkForAppUpdate } from './update.js';
 
 export const APP_VERSION = '2.0.0';
 
@@ -76,6 +77,7 @@ async function boot() {
   window.addEventListener('hashchange', route);
   route();
   registerSW();
+  setTimeout(() => checkForAppUpdate().catch(() => {}), 2500);
   // ask for persistent storage once (silently) so iOS/Chrome don't evict lap data
   if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persisted().then((p) => { if (!p) navigator.storage.persist().catch(() => {}); }).catch(() => {});

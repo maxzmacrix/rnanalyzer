@@ -91,26 +91,32 @@ v·Gierrate 0,98) und entspricht dem alten Code (`xAccel` = Longitudinal, `yAcce
 Video‑Synchronisation: `videos/video/startTime` ist der Zeitstempel von Video‑Sekunde 0 → Offset zum
 Rundenstart (`lap.video.offsetS`).
 
-## Geräte‑Schnittstelle (HTTP‑API)
+## Geräte‑Schnittstelle – Stand der Dinge
 
-Die alte iPad‑App holte Daten per **Bonjour‑Discovery (`_racenav._tcp`), direkten PostgreSQL‑Abfragen und FTP**
-(Videos) bzw. SMB (FileHub). Nichts davon ist aus einem Browser erreichbar. Die Web‑App erwartet daher eine
-kleine HTTP‑API auf dem Race Navigator (oder auf einer Bridge im gleichen WLAN):
+Der **unveränderte Race Navigator** bietet im „Analyzer Mode“ nur zwei Dienste an (aus dem alten Code, `RaceDataAnalyzerTests/MTPostgresTest.m` und `MTFTPTest.m`):
 
-| Endpoint | Antwort |
-|---|---|
-| `GET /api/info` | `{ deviceName, deviceType, driver, car, version, apiVersion }` |
-| `GET /api/laps` | `[ { id, lapNumber, driver, car, carNumber, track, event, eventStartTime, startTime, lapTimeMs, complete, dataFile, dataSize, videoFile, videoSize } ]` |
-| `GET /files/<name>` | Dateibytes (`Content-Length` gesetzt, `Range` optional) |
+* **PostgreSQL** auf der Geräte‑IP (Datenbank `rtts`, Benutzer `rtts`) – Runden, Messdaten, Fahrer, Strecken.
+* **FTP** auf der Geräte‑IP – Videodateien (`.mp4`) und Video‑Indexdateien (`.idx`).
+* Discovery per Bonjour `_racenav._tcp`; SMB nur für RAVPower‑„FileHub“‑USB‑Leser.
 
-Alle Antworten mit CORS‑Headern (`Access-Control-Allow-Origin: *`, `Access-Control-Expose-Headers: Content-Length`).
-`tools/mock-device-server.mjs` ist eine vollständige Referenzimplementierung (liest die Metadaten aus dem
-ZIP‑Kommentar der RNZ‑Dateien) und kann 1:1 als Vorlage für die Geräte‑Firmware dienen.
+**Kein Browser kann PostgreSQL oder FTP sprechen.** Eine reine Web‑App kann deshalb nicht direkt aus dem Gerät
+laden – das ist eine Grenze der Web‑Plattform, keine der App. Daraus ergeben sich drei Wege:
 
-**Wichtig (Mixed Content):** Wird die App über HTTPS ausgeliefert, blockiert der Browser `http://`‑Aufrufe zum
-Gerät. Optionen: (a) das Gerät liefert die App selbst per HTTP aus (dann kein Service Worker, aber alles andere
-funktioniert), (b) das Gerät bekommt ein HTTPS‑Zertifikat, (c) die App wird auf dem Telefon aus einer
-HTTP‑Quelle geöffnet. Die App zeigt den Hinweis automatisch an.
+| Weg | Voraussetzung | Status |
+|---|---|---|
+| **USB‑Stick** (SETTINGS › EXPORT VIDEO am Gerät, Stick per Adapter ans iPhone/iPad, Import in der App) | nichts | funktioniert heute |
+| **Native Hülle** (Capacitor‑iOS‑App um diese Web‑App, mit nativem PostgreSQL‑/FTP‑Plugin; `app/js/device.js` ruft dann das Plugin statt `fetch`) | Apple‑Developer‑Account, Mac/Xcode, App‑Store/TestFlight | empfohlener Weg für Kunden ohne weitere Hardware; Postgres‑Schema des Geräts muss bekannt sein |
+| **rn-bridge** (`tools/rn-bridge`, Node auf Laptop/Raspberry im RN‑WLAN, liefert App + HTTP‑API, erzeugt `.rnz` aus der DB, streamt Videos per FTP) | ein Rechner im WLAN | fertig, aber ungetestet gegen ein echtes Gerät; für Werkstatt/Support, nicht für Endkunden |
+| **Firmware‑HTTP‑API** (`/api/info`, `/api/laps`, `/files/<name>` mit CORS; Referenz `tools/mock-device-server.mjs`) | Änderung am Gerät | nur für künftige Geräte |
+
+Für die native Hülle und die Brücke wird das PostgreSQL‑Schema des Geräts benötigt. Es steckte im geschlossenen
+Pod `RNDataHandler` (gitlab.macrix.eu/racenavigator/rndatahandler, Tag 1.9.15), der nicht im Repository liegt.
+Mit einem Gerät in Reichweite liefert `node tools/rn-bridge/rn-bridge.mjs --device <ip> --discover` alle Tabellen,
+Spalten und die FTP‑Dateiliste; danach wird der `SCHEMA`‑Block in `rn-bridge.mjs` angepasst.
+
+Die App selbst nutzt bereits eine schmale Schnittstelle (`GET /api/info`, `GET /api/laps`, `GET /files/<name>`),
+die Brücke, Mock‑Server und eine künftige Firmware gleich bedienen. Ein natives Plugin ersetzt nur die drei
+Funktionen in `app/js/device.js`.
 
 ## Ordnerstruktur
 
@@ -136,6 +142,7 @@ app/
 tools/
   serve.mjs             Statischer Dev‑Server
   mock-device-server.mjs Mock‑Race‑Navigator (API‑Referenz)
+  rn-bridge/            Brücke Race Navigator (PostgreSQL+FTP) → HTTP‑API, mit --discover
 ```
 
 ## Bekannte Grenzen

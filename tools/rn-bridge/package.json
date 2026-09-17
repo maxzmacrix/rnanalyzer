@@ -1,0 +1,17 @@
+{
+  "name": "rn-bridge",
+  "version": "0.1.0",
+  "description": "Bridge between an unmodified Race Navigator (PostgreSQL + FTP) and the RN Analyzer web app (HTTP API + app hosting)",
+  "type": "module",
+  "private": true,
+  "bin": { "rn-bridge": "./rn-bridge.mjs" },
+  "scripts": {
+    "start": "node rn-bridge.mjs",
+    "discover": "node rn-bridge.mjs --discover"
+  },
+  "dependencies": {
+    "basic-ftp": "^5.0.5",
+    "pg": "^8.13.0"
+  },
+  "engines": { "node": ">=20" }
+}

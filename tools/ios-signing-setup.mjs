@@ -7,6 +7,8 @@
 //
 //   node tools/ios-signing-setup.mjs --key "<path to AuthKey_XXXXXXXXXX.p8>" --key-id XXXXXXXXXX --issuer <issuer uuid>
 //        [--bundle-id com.macrix.RN-Analyzer] [--team Z2LYJ5597T] [--out Integration/ios-signing]
+//        [--renew-profile]             keep the existing certificate (distribution.pem in --out), only recreate the profile
+//        [--capabilities HEALTHKIT,...] make sure these capabilities are enabled on the App ID before creating the profile
 //
 // Needs Node 18+ and openssl (Git for Windows ships one: "C:\Program Files\Git\usr\bin\openssl.exe").
 // Nothing is uploaded anywhere except to Apple. Output folder is git-ignored – keep it private.
@@ -17,13 +19,15 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, arr) => (v.startsWith('--') ? [...a, [v.slice(2), arr[i + 1]]] : a), []));
+const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, arr) => (v.startsWith('--') ? [...a, [v.slice(2), arr[i + 1] && !arr[i + 1].startsWith('--') ? arr[i + 1] : true]] : a), []));
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const KEY_PATH = args.key, KEY_ID = (args['key-id'] || '').trim(), ISSUER = (args.issuer || '').trim();
 const BUNDLE_ID = args['bundle-id'] || 'com.macrix.RN-Analyzer';
 const TEAM = args.team || 'Z2LYJ5597T';
 const OUT = resolve(ROOT, args.out || 'Integration/ios-signing');
 const PROFILE_NAME = `${BUNDLE_ID} App Store (CI)`;
+const RENEW = 'renew-profile' in args;
+const CAPS = (args.capabilities || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
 
 if (!KEY_PATH || !KEY_ID || !ISSUER) {
   console.error('usage: node tools/ios-signing-setup.mjs --key <AuthKey.p8> --key-id <10 chars> --issuer <uuid> [--bundle-id ..] [--team ..] [--out ..]');
@@ -73,27 +77,37 @@ async function api(method, path, body) {
   console.log(`  ${existing.length} distribution certificate(s) exist on the team:`);
   for (const c of existing) console.log(`    - ${c.attributes.name} (${c.attributes.certificateType}) expires ${c.attributes.expirationDate?.slice(0, 10)}  id=${c.id}`);
 
-  step('Generating RSA key + certificate signing request');
   const keyPem = join(OUT, 'distribution-key.pem'), csrPem = join(OUT, 'distribution.csr');
-  openssl('genrsa', '-out', keyPem, '2048');
-  openssl('req', '-new', '-key', keyPem, '-subj', `/CN=RN Analyzer CI/O=Macrix/C=DE`, '-out', csrPem);
-  const csr = readFileSync(csrPem, 'utf8');
-
-  step('Requesting an "Apple Distribution" certificate from Apple');
-  let cert;
-  try {
-    cert = await api('POST', 'certificates', { data: { type: 'certificates', attributes: { certificateType: 'DISTRIBUTION', csrContent: csr } } });
-  } catch (e) {
-    console.error(e.message);
-    fail('Apple refused to create another distribution certificate. Apple allows at most 3 per team – revoke an unused one at\n' +
-         'https://developer.apple.com/account/resources/certificates/list (revoking does NOT affect apps already in the App Store), then run again.');
-  }
-  const certId = cert.data.id;
-  const cerPath = join(OUT, 'distribution.cer');
-  writeFileSync(cerPath, Buffer.from(cert.data.attributes.certificateContent, 'base64'));
   const certPem = join(OUT, 'distribution.pem');
-  openssl('x509', '-inform', 'DER', '-in', cerPath, '-out', certPem);
-  console.log(`  created ${cert.data.attributes.name}, serial ${cert.data.attributes.serialNumber}, expires ${cert.data.attributes.expirationDate?.slice(0, 10)}`);
+  let certId;
+  if (RENEW) {
+    step('Reusing the existing certificate');
+    if (!existsSync(certPem)) fail(`--renew-profile needs ${certPem} from the first run`);
+    const serial = openssl('x509', '-in', certPem, '-noout', '-serial').toString().trim().replace(/^serial=/i, '').replace(/^0+/, '').toUpperCase();
+    const match = existing.find((c) => String(c.attributes.serialNumber || '').replace(/^0+/, '').toUpperCase() === serial);
+    if (!match) fail(`No certificate with serial ${serial} found on the team – was it revoked? Run without --renew-profile to create a new one.`);
+    certId = match.id;
+    console.log(`  ${match.attributes.name}, serial ${serial}, expires ${match.attributes.expirationDate?.slice(0, 10)}`);
+  } else {
+    step('Generating RSA key + certificate signing request');
+    openssl('genrsa', '-out', keyPem, '2048');
+    openssl('req', '-new', '-key', keyPem, '-subj', `/CN=RN Analyzer CI/O=Macrix/C=DE`, '-out', csrPem);
+    const csr = readFileSync(csrPem, 'utf8');
+    step('Requesting an "Apple Distribution" certificate from Apple');
+    let cert;
+    try {
+      cert = await api('POST', 'certificates', { data: { type: 'certificates', attributes: { certificateType: 'DISTRIBUTION', csrContent: csr } } });
+    } catch (e) {
+      console.error(e.message);
+      fail('Apple refused to create another distribution certificate. Apple allows at most 3 per team – revoke an unused one at\n' +
+           'https://developer.apple.com/account/resources/certificates/list (revoking does NOT affect apps already in the App Store), then run again.');
+    }
+    certId = cert.data.id;
+    const cerPath = join(OUT, 'distribution.cer');
+    writeFileSync(cerPath, Buffer.from(cert.data.attributes.certificateContent, 'base64'));
+    openssl('x509', '-inform', 'DER', '-in', cerPath, '-out', certPem);
+    console.log(`  created ${cert.data.attributes.name}, serial ${cert.data.attributes.serialNumber}, expires ${cert.data.attributes.expirationDate?.slice(0, 10)}`);
+  }
 
   step(`Looking up App ID ${BUNDLE_ID}`);
   let bid = (await api('GET', `bundleIds?filter[identifier]=${encodeURIComponent(BUNDLE_ID)}`)).data?.find((b) => b.attributes.identifier === BUNDLE_ID);
@@ -102,6 +116,16 @@ async function api(method, path, body) {
     bid = (await api('POST', 'bundleIds', { data: { type: 'bundleIds', attributes: { identifier: BUNDLE_ID, name: 'RN Analyzer', platform: 'IOS' } } })).data;
   }
   console.log(`  App ID resource ${bid.id}`);
+  if (CAPS.length) {
+    step(`Checking capabilities: ${CAPS.join(', ')}`);
+    const have = ((await api('GET', `bundleIds/${bid.id}/bundleIdCapabilities`)).data || []).map((c) => c.attributes.capabilityType);
+    console.log(`  enabled now: ${have.join(', ') || '(none)'}`);
+    for (const cap of CAPS) {
+      if (have.includes(cap)) continue;
+      await api('POST', 'bundleIdCapabilities', { data: { type: 'bundleIdCapabilities', attributes: { capabilityType: cap }, relationships: { bundleId: { data: { type: 'bundleIds', id: bid.id } } } } });
+      console.log(`  enabled ${cap}`);
+    }
+  }
 
   step('Creating App Store provisioning profile');
   const old = (await api('GET', `profiles?filter[name]=${encodeURIComponent(PROFILE_NAME)}`)).data || [];
@@ -115,6 +139,13 @@ async function api(method, path, body) {
   const profPath = join(OUT, 'RN-Analyzer-AppStore.mobileprovision');
   writeFileSync(profPath, Buffer.from(prof.data.attributes.profileContent, 'base64'));
   console.log(`  profile "${prof.data.attributes.name}" uuid ${prof.data.attributes.uuid}, expires ${prof.data.attributes.expirationDate?.slice(0, 10)}`);
+
+  if (RENEW) {
+    const profB64 = readFileSync(profPath).toString('base64');
+    writeFileSync(join(OUT, 'github-secrets-profile.txt'), `IOS_PROFILE_BASE64\n${profB64}\n`);
+    console.log(`\nDONE. Certificate and .p12 unchanged – only the profile is new.\nUpdate ONE repository secret on GitHub (https://github.com/maxzmacrix/rnanalyzer/settings/secrets/actions):\n\n  IOS_PROFILE_BASE64  – content of ${join(OUT, 'github-secrets-profile.txt')} (the line below the name)\n`);
+    return;
+  }
 
   step('Packing certificate + key into a password-protected .p12');
   const password = crypto.randomBytes(18).toString('base64url');

@@ -9,10 +9,11 @@ import * as gforceView from './views/gforce.js';
 import * as videoView from './views/video.js';
 import * as devicesView from './views/devices.js';
 import * as settingsView from './views/settings.js';
+import * as controlView from './views/control.js';
 
 export const APP_VERSION = '2.0.0';
 
-const views = { laps: lapsView, analyzer: analyzerView, gforce: gforceView, video: videoView, devices: devicesView, settings: settingsView };
+const views = { laps: lapsView, analyzer: analyzerView, gforce: gforceView, video: videoView, devices: devicesView, control: controlView, settings: settingsView };
 let current = null;
 let currentName = '';
 

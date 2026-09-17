@@ -150,6 +150,36 @@ Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die 
 | **App auf dem Gerät hosten** (statische Dateien im HTTP‑Server des RN, gleicher Origin → keine CORS/Mixed‑Content‑Probleme) | Update‑Paket für das Gerät | Option für künftige Firmware; ohne HTTPS kein Offline‑Cache |
 | **Firmware‑HTTP‑API mit CORS** (`/api/info`, `/api/laps`, `/files/<name>`; Referenz `tools/mock-device-server.mjs`) | Änderung am Gerät | nur für künftige Geräte |
 
+
+## RN Connect – in die App integriert (Tab „Steuerung“, native App)
+
+Die Funktionen der alten RN‑Connect‑App (Handbuch `Specification/RN-Connect-manual.pdf`) sind als Tab **Steuerung**
+in derselben App umgesetzt (`app/js/views/control.js`, Protokoll in `app/js/deviceControl.js`). Alles läuft über die
+HTTP‑API des Geräts; in der Web‑Version zeigt der Tab nur den Hinweis auf die native App.
+
+| RN Connect | RN Analyzer 2.0 |
+|---|---|
+| Geräteliste / Pairing | Tab **Geräte** (Bonjour‑Suche `_racenav._tcp`, Adresse) |
+| Laps herunterladen, sortieren, suchen | Tab **Geräte** → Runden/Videos mit Fortschritt; Tab **Runden** |
+| Videos ansehen, teilen | Tab **Video** / **Analyzer**; Teilen als `.rnz` über das iOS‑Share‑Sheet |
+| Basic Data: Aufnahme an/aus, Aufnahmemodus (manuell, Auto 20/40 km/h) | **Steuerung** → REC‑Taste, Modus |
+| Fahrer / Fahrzeug verwalten (wählen, anlegen, umbenennen) | **Steuerung** → Fahrer, Fahrzeug |
+| Strecke wechseln (Suche) | **Steuerung** → Strecke (Namen werden einmalig vom Gerät geladen und gecacht) |
+| Event‑Typ, neues Event | **Steuerung** → Event‑Typ, Neues Event starten |
+| Videoeinstellungen, Layout, Full HD | **Steuerung** → Videoqualität, Video‑Layout |
+| Gerätestatus (GPS, Akku, Speicher, Restzeit, Zeit setzen, Warnungen) | **Steuerung** → Statuskarte (alle 4 s aktualisiert) |
+| Kameravorschau (MJPEG, Kamera wechseln, drehen) | **Steuerung** → Kameravorschau (Plugin `cameraStart`) |
+| Runden aufräumen, AP‑Passwort, Ausschalten | **Steuerung** → Aktionen |
+| Pit‑Lane‑Definition, Export auf Memory‑Stick | noch nicht umgesetzt (`REQ.SetPitlaneDefinition`, `REQ.ExportToMemoryStick` sind im Client vorbereitet) |
+| RN‑Software‑Update (cvs.macrix.eu → FTP → SSH/SCP `root` auf das Gerät) | noch nicht umgesetzt – braucht ein SSH‑Plugin (libssh2/NMSSH); Updater‑Service und Ablauf sind in `Old RN Analyzer/rnconnect-master` dokumentiert |
+| Facebook/YouTube‑Upload, Google‑Login | bewusst nicht übernommen |
+
+Protokoll (aus RNConnect/RNDataHandler rekonstruiert): `GET …/resources/currentstatus` (JSON), Aktionen als
+`GET …/resources/rarequest/{typ}/{uuid}/{dt1}/{dt2}/{int1}/{int2}/{int3}/{str1}/{str2}/{str3}/0` → `{status: <requestId>}`,
+Abfrage `GET …/resources/rarequest/{uuid}/{typ}` → `{rarequest:[{id,status,intParam1..3,stringParam1..3}]}` mit
+Status 0 empfangen, 1 in Arbeit, 2 fertig, 3 fehlgeschlagen. Kameravorschau: `rarequest/19/{uuid}/1` liefert die
+Anzahl Kameras (`intParam1`) und den ersten TCP‑Port (`intParam2`); dort kommt ein roher MJPEG‑Strom.
+
 ## Ordnerstruktur
 
 ```
@@ -171,7 +201,8 @@ app/
     device.js           HTTP‑Client zum RN‑Gerät
     import.js           Import‑Pipeline
     deviceNative.js     Geräteclient für die native App (HTTP‑XML‑API + Plugin)
-    views/              laps, analyzer, gforce, video, devices, settings
+    deviceControl.js    Gerätesteuerung (RN‑Connect‑Protokoll: currentstatus, rarequest)
+    views/              laps, analyzer, gforce, video, devices, control, settings
 native/rn-device/       Capacitor‑Plugin (Swift): Bonjour, FTP, PostgreSQL
 capacitor.config.json   Capacitor‑Projekt (iOS‑Hülle), Build per .github/workflows/ios.yml
 tools/

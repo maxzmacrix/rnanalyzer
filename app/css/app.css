@@ -286,3 +286,27 @@ table.data td.label { text-align: left; }
 
 .offline-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 59, 48, 0.25); color: #ffb4ae; }
 .update-banner { background: var(--accent); color: #111; padding: 8px 14px; text-align: center; font-weight: 600; cursor: pointer; }
+
+/* ---------- device control (RN Connect) ---------- */
+.logo-rn { font-weight: 900; font-size: 20px; color: var(--red); width: 44px; height: 44px; border-radius: 10px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; }
+.rec-btn { width: 72px; height: 72px; border-radius: 36px; border: 3px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.3); color: #fff; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-weight: 800; font-size: 12px; letter-spacing: 1px; flex: 0 0 auto; }
+.rec-btn .rec-dot { width: 16px; height: 16px; border-radius: 8px; background: rgba(255,255,255,0.35); }
+.rec-btn.on { border-color: var(--red); background: rgba(255,59,48,0.2); }
+.rec-btn.on .rec-dot { background: var(--red); animation: recblink 1.2s ease-in-out infinite; }
+@keyframes recblink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip.stat { height: auto; padding: 6px 10px; background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); color: var(--text-dim); }
+.chip.stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+.chip.stat.warn { border-color: var(--yellow); color: var(--yellow); }
+.chip.stat.warn b { color: var(--yellow); }
+.ctl-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; }
+.ctl-row:last-child { border-bottom: 0; }
+.ctl-row:active { background: rgba(255,255,255,0.06); }
+.ctl-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.08); display: inline-flex; align-items: center; justify-content: center; color: var(--blue-soft); flex: 0 0 auto; }
+.ctl-icon svg { width: 18px; height: 18px; fill: currentColor; }
+.avatar-sm { width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.08); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; font-weight: 700; font-size: 12px; color: var(--text-dim); flex: 0 0 auto; }
+.avatar-sm img { width: 100%; height: 100%; object-fit: cover; }
+.cam-stage { position: relative; background: #000; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; }
+.cam-img { width: 100%; height: 100%; object-fit: contain; }
+.cam-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
+@media (max-width: 420px) { .tabbar a span { font-size: 9.5px; } }

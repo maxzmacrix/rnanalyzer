@@ -17,7 +17,11 @@ public class RnDevicePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "ftpDownload", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "pgQuery", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cameraStart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cameraStop", returnType: CAPPluginReturnPromise),
     ]
+
+    private var camera: MJPEGSocketStream?
 
     private var browser: BonjourBrowser?
     private let ftpQueue = DispatchQueue(label: "rn.device.ftp")
@@ -77,6 +81,32 @@ public class RnDevicePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func deleteFile(_ call: CAPPluginCall) {
         if let p = call.getString("path") { try? FileManager.default.removeItem(atPath: p) }
+        call.resolve()
+    }
+
+    // MARK: - Camera preview (MJPEG frames over a raw TCP socket, one port per camera)
+
+    @objc func cameraStart(_ call: CAPPluginCall) {
+        guard let host = call.getString("host"), let port = call.getInt("port") else { call.reject("host and port are required"); return }
+        camera?.stop()
+        let stream = MJPEGSocketStream(host: host, port: UInt16(port))
+        camera = stream
+        var lastEmit = Date(timeIntervalSince1970: 0)
+        stream.onFrame = { [weak self] jpeg in
+            let now = Date()
+            if now.timeIntervalSince(lastEmit) < 0.08 { return } // <= ~12 fps to the WebView
+            lastEmit = now
+            self?.notifyListeners("cameraFrame", data: ["jpeg": jpeg.base64EncodedString(), "size": jpeg.count])
+        }
+        stream.onEnd = { [weak self] error in
+            self?.notifyListeners("cameraEnd", data: ["error": error ?? ""])
+        }
+        stream.start()
+        call.resolve()
+    }
+
+    @objc func cameraStop(_ call: CAPPluginCall) {
+        camera?.stop(); camera = nil
         call.resolve()
     }
 
@@ -339,5 +369,56 @@ final class FTPClient {
             }
         }
         data.start(queue: queue)
+    }
+}
+
+// MARK: - MJPEG socket stream ------------------------------------------------------------------------
+
+/// Reads a raw TCP stream of concatenated JPEG images (FFD8 ... FFD9) as sent by the Race Navigator camera preview.
+final class MJPEGSocketStream {
+    private let conn: NWConnection
+    private let queue = DispatchQueue(label: "rn.mjpeg")
+    private var buffer = Data()
+    var onFrame: ((Data) -> Void)?
+    var onEnd: ((String?) -> Void)?
+
+    init(host: String, port: UInt16) {
+        conn = NWConnection(host: NWEndpoint.Host(host), port: NWEndpoint.Port(rawValue: port)!, using: .tcp)
+    }
+    func start() {
+        conn.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .ready: self?.receive()
+            case .failed(let e): self?.onEnd?("\(e)")
+            case .waiting(let e): self?.onEnd?("\(e)")
+            default: break
+            }
+        }
+        conn.start(queue: queue)
+    }
+    func stop() { conn.cancel() }
+
+    private func receive() {
+        conn.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { [weak self] data, _, isComplete, error in
+            guard let self = self else { return }
+            if let d = data { self.buffer.append(d); self.extractFrames() }
+            if error != nil || isComplete { self.onEnd?(error.map { "\($0)" }); return }
+            self.receive()
+        }
+    }
+    private func extractFrames() {
+        let soi = Data([0xFF, 0xD8])
+        let eoi = Data([0xFF, 0xD9])
+        while true {
+            guard let start = buffer.range(of: soi) else { if buffer.count > 4 { buffer.removeAll(keepingCapacity: true) }; return }
+            guard let end = buffer.range(of: eoi, in: start.upperBound..<buffer.endIndex) else {
+                if start.lowerBound > 0 { buffer.removeSubrange(0..<start.lowerBound) }
+                if buffer.count > 8 * 1024 * 1024 { buffer.removeAll(keepingCapacity: true) }
+                return
+            }
+            let frame = buffer.subdata(in: start.lowerBound..<end.upperBound)
+            buffer.removeSubrange(0..<end.upperBound)
+            onFrame?(frame)
+        }
     }
 }

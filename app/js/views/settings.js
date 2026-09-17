@@ -31,6 +31,10 @@ export function mount(main) {
   const persistInfo = h('div.sub', { style: { marginTop: '4px' } }, '…');
   const persistBtn = h('button.btn.ghost', { on: { click: async () => { const ok = await db.persist(); toast(ok ? t('persisted') : t('not_persisted')); refreshStorage(); refreshPersist(); } } }, t('protect'));
   async function refreshPersist() {
+    if (isNativeApp) {
+      // native shell: data lives in the app's own container – nothing to request, nothing to add to a home screen
+      persistInfo.textContent = '✓ ' + t('storage_protected_native'); persistInfo.style.color = 'var(--green)'; persistBtn.classList.add('hidden'); return;
+    }
     let p = false;
     try { p = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : false; } catch { p = false; }
     persistInfo.textContent = p ? '✓ ' + t('storage_protected') : t('storage_unprotected');

@@ -168,6 +168,14 @@ Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die 
   Excel, Rundenwahl, G‑Kraft, Video, Race‑Navigator‑Tab, Einstellungen, Tour, Löschen, Alles‑löschen) und zeigt Ergebnis und
   Fehler in einem Panel, in der Konsole und in `window.__selftest`. Vor jedem Release beides laufen lassen.
 
+### Wetter je Session
+
+Die Rundenliste zeigt unter jeder Session das Wetter der Fahrstunden (`app/js/weather.js`): Symbol und Zustand, Temperatur,
+Wind mit Richtung, Niederschlag oder „trocken“. Quelle ist Open‑Meteo (kostenlos, ohne Schlüssel, CC BY 4.0; Archiv‑API für ältere
+Tage, Vorhersage‑API mit `past_days` für die letzten Tage). Position aus der Streckendefinition der Runde, Datum aus der ersten
+Runde; eine Anfrage je Session, Ergebnis in IndexedDB gecacht, Einheiten folgen der Einstellung (°C/km/h bzw. °F/mph).
+Abschaltbar unter *Einstellungen → Wetter der Session anzeigen*; Attribution steht dort im Untertitel.
+
 ### Geführte Tour mit Beispieldaten
 
 Beim ersten Start (leere Rundenliste) und unter *Einstellungen → Geführte Tour* fährt die App einmal selbst durch die wichtigsten

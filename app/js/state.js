@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS = {
   customTileUrl: '',
   profiles: [],
   theme: 'dark', // light | dark | system
+  weather: true, // session weather from Open-Meteo
 };
 
 const listeners = new Map();

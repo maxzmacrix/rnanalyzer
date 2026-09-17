@@ -96,6 +96,12 @@ export async function run() {
     assert(byText('.badge', t('demo_badge')), 'demo badge');
   });
 
+  await step('session weather line appears (Open-Meteo, needs network)', async () => {
+    if (navigator.onLine === false) return;
+    const el = await waitFor(() => { const w = $('.event-head .weather'); return w && w.textContent !== '…' ? w : null; }, 10000, 'weather line');
+    assert(/°C|°F/.test(el.textContent), `weather text: ${el.textContent}`);
+  });
+
   await step('lap list: filter chips toggle and restore', async () => {
     const n = $$('.lap-row').length;
     for (const key of ['filter_complete', 'filter_outliers', 'filter_video']) {

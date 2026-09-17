@@ -23,6 +23,7 @@ export function mount(main) {
     item(t('language'), segmented([{ value: 'en', label: 'English' }, { value: 'de', label: 'Deutsch' }], s.language, (v) => updateSettings({ language: v }))),
     item(t('speed_units'), segmented([{ value: 'metric', label: 'km/h' }, { value: 'imperial', label: 'mph' }], s.units, (v) => updateSettings({ units: v }))),
     item(t('map_tiles'), switchEl(s.mapTiles, (v) => updateSettings({ mapTiles: v }))),
+    item(t('weather_setting'), switchEl(s.weather !== false, (v) => updateSettings({ weather: v })), t('weather_hint')),
     item(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }], s.mapStyle === 'satellite' ? 'satellite' : 'osm', (v) => updateSettings({ mapStyle: v })), t('satellite_hint')),
     item(t('opt_autoplay'), segmented([0.5, 1, 2, 4].map((x) => ({ value: x, label: x + '×' })), Number(s.autoplaySpeed), (v) => updateSettings({ autoplaySpeed: v }))),
     item(t('opt_all_tracks'), switchEl(s.allTracks, (v) => updateSettings({ allTracks: v }))),

@@ -105,6 +105,22 @@ test('analysis: niceStep picks 1-2-5 steps', () => {
   }
 });
 
+// ------------------------------------------------------------------ weather helpers
+test('weather: WMO codes and wind directions map sensibly', async () => {
+  globalThis.window ??= globalThis;
+  globalThis.window.matchMedia ??= () => ({ matches: false, addEventListener() {} });
+  globalThis.window.addEventListener ??= () => {};
+  const w = await import('../../app/js/weather.js');
+  assert.equal(w.describeWeatherCode(0).key, 'wx_clear');
+  assert.equal(w.describeWeatherCode(3).key, 'wx_cloudy');
+  assert.equal(w.describeWeatherCode(63).key, 'wx_rain');
+  assert.equal(w.describeWeatherCode(95).key, 'wx_thunder');
+  assert.equal(w.windDirectionLabel(0), 'N');
+  assert.equal(w.windDirectionLabel(90), 'E');
+  assert.equal(w.windDirectionLabel(225), 'SW');
+  assert.equal(w.windDirectionLabel(359), 'N');
+});
+
 // ------------------------------------------------------------------ zip / xlsx
 test('zip: zipStore → unzip round trip', async () => {
   const data = new TextEncoder().encode('hello rn');

@@ -8,6 +8,7 @@ import { importFiles } from '../import.js';
 import { db } from '../db.js';
 import { shareFiles } from '../share.js';
 import { startTour } from '../tour.js';
+import { getSessionWeather } from '../weather.js';
 
 let root, listEl, selEl, filterEl, unsub = [];
 const collapsed = new Set();
@@ -108,7 +109,8 @@ function renderList() {
       h('div.grow',
         h('div.title', l0.track.name || l0.event.name || '–'),
         h('div.sub', `${l0.event.name && l0.event.name !== l0.track.name ? l0.event.name + ' · ' : ''}${fmtDate(l0.event.startMs || l0.startMs)} · ${l0.source.device} · ${t('laps_count', { n: g.laps.length })}`),
-        an.clean.size >= 2 ? h('div.stats', { html: sessionStatsHtml(an) }) : null),
+        an.clean.size >= 2 ? h('div.stats', { html: sessionStatsHtml(an) }) : null,
+        weatherLine(g.laps)),
       an.clean.size >= 2 ? h('button.chip.suggest', { on: { click: (e) => { e.stopPropagation(); suggestComparison(an); } } }, t('suggest_compare')) : null,
     );
     listEl.appendChild(head);
@@ -149,6 +151,19 @@ function lapRow(l, isBest, an) {
   );
   row.style.setProperty('--lap-color', color); // custom properties need setProperty (the style map ignores them)
   return row;
+}
+
+// ------------------------------------------------------------------ session weather (Open-Meteo, cached)
+const weatherCache = new Map(); // group key -> summary | null
+function weatherLine(laps) {
+  if (state.settings.weather === false) return null;
+  const key = groupKey(laps[0]);
+  const el = h('div.weather', { title: t('weather_hint') });
+  const show = (w) => { if (w && w.text) el.textContent = w.text; else el.remove(); };
+  if (weatherCache.has(key)) { show(weatherCache.get(key)); return el; }
+  el.textContent = '…';
+  getSessionWeather(laps).then((w) => { weatherCache.set(key, w); show(w); }).catch(() => el.remove());
+  return el;
 }
 
 // ------------------------------------------------------------------ session analysis

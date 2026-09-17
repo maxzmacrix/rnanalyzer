@@ -1,5 +1,5 @@
 /* RN Analyzer service worker – app shell precache + runtime caching of map tiles. */
-const VERSION = 'rn-analyzer-v2.0.23';
+const VERSION = 'rn-analyzer-v2.0.24';
 const SHELL = `${VERSION}-shell`;
 const TILES = `${VERSION}-tiles`;
 const ASSETS = [
@@ -8,7 +8,7 @@ const ASSETS = [
   './manifest.webmanifest',
   './css/app.css',
   './js/main.js', './js/state.js', './js/db.js', './js/i18n.js', './js/ui.js', './js/zip.js', './js/rnparser.js', './js/analysis.js',
-  './js/import.js', './js/chart.js', './js/map.js', './js/device.js', './js/deviceNative.js', './js/update.js', './js/tour.js', './demo/index.json', './demo/demo-lap6.rnz', './demo/demo-lap13.rnz', './demo/demo-lap62.rnz', './js/deviceControl.js', './js/sync.js', './js/xlsx.js', './js/share.js',
+  './js/import.js', './js/chart.js', './js/map.js', './js/device.js', './js/deviceNative.js', './js/update.js', './js/tour.js', './js/weather.js', './demo/index.json', './demo/demo-lap6.rnz', './demo/demo-lap13.rnz', './demo/demo-lap62.rnz', './js/deviceControl.js', './js/sync.js', './js/xlsx.js', './js/share.js',
   './js/views/laps.js', './js/views/analyze.js', './js/views/analyzer.js', './js/views/gforce.js', './js/views/video.js', './js/views/device.js', './js/views/devices.js', './js/views/control.js', './js/views/settings.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/icon.svg', './icons/logo.svg',
 ];

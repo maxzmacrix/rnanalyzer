@@ -142,6 +142,7 @@ function lapRow(l, isBest, an) {
       isBest ? h('span.badge.best', t('best_lap')) : null),
     h('button.more', { html: icons.more, 'aria-label': t('options'), on: { click: (e) => { e.stopPropagation(); lapMenu(l); } } }),
   );
+  row.style.setProperty('--lap-color', color); // custom properties need setProperty (the style map ignores them)
   return row;
 }
 

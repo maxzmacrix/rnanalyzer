@@ -9,7 +9,7 @@ import { db } from '../db.js';
 import { shareFiles } from '../share.js';
 import { startTour } from '../tour.js';
 import { getSessionWeather } from '../weather.js';
-import { healthAvailable, loadHeartRate } from '../health.js';
+import { healthAvailable, loadHeartRate, healthName } from '../health.js';
 
 let root, listEl, selEl, filterEl, unsub = [];
 const collapsed = new Set();
@@ -260,10 +260,10 @@ async function lapMenu(l) {
       `${l.track.name} · ${l.event.name}`, h('br'), `${fmtDateTime(l.startMs)} · ${l.source.device} · ${l.sampleCount} samples`, h('br'),
       l.video ? `${t('video')}: ${l.video.fileName} ${hv ? '✓' : '(' + t('video_missing') + ')'}` : t('no_video')),
     item('edit', t('edit_lap'), () => editLap(l)),
-    healthAvailable() ? item('pulse', t('health_load'), async () => {
-      toast(t('health_loading'), 20000);
-      try { const n = await loadHeartRate(l); toast(n ? t('health_loaded', { n }) : t('health_none'), 4000); }
-      catch (e) { toast(t('health_failed', { e: e.message || e }), 5000); }
+    healthAvailable() ? item('pulse', t('health_load', { p: healthName() }), async () => {
+      toast(t('health_loading', { p: healthName() }), 20000);
+      try { const n = await loadHeartRate(l); toast(n ? t('health_loaded', { n }) : t('health_none', { p: healthName() }), 4000); }
+      catch (e) { toast(t('health_failed', { p: healthName(), e: e.message || e }), 5000); }
     }) : null,
     item('share', t('share_lap_data'), () => shareLap(l, 'data')),
     hv ? item('share', t('share_video'), () => shareLap(l, 'video')) : null,

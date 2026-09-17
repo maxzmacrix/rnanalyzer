@@ -39,7 +39,7 @@ jobs:
 
       - uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          packages: 'platform-tools platforms;android-34 platforms;android-35 build-tools;34.0.0 build-tools;35.0.0'
 
       - name: Install JS dependencies
         run: npm install --no-audit --no-fund
@@ -56,7 +56,9 @@ jobs:
           set -e
           G=android/app/build.gradle
           sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"$MARKETING_VERSION\"/" "$G"
-          sed -i 's/minSdkVersion = 22/minSdkVersion = 26/' android/variables.gradle
+          sed -i 's/minSdkVersion = 22/minSdkVersion = 26/; s/compileSdkVersion = 34/compileSdkVersion = 35/' android/variables.gradle
+          # Health Connect client needs compileSdk 35; AGP 8.2 only warns about it
+          printf '\nandroid.suppressUnsupportedCompileSdk=35\n' >> android/gradle.properties
           # the Race Navigator speaks plain HTTP/FTP in its own WiFi
           sed -i 's/android:allowBackup="true"/android:allowBackup="true"\n        android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
           # RN logo: launcher icons (adaptive + legacy) and dark splash

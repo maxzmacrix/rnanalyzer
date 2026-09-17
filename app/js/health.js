@@ -1,11 +1,14 @@
-// Heart rate from Apple Health (native iOS app): read HealthKit samples for the lap window, resample onto the lap's
-// time base and store them as channel `hr` next to speed/g-force. Android Health Connect follows later.
+// Heart rate from Apple Health (iOS) or Health Connect (Android) in the native app: read the samples for the lap window,
+// resample onto the lap's time base and store them as channel `hr` next to speed/g-force.
 
 import { ensureSamples, reloadLaps } from './state.js';
 import { db } from './db.js';
 import { isNative } from './deviceNative.js';
 
-export function healthAvailable() { return isNative() && /iPhone|iPad|iPod/.test(navigator.userAgent); }
+export const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+export function healthAvailable() { return isNative(); }
+/** Name of the health platform for texts. */
+export function healthName() { return IS_IOS ? 'Apple Health' : 'Health Connect'; }
 function plugin() { const C = window.Capacitor; return (C.Plugins && C.Plugins.RnDevice) || C.registerPlugin('RnDevice'); }
 
 /** Loads heart rate for one lap. Returns the number of HealthKit samples used (0 = none in that time window). */

@@ -168,6 +168,15 @@ Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die 
   Excel, Rundenwahl, G‑Kraft, Video, Race‑Navigator‑Tab, Einstellungen, Tour, Löschen, Alles‑löschen) und zeigt Ergebnis und
   Fehler in einem Panel, in der Konsole und in `window.__selftest`. Vor jedem Release beides laufen lassen.
 
+### Herzfrequenz (Apple Health / Health Connect)
+
+In der nativen App lädt das Rundenmenü („Puls aus Apple Health laden“ bzw. „… aus Health Connect laden“) die Herzfrequenz
+einer Uhr für das Zeitfenster der Runde, rechnet sie auf die Zeitbasis der Messdaten um und speichert sie als Kanal `hr`
+(`app/js/health.js`, Kanal „Herzfrequenz“ im Analyzer, ♥‑Badge in der Liste). iOS: HealthKit im Swift‑Plugin, Entitlement und
+Nutzungstexte setzt der Workflow, die App‑ID braucht die Fähigkeit HealthKit (`tools/ios-signing-setup.mjs --renew-profile
+--capabilities HEALTHKIT`). Android: Health Connect über `RnHealth.kt` (Kotlin, connect-client), Berechtigung
+`READ_HEART_RATE` und Rationale‑Activity im Plugin‑Manifest; auf Android 9–13 muss die Health‑Connect‑App installiert sein.
+
 ### Wetter je Session
 
 Die Rundenliste zeigt unter jeder Session das Wetter der Fahrstunden (`app/js/weather.js`): Symbol und Zustand, Temperatur,

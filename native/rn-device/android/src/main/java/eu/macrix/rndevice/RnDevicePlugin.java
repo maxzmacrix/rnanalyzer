@@ -8,6 +8,9 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
+import android.content.Intent;
+import androidx.activity.result.ActivityResult;
+import com.getcapacitor.annotation.ActivityCallback;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -231,6 +234,54 @@ public class RnDevicePlugin extends Plugin {
     public void cameraStop(PluginCall call) {
         if (camera != null) { camera.stop(); camera = null; }
         call.resolve();
+    }
+
+    // ------------------------------------------------------------------ Health Connect (heart rate)
+
+    @PluginMethod
+    public void healthAvailable(PluginCall call) {
+        JSObject r = new JSObject();
+        int st = RnHealth.status(getContext());
+        r.put("available", st == 0);
+        r.put("status", st == 0 ? "available" : st == 1 ? "install" : "unsupported");
+        call.resolve(r);
+    }
+
+    /** healthHeartRate({from: ms, to: ms}) -> {samples: [{t, bpm}]}; asks for the Health Connect permission on first use. */
+    @PluginMethod
+    public void healthHeartRate(PluginCall call) {
+        int st = RnHealth.status(getContext());
+        if (st != 0) { call.reject(st == 1 ? "Health Connect app is not installed or needs an update" : "Health Connect is not available on this device"); return; }
+        RnHealth.hasPermission(getContext(), (granted, err) -> {
+            if (err != null) { call.reject("Health Connect: " + err.getMessage()); return null; }
+            if (granted) { readHeartRate(call); return null; }
+            try {
+                Intent intent = RnHealth.requestIntent(getContext());
+                getActivity().runOnUiThread(() -> startActivityForResult(call, intent, "healthPermissionResult"));
+            } catch (Exception e) { call.reject("Health Connect: " + e.getMessage()); }
+            return null;
+        });
+    }
+
+    @ActivityCallback
+    private void healthPermissionResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        boolean granted = RnHealth.parseGranted(result.getResultCode(), result.getData());
+        if (granted) readHeartRate(call); else call.reject("Permission for heart rate was not granted");
+    }
+
+    private void readHeartRate(PluginCall call) {
+        final long from = (long) (call.getDouble("from") != null ? call.getDouble("from") : 0);
+        final long to = (long) (call.getDouble("to") != null ? call.getDouble("to") : 0);
+        if (to <= from) { call.reject("from/to (ms) required"); return; }
+        RnHealth.readHeartRate(getContext(), from, to, (list, err) -> {
+            if (err != null || list == null) { call.reject("Health Connect: " + (err != null ? err.getMessage() : "no data")); return null; }
+            JSArray samples = new JSArray();
+            for (kotlin.Pair<Long, Double> p : list) { JSObject o = new JSObject(); o.put("t", p.getFirst()); o.put("bpm", p.getSecond()); samples.put(o); }
+            JSObject r = new JSObject(); r.put("samples", samples);
+            call.resolve(r);
+            return null;
+        });
     }
 
     // ------------------------------------------------------------------ PostgreSQL

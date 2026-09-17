@@ -1,5 +1,5 @@
 {
-  "appId": "com.macrix.RN-Analyzer",
+  "appId": "com.macrix.rnanalyzer",
   "appName": "RN Analyzer",
   "webDir": "app",
   "ios": {
@@ -10,6 +10,8 @@
     "preferredContentMode": "mobile"
   },
   "plugins": {
-    "CapacitorHttp": { "enabled": true }
+    "CapacitorHttp": {
+      "enabled": true
+    }
   }
 }

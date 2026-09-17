@@ -11,8 +11,10 @@ export const PALETTES = {
   colorblind: ['#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7', '#BBBBBB', '#FFFFFF', '#8B6D3F'],
 };
 
+// Web version: English by default. Native app (Capacitor): follow the device language.
+const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const DEFAULT_SETTINGS = {
-  language: detectLanguage(),
+  language: isNativeApp ? detectLanguage() : 'en',
   units: 'metric', // metric | imperial
   colorblind: false,
   mapTiles: true,

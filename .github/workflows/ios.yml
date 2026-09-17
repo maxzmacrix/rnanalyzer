@@ -142,10 +142,9 @@ jobs:
             <key>manageAppVersionAndBuildNumber</key><false/>
           </dict></plist>
           EOF
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportPath "$RUNNER_TEMP/export" \
-            -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${KEY_ID}.p8" \
-            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" | tail -n 40
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportPath "$RUNNER_TEMP/export"             -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" -allowProvisioningUpdates             -authenticationKeyPath "$HOME/private_keys/AuthKey_${KEY_ID}.p8"             -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" > /tmp/export.log 2>&1             || { echo "::error title=exportArchive::$(grep -iE 'error|failed|profile|certificate' /tmp/export.log | head -20 | tr '
+' ' ' | cut -c1-3500)"; tail -n 60 /tmp/export.log; exit 1; }
+          tail -n 15 /tmp/export.log
           ls -la "$RUNNER_TEMP/export"
 
       - uses: actions/upload-artifact@v4

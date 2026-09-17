@@ -1,0 +1,21 @@
+{
+  "name": "rn-analyzer",
+  "version": "2.0.0",
+  "description": "RN Analyzer 2.0 – Race Navigator lap analysis (web app + Capacitor iOS shell)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs 8080",
+    "mock-device": "node tools/mock-device-server.mjs 8090 \"Example files\"",
+    "ios:add": "npx cap add ios",
+    "ios:sync": "npx cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "rn-device": "file:native/rn-device"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

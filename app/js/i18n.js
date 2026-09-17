@@ -49,6 +49,7 @@ const dict = {
     native_required_title: 'Direct connection to the Race Navigator',
     native_required_text: 'Downloading laps and videos directly from the Race Navigator over WiFi is available in the native RN Analyzer app for iPhone and iPad. In this web version, import your .rnz and .mp4 files from the Files app – for example from the USB stick exported on the device via SETTINGS › EXPORT VIDEO.',
     go_import: 'Import files instead',
+    discover: 'Search', no_devices_found: 'No Race Navigator found in this WiFi. Enable ANALYZER MODE on the device and join its network.',
   },
   de: {
     app: 'RN Analyzer',
@@ -98,6 +99,7 @@ const dict = {
     native_required_title: 'Direkte Verbindung zum Race Navigator',
     native_required_text: 'Runden und Videos direkt per WLAN vom Race Navigator laden – das gibt es in der nativen RN Analyzer App für iPhone und iPad. In dieser Web-Version importierst Du Deine .rnz- und .mp4-Dateien aus der Dateien-App, zum Beispiel vom USB-Stick, den Du am Gerät über SETTINGS › EXPORT VIDEO exportierst.',
     go_import: 'Stattdessen Dateien importieren',
+    discover: 'Suchen', no_devices_found: 'Kein Race Navigator in diesem WLAN gefunden. Am Gerät ANALYZER MODE aktivieren und dessen Netz beitreten.',
   },
 };
 

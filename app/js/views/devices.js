@@ -5,6 +5,7 @@ import { t, fmtBytes } from '../i18n.js';
 import { fmtLapTime } from '../rnparser.js';
 import { h, clear, icons, setTitle, setTopButtons, tbtn, toast } from '../ui.js';
 import { normalizeBase, mixedContentBlocked, fetchDeviceInfo, fetchDeviceLaps, downloadFile } from '../device.js';
+import { nativeDiscover } from '../deviceNative.js';
 import { importFiles } from '../import.js';
 
 let root, deviceArea, lapsArea, queueArea;
@@ -14,12 +15,12 @@ let queue = [], running = false, sortMode = 'start';
 export function mount(main) {
   setTitle(t('devices_title'));
   setTopButtons([], [tbtn('', () => connect(), { icon: 'refresh', title: t('connect') })]);
-  const addr = h('input.input', { type: 'url', placeholder: 'http://192.168.1.1:8080', value: state.settings.lastDevice || '', autocapitalize: 'off', autocorrect: 'off', spellcheck: false, inputmode: 'url' });
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const addr = h('input.input', { type: 'url', placeholder: isNative ? '192.168.1.158' : 'http://192.168.1.1:8080', value: state.settings.lastDevice || '', autocapitalize: 'off', autocorrect: 'off', spellcheck: false, inputmode: 'url' });
   addr.addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(addr.value); });
   const known = (state.settings.deviceAddresses || []);
   const datalist = h('datalist#device-addrs', known.map((a) => h('option', { value: a })));
   addr.setAttribute('list', 'device-addrs');
-  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if (!isNative) {
     // Web version: direct device access is a feature of the native app – show the notice only.
     setTopButtons([], []);
@@ -31,10 +32,22 @@ export function mount(main) {
     main.appendChild(root);
     return;
   }
+  const found = h('div.row', { style: { marginTop: '8px', flexWrap: 'wrap' } });
+  const discoverBtn = h('button.btn.ghost', { on: { click: async () => {
+    discoverBtn.disabled = true; clear(found);
+    try {
+      const devs = await nativeDiscover(4000);
+      if (!devs.length) toast(t('no_devices_found'));
+      for (const d of devs) found.appendChild(h('button.chip', { on: { click: () => { addr.value = d.host; connect(d.host); } } }, `${d.name || d.host} · ${d.host}`));
+      if (devs.length === 1) { addr.value = devs[0].host; connect(devs[0].host); }
+    } catch (e) { toast(String(e.message || e)); }
+    discoverBtn.disabled = false;
+  } } }, t('discover'));
   root = h('div.view.scroll',
     h('div.card',
       h('div.small.muted', { style: { marginBottom: '8px', lineHeight: '1.45' } }, t('device_help')),
-      h('div.row', h('div.field.grow', h('label', t('device_address')), addr, datalist), h('button.btn.accent', { on: { click: () => connect(addr.value) } }, t('connect'))),
+      h('div.row', h('div.field.grow', h('label', t('device_address')), addr, datalist), discoverBtn, h('button.btn.accent', { on: { click: () => connect(addr.value) } }, t('connect'))),
+      found,
       known.length ? h('div.row', { style: { marginTop: '8px', flexWrap: 'wrap' } }, known.map((a) => h('button.chip', { on: { click: () => { addr.value = a; connect(a); } } }, a))) : null,
     ),
     (deviceArea = h('div')),
@@ -43,6 +56,7 @@ export function mount(main) {
   );
   main.appendChild(root);
   if (state.settings.lastDevice) connect(state.settings.lastDevice);
+  else discoverBtn.click();
 }
 export function unmount() {}
 

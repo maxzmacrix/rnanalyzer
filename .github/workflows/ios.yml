@@ -1,0 +1,146 @@
+name: iOS app → TestFlight
+
+# Builds the Capacitor iOS shell around app/ on a GitHub-hosted Mac and uploads it to TestFlight.
+# No local Mac needed. Requires these repository secrets (Settings → Secrets and variables → Actions):
+#   ASC_KEY_ID      App Store Connect API key ID            (e.g. 2X9R4HXF34)
+#   ASC_ISSUER_ID   App Store Connect API issuer ID         (UUID)
+#   ASC_KEY_P8      full content of the AuthKey_<KEY_ID>.p8 file (multi-line PEM)
+# Optional repository variables: APPLE_TEAM_ID (default Z2LYJ5597T), IOS_BUNDLE_ID (default com.macrix.RN-Analyzer)
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to TestFlight after building
+        type: boolean
+        default: true
+  push:
+    tags: ['ios-v*']
+    branches: [main]
+    paths: ['native/**', 'capacitor.config.json', 'package.json', '.github/workflows/ios.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      TEAM_ID: ${{ vars.APPLE_TEAM_ID || 'Z2LYJ5597T' }}
+      BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'com.macrix.RN-Analyzer' }}
+      MARKETING_VERSION: '2.0.0'
+      HAS_KEY: ${{ secrets.ASC_KEY_P8 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Select Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1 || echo /Applications/Xcode.app)" && xcodebuild -version
+
+      - name: Install JS dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Apply bundle id
+        run: node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('capacitor.config.json'));c.appId=process.env.BUNDLE_ID;fs.writeFileSync('capacitor.config.json',JSON.stringify(c,null,2));console.log('appId',c.appId)"
+
+      - name: Create iOS project
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Configure Info.plist (local network, Bonjour, HTTP to device, version)
+        run: |
+          PLIST=ios/App/App/Info.plist
+          BUILD="2.0.${{ github.run_number }}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 'RN Analyzer connects to your Race Navigator in the local WiFi to download laps and videos.'" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSBonjourServices array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSBonjourServices:0 string _racenav._tcp" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UIFileSharingEnabled bool true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :LSSupportsOpeningDocumentsInPlace bool true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Print" "$PLIST"
+          # project-level version fields used by Xcode
+          sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $MARKETING_VERSION;/g; s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD;/g" ios/App/App.xcodeproj/project.pbxproj || true
+
+      - name: Compile check (unsigned) – always runs, catches Swift/Pod errors without any secrets
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release             -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/dd" build             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""             | grep -E "error:|warning: .*RnDevice|BUILD (SUCCEEDED|FAILED)" || true
+          test -d "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/App.app" && echo "Unsigned build OK" || { echo "::error::Unsigned build failed"; exit 1; }
+
+      - name: Write App Store Connect API key
+        if: env.HAS_KEY == 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          if [ -z "$ASC_KEY_P8" ]; then echo "::error::Secret ASC_KEY_P8 is missing"; exit 1; fi
+          mkdir -p "$HOME/private_keys" ./private_keys
+          printf '%s\n' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          cp "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" ./private_keys/
+          chmod 600 "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      - name: Archive (automatic cloud signing)
+        if: env.HAS_KEY == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" archive \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            | tail -n 80
+
+      - name: Export IPA
+        if: env.HAS_KEY == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/exportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" | tail -n 40
+          ls -la "$RUNNER_TEMP/export"
+
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          name: RN-Analyzer-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 30
+
+      - name: Upload to TestFlight
+        if: ${{ env.HAS_KEY == 'true' && (startsWith(github.ref, 'refs/tags/ios-v') || inputs.upload) }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
+          xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"

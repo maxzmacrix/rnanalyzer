@@ -8,6 +8,8 @@
 // The original iPad app talked to the device through Bonjour discovery, direct PostgreSQL queries and FTP.
 // None of those are reachable from a browser, so the device (or a small bridge next to it) must offer this HTTP API.
 
+import { isNative, nativeInfo, nativeLaps, nativeDownload } from './deviceNative.js';
+
 export function normalizeBase(input) {
   let s = (input || '').trim();
   if (!s) return '';
@@ -16,6 +18,7 @@ export function normalizeBase(input) {
 }
 
 export function mixedContentBlocked(base) {
+  if (isNative()) return false;
   return location.protocol === 'https:' && /^http:\/\//i.test(base) && !/^http:\/\/(localhost|127\.0\.0\.1)/i.test(base);
 }
 
@@ -30,9 +33,11 @@ async function getJson(url, timeoutMs = 8000) {
 }
 
 export async function fetchDeviceInfo(base) {
+  if (isNative()) return nativeInfo(base);
   return getJson(`${base}/api/info`);
 }
 export async function fetchDeviceLaps(base) {
+  if (isNative()) return nativeLaps(base);
   const laps = await getJson(`${base}/api/laps`, 20000);
   if (!Array.isArray(laps)) throw new Error('Unexpected /api/laps response');
   return laps;
@@ -46,6 +51,7 @@ export async function fetchDeviceLaps(base) {
  * @param {AbortSignal} [signal]
  */
 export async function downloadFile(base, name, onProgress, signal) {
+  if (isNative()) return nativeDownload(base, name, onProgress);
   const url = `${base}/files/${encodeURIComponent(name)}`;
   const res = await fetch(url, { signal, cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${name}`);

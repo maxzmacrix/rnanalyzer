@@ -1,0 +1,15 @@
+{
+  "appId": "com.macrix.RN-Analyzer",
+  "appName": "RN Analyzer",
+  "webDir": "app",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0b1f4b",
+    "scheme": "RN Analyzer",
+    "limitsNavigationsToAppBoundDomains": false,
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true }
+  }
+}

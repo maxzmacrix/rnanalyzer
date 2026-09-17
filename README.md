@@ -110,19 +110,36 @@ unerreichbar. Die Web‑Version zeigt im Tab **Geräte** deshalb nur den Hinweis
 der Datei‑Import (USB‑Stick aus SETTINGS › EXPORT VIDEO, iCloud, AirDrop) funktioniert in der
 Web‑Version vollständig.
 
-### Native App (empfohlener Weg für Kunden)
+### Native App (empfohlener Weg für Kunden) – im Repository enthalten
 
-Capacitor‑Hülle um genau diese Web‑App (`app/` unverändert), plus:
+Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Actions‑macOS‑Runnern gebaut
+(`.github/workflows/ios.yml`). Bestandteile:
 
-* **HTTP zum Gerät** über das Capacitor‑HTTP‑Plugin (läuft nativ, kein CORS/Mixed Content) gegen die oben
-  genannten `:8080/resources/*`‑URIs. Die XML‑Antworten liefern dieselben `<sm>`‑Attribute, die `app/js/rnparser.js`
-  bereits versteht; aus Lap/Driver/Vehicle/Event/Track/Sectors/Videoinfos lässt sich das `.rnz` clientseitig
-  zusammensetzen (Vorlage: `buildRnz()` in `tools/rn-bridge/rn-bridge.mjs`, ZIP‑Writer in `app/js/zip.js`).
-* **Videos per FTP** (`rtts`/`rtts8888`) über ein kleines natives Plugin (Swift, z. B. FilesProvider/NIO‑FTP),
-  das die Datei in den App‑Container lädt und der Web‑App als Blob übergibt.
-* In `app/js/device.js` werden nur die drei Funktionen `fetchDeviceInfo`, `fetchDeviceLaps`, `downloadFile`
-  auf das Plugin umgestellt; `app/js/views/devices.js` erkennt die native Umgebung (`window.Capacitor`) und blendet
-  den Hinweis aus.
+* `capacitor.config.json`, `package.json` – Capacitor‑Projekt, `webDir` = `app/` (unveränderte Web‑App).
+* `native/rn-device/` – Capacitor‑Plugin (Swift): Bonjour‑Suche `_racenav._tcp`, FTP‑Download (`rtts`/`rtts8888`)
+  in den App‑Cache, PostgreSQL‑Abfrage (PostgresClientKit) als Fallback für Messdaten.
+* `app/js/deviceNative.js` – Geräteclient in der App: holt `deviceinfo`, `laps`, `drivers`, `vehicles`, `events`,
+  `videoinfos`, `lapstovideos`, `lapsectors`, `trackvariants`, `tracks` und `sensormeasurements` über die
+  HTTP‑XML‑API (`fetch` läuft in der App nativ, also ohne CORS/Mixed‑Content), setzt daraus die `.rn`‑XML
+  zusammen und übergibt sie der normalen RNZ‑Import‑Pipeline; Videos kommen per FTP über das Plugin.
+  Der Tab **Geräte** zeigt in der App den Verbindungsdialog mit „Suchen“ (Bonjour) statt des Hinweises.
+
+**Build & TestFlight einrichten (einmalig, ca. 10 Minuten):**
+
+1. In App Store Connect → *Users and Access* → *Integrations* → *App Store Connect API* einen Schlüssel mit Rolle
+   **App Manager** (oder Admin) erzeugen. Notieren: **Key ID**, **Issuer ID**, Datei `AuthKey_<KEYID>.p8` laden.
+2. Im GitHub‑Repository → *Settings → Secrets and variables → Actions* drei Secrets anlegen:
+   `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (kompletter Inhalt der .p8‑Datei).
+3. Optional als *Variables*: `APPLE_TEAM_ID` (Standard `Z2LYJ5597T`, Macrix Software GmbH) und `IOS_BUNDLE_ID`
+   (Standard `com.macrix.RN-Analyzer`, die Bundle‑ID der bisherigen App – der Build erscheint dann als Version 2.0.0
+   im bestehenden App‑Store‑Eintrag). Gehört der Developer‑Account einem anderen Team, beide Variablen setzen und
+   in App Store Connect einmal eine App mit dieser Bundle‑ID anlegen.
+4. Workflow **„iOS app → TestFlight“** unter *Actions* per *Run workflow* starten (oder Tag `ios-v2.0.0` pushen).
+   Ohne Secrets läuft nur der Kompilier‑Check; mit Secrets werden Signatur (Apple‑Cloud‑Signing über den
+   API‑Schlüssel, keine Zertifikate/Profile nötig), Export und TestFlight‑Upload automatisch ausgeführt.
+5. In App Store Connect → TestFlight Tester einladen; später *Zur Prüfung einreichen* wie gewohnt.
+
+Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die Capacitor‑Konfiguration ändert.
 
 ### Weitere Wege
 
@@ -153,7 +170,10 @@ app/
     sync.js             Wiedergabe‑Engine (Cursor ↔ Videos)
     device.js           HTTP‑Client zum RN‑Gerät
     import.js           Import‑Pipeline
+    deviceNative.js     Geräteclient für die native App (HTTP‑XML‑API + Plugin)
     views/              laps, analyzer, gforce, video, devices, settings
+native/rn-device/       Capacitor‑Plugin (Swift): Bonjour, FTP, PostgreSQL
+capacitor.config.json   Capacitor‑Projekt (iOS‑Hülle), Build per .github/workflows/ios.yml
 tools/
   serve.mjs             Statischer Dev‑Server
   mock-device-server.mjs Mock‑Race‑Navigator (API‑Referenz)

@@ -1,0 +1,15 @@
+{
+  "name": "rn-device",
+  "version": "0.1.0",
+  "description": "Capacitor plugin: Race Navigator device access (Bonjour discovery, FTP video download, PostgreSQL fallback)",
+  "main": "dist/plugin.js",
+  "license": "MIT",
+  "private": true,
+  "files": ["dist", "ios", "RnDevice.podspec"],
+  "capacitor": {
+    "ios": { "src": "ios" }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  }
+}

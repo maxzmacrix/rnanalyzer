@@ -174,7 +174,8 @@ canvas { display: block; touch-action: none; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px;
 }
 .btn.accent { background: var(--accent); color: #fff; border-color: transparent; }
-.btn.ghost { background: var(--fg-08); }
+.btn.ghost { background: var(--fg-10); color: var(--text); border-color: var(--fg-12); }
+.btn.ghost:active { background: var(--fg-16); }
 .btn.danger { background: rgba(229,32,43,0.12); color: var(--accent); border-color: rgba(229,32,43,0.4); }
 .btn:disabled { opacity: 0.5; }
 .btn.block { width: 100%; }

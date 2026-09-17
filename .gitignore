@@ -1,0 +1,10 @@
+# proprietary / large material stays local
+Example files/
+Old RN Analyzer/
+Specification/
+dist/
+.claude/
+*.mp4
+*.rnz
+Thumbs.db
+.DS_Store

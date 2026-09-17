@@ -1,0 +1,50 @@
+// File import pipeline: .rnz/.rn lap files and .mp4 videos → IndexedDB.
+
+import { parseRnzBuffer } from './rnparser.js';
+import { db } from './db.js';
+import { reloadLaps } from './state.js';
+
+/**
+ * Import a list of File/Blob objects.
+ * @param {Array<File|{blob:Blob,name:string}>} files
+ * @param {(info:{index:number,total:number,name:string,phase:string})=>void} [onProgress]
+ * @returns {Promise<{laps:number,videos:number,skipped:string[],errors:Array<{name:string,error:string}>}>}
+ */
+export async function importFiles(files, onProgress) {
+  const result = { laps: 0, videos: 0, skipped: [], errors: [] };
+  const list = Array.from(files).map((f) => (f instanceof Blob ? { blob: f, name: f.name } : f));
+  // Import lap data first, then videos (so linking works immediately).
+  list.sort((a, b) => rank(a.name) - rank(b.name));
+  for (let i = 0; i < list.length; i++) {
+    const { blob, name } = list[i];
+    onProgress && onProgress({ index: i, total: list.length, name, phase: 'start' });
+    try {
+      const ext = (name.split('.').pop() || '').toLowerCase();
+      if (ext === 'rnz' || ext === 'rn' || ext === 'zip' || ext === 'xml') {
+        const buf = await blob.arrayBuffer();
+        const { lap, samples, raw } = await parseRnzBuffer(buf, name);
+        const existing = await db.getLap(lap.id);
+        if (existing) { lap.note = existing.note || ''; lap.importedAt = existing.importedAt; if (existing.driverOverride) lap.driverOverride = existing.driverOverride; if (existing.vehicleOverride) lap.vehicleOverride = existing.vehicleOverride; }
+        await db.putLap(lap, samples, raw);
+        result.laps++;
+      } else if (ext === 'mp4' || ext === 'mov' || ext === 'm4v' || (blob.type && blob.type.startsWith('video/'))) {
+        const typed = blob.type ? blob : new Blob([blob], { type: 'video/mp4' });
+        await db.putVideo(name, typed);
+        result.videos++;
+      } else {
+        result.skipped.push(name);
+      }
+    } catch (e) {
+      console.error('import failed', name, e);
+      result.errors.push({ name, error: e && e.message ? e.message : String(e) });
+    }
+    onProgress && onProgress({ index: i + 1, total: list.length, name, phase: 'done' });
+  }
+  await reloadLaps();
+  return result;
+}
+
+function rank(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  return ext === 'rnz' || ext === 'rn' || ext === 'zip' || ext === 'xml' ? 0 : 1;
+}

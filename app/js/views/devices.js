@@ -83,7 +83,7 @@ async function connect(input) {
 function renderDevice() {
   clear(deviceArea);
   deviceArea.appendChild(h('div.card.device-card',
-    h('div.logo', 'RN', h('span', (info.deviceType || '').replace(/^RN\s*/i, ' ') || ' ONE')),
+    h('div.logo', h('img', { src: 'icons/logo.svg', alt: 'RN' }), h('span', (info.deviceType || '').replace(/^RN\s*/i, '') || 'ONE')),
     h('div.kv',
       h('div.k', t('device')), h('div', info.deviceName || base),
       h('div.k', t('driver')), h('div', info.driver || '–'),

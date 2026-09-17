@@ -47,7 +47,7 @@ export function mount(main) {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   root.append(...[
     h('h3', t('about')),
-    h('div.item', h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
+    h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
     isIOS && !standalone ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
     h('div.item', h('div.lbl', h('div.sub', 'Race Navigator · RN Vision GmbH · race-navigator.com'))),
   ].filter(Boolean));

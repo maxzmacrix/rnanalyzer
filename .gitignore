@@ -18,3 +18,10 @@ private_keys/
 # never commit keys / integration material
 Integration/
 *.p8
+
+# iOS signing material created by tools/ios-signing-setup.mjs
+*.p12
+*.mobileprovision
+*.pem
+*.cer
+*.csr

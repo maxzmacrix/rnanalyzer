@@ -55,7 +55,7 @@ async function connect() {
 function buildLayout() {
   clear(root);
   const head = h('div.card.ctl-head',
-    h('div.row', h('div.logo-rn', 'RN'), h('div.grow', h('div', { style: { fontWeight: 700, fontSize: '16px' } }, info.deviceName), h('div.small.muted', `${info.deviceType} · ${info.version} · ${deviceHost(state.settings.lastDevice).host}`)), (els.online = h('span.badge', '…'))));
+    h('div.row', h('div.logo-rn', h('img', { src: 'icons/logo.svg', alt: 'RN' })), h('div.grow', h('div', { style: { fontWeight: 700, fontSize: '16px' } }, info.deviceName), h('div.small.muted', `${info.deviceType} · ${info.version} · ${deviceHost(state.settings.lastDevice).host}`)), (els.online = h('span.badge', '…'))));
   els.recBtn = h('button.rec-btn', { on: { click: toggleRecording } }, h('span.rec-dot'), h('span.rec-label', t('rec_off')));
   els.recSub = h('div.small.muted', '');
   els.mode = segmented([{ value: RECORDING_MODE.Manual, label: t('mode_manual') }, { value: RECORDING_MODE.Auto20, label: t('mode_auto20') }, { value: RECORDING_MODE.Auto40, label: t('mode_auto40') }], RECORDING_MODE.Manual, (v) => run(() => ctrl.setRecordingMode(v), t('changing')));

@@ -124,20 +124,35 @@ Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Action
   zusammen und übergibt sie der normalen RNZ‑Import‑Pipeline; Videos kommen per FTP über das Plugin.
   Der Tab **Geräte** zeigt in der App den Verbindungsdialog mit „Suchen“ (Bonjour) statt des Hinweises.
 
-**Build & TestFlight einrichten (einmalig, ca. 10 Minuten):**
+**Build & TestFlight einrichten (einmalig, ca. 15 Minuten, kein Mac nötig):**
 
 1. In App Store Connect → *Users and Access* → *Integrations* → *App Store Connect API* einen Schlüssel mit Rolle
    **App Manager** (oder Admin) erzeugen. Notieren: **Key ID**, **Issuer ID**, Datei `AuthKey_<KEYID>.p8` laden.
 2. Im GitHub‑Repository → *Settings → Secrets and variables → Actions* drei Secrets anlegen:
-   `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (kompletter Inhalt der .p8‑Datei).
-3. Optional als *Variables*: `APPLE_TEAM_ID` (Standard `Z2LYJ5597T`, Macrix Software GmbH) und `IOS_BUNDLE_ID`
+   `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (kompletter Inhalt der .p8‑Datei). Sie werden für den TestFlight‑Upload benutzt.
+3. Signatur‑Material einmalig lokal erzeugen (Windows/Linux reicht, braucht Node und das openssl aus Git for Windows):
+
+   ```bash
+   node tools/ios-signing-setup.mjs --key "<Pfad>\AuthKey_<KEYID>.p8" --key-id <KEYID> --issuer <ISSUER‑UUID>
+   ```
+
+   Das Skript legt über die App‑Store‑Connect‑API ein **Apple‑Distribution‑Zertifikat** und ein **App‑Store‑Provisioning‑Profil**
+   für die Bundle‑ID an (Apple erlaubt max. 3 Distribution‑Zertifikate pro Team; bei Bedarf ein altes unter
+   developer.apple.com → Certificates widerrufen – Apps im Store sind davon nicht betroffen) und schreibt nach
+   `Integration/ios-signing/` (git‑ignoriert) eine passwortgeschützte `.p12`, das Profil und `github-secrets.txt`.
+   Daraus drei weitere Secrets anlegen: `IOS_P12_BASE64`, `IOS_P12_PASSWORD`, `IOS_PROFILE_BASE64`.
+   Zertifikat und Profil gelten ein Jahr; zum Erneuern das Skript erneut ausführen und die Secrets aktualisieren.
+   (Apples „Cloud‑Signing“ nur über den API‑Schlüssel funktioniert auf Wegwerf‑Runnern nicht zuverlässig, weil das in
+   einem Lauf erzeugte Zertifikat im nächsten Lauf ohne privaten Schlüssel dasteht – daher das feste Zertifikat.)
+4. Optional als *Variables*: `APPLE_TEAM_ID` (Standard `Z2LYJ5597T`, Macrix Software GmbH) und `IOS_BUNDLE_ID`
    (Standard `com.macrix.RN-Analyzer`, die Bundle‑ID der bisherigen App – der Build erscheint dann als Version 2.0.0
    im bestehenden App‑Store‑Eintrag). Gehört der Developer‑Account einem anderen Team, beide Variablen setzen und
    in App Store Connect einmal eine App mit dieser Bundle‑ID anlegen.
-4. Workflow **„iOS app → TestFlight“** unter *Actions* per *Run workflow* starten (oder Tag `ios-v2.0.0` pushen).
-   Ohne Secrets läuft nur der Kompilier‑Check; mit Secrets werden Signatur (Apple‑Cloud‑Signing über den
-   API‑Schlüssel, keine Zertifikate/Profile nötig), Export und TestFlight‑Upload automatisch ausgeführt.
-5. In App Store Connect → TestFlight Tester einladen; später *Zur Prüfung einreichen* wie gewohnt.
+5. Workflow **„iOS app → TestFlight“** unter *Actions* per *Run workflow* starten (oder Tag `ios-v2.0.0-bN` pushen).
+   Ohne Signatur‑Secrets läuft nur der Kompilier‑Check (mit Warnung); mit Secrets werden Archiv, Export und
+   TestFlight‑Upload automatisch ausgeführt. Fehler erscheinen als Annotationen in der Run‑Übersicht.
+   App‑Icon und Startbildschirm kommen aus `native/ios-assets/` (erzeugt mit `tools/make-icons.py` aus dem RN‑Logo‑PDF).
+6. In App Store Connect → TestFlight Tester einladen; später *Zur Prüfung einreichen* wie gewohnt.
 
 Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die Capacitor‑Konfiguration ändert.
 

@@ -1,10 +1,14 @@
 name: iOS app → TestFlight
 
 # Builds the Capacitor iOS shell around app/ on a GitHub-hosted Mac and uploads it to TestFlight.
-# No local Mac needed. Requires these repository secrets (Settings → Secrets and variables → Actions):
-#   ASC_KEY_ID      App Store Connect API key ID            (e.g. 2X9R4HXF34)
-#   ASC_ISSUER_ID   App Store Connect API issuer ID         (UUID)
-#   ASC_KEY_P8      full content of the AuthKey_<KEY_ID>.p8 file (multi-line PEM)
+# No local Mac needed. Repository secrets (Settings → Secrets and variables → Actions):
+#   Signing (created once with `node tools/ios-signing-setup.mjs …`, valid one year):
+#     IOS_P12_BASE64       Apple Distribution certificate + private key (.p12) as base64
+#     IOS_P12_PASSWORD     password of that .p12
+#     IOS_PROFILE_BASE64   App Store provisioning profile (.mobileprovision) as base64
+#   Upload to TestFlight (App Store Connect API key):
+#     ASC_KEY_ID           key ID (10 characters)         ASC_ISSUER_ID   issuer ID (UUID)
+#     ASC_KEY_P8           full content of AuthKey_<KEY_ID>.p8
 # Optional repository variables: APPLE_TEAM_ID (default Z2LYJ5597T), IOS_BUNDLE_ID (default com.macrix.RN-Analyzer)
 
 on:
@@ -31,6 +35,7 @@ jobs:
       BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'com.macrix.RN-Analyzer' }}
       MARKETING_VERSION: '2.0.0'
       HAS_KEY: ${{ secrets.ASC_KEY_P8 != '' }}
+      HAS_SIGNING: ${{ secrets.IOS_P12_BASE64 != '' && secrets.IOS_P12_PASSWORD != '' && secrets.IOS_PROFILE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,6 +60,15 @@ jobs:
         run: |
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.macrix.rnanalyzer;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" ios/App/App.xcodeproj/project.pbxproj
           grep -c "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;" ios/App/App.xcodeproj/project.pbxproj
+
+      - name: App icon and launch screen (RN logo)
+        run: |
+          A=ios/App/App/Assets.xcassets
+          cp native/ios-assets/AppIcon-1024.png "$A/AppIcon.appiconset/AppIcon-512@2x.png"
+          for f in splash-2732x2732.png splash-2732x2732-1.png splash-2732x2732-2.png; do cp native/ios-assets/splash-2732.png "$A/Splash.imageset/$f"; done
+          # launch screen background = app background (dark)
+          sed -i '' 's/red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/red="0.027" green="0.031" blue="0.039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/g' ios/App/App/Base.lproj/LaunchScreen.storyboard || true
+          ls -la "$A/AppIcon.appiconset" "$A/Splash.imageset"
 
       - name: Configure Info.plist (local network, Bonjour, HTTP to device, version)
         run: |
@@ -85,7 +99,55 @@ jobs:
             echo "::error title=xcodebuild::$(grep -E 'error:' /tmp/xcodebuild.log | head -15 | tr '\n' ' ' | cut -c1-3000)"
             tail -n 80 /tmp/xcodebuild.log; exit 1; fi
 
-      - name: Write App Store Connect API key
+      - name: Signing secrets missing?
+        if: env.HAS_SIGNING != 'true'
+        run: |
+          echo "::warning title=No signing secrets::IOS_P12_BASE64 / IOS_P12_PASSWORD / IOS_PROFILE_BASE64 are not set. Run 'node tools/ios-signing-setup.mjs --key <AuthKey.p8> --key-id <id> --issuer <uuid>' once and add the three secrets. Only the unsigned compile check ran."
+
+      - name: Install signing certificate and provisioning profile
+        if: env.HAS_SIGNING == 'true'
+        env:
+          IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+        run: |
+          set -e
+          P12="$RUNNER_TEMP/dist.p12"; PROF="$RUNNER_TEMP/dist.mobileprovision"
+          printf '%s' "$IOS_P12_BASE64" | tr -d '[:space:]' | base64 --decode > "$P12" || { echo "::error title=IOS_P12_BASE64::not valid base64"; exit 1; }
+          printf '%s' "$IOS_PROFILE_BASE64" | tr -d '[:space:]' | base64 --decode > "$PROF" || { echo "::error title=IOS_PROFILE_BASE64::not valid base64"; exit 1; }
+          echo "::notice::p12 $(stat -f%z "$P12") bytes, profile $(stat -f%z "$PROF") bytes"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"; KC_PW="$(uuidgen)"
+          security create-keychain -p "$KC_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KC_PW" "$KEYCHAIN"
+          # Apple intermediate certificates (needed for the trust chain of the distribution certificate)
+          for c in AppleWWDRCAG3 AppleWWDRCAG4; do curl -fsSL "https://www.apple.com/certificateauthority/$c.cer" -o "$RUNNER_TEMP/$c.cer" && security import "$RUNNER_TEMP/$c.cer" -k "$KEYCHAIN" -T /usr/bin/codesign -T /usr/bin/security || true; done
+          security import "$P12" -P "$IOS_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN" \
+            || { echo "::error title=p12 import::Could not import the .p12 – wrong IOS_P12_PASSWORD or corrupt IOS_P12_BASE64"; exit 1; }
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PW" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          IDENT="$(security find-identity -v -p codesigning "$KEYCHAIN")"; echo "$IDENT"
+          echo "$IDENT" | grep -q "Apple Distribution" || { echo "::error title=identity::No 'Apple Distribution' identity in the .p12: $(echo "$IDENT" | tr '\n' ' ')"; exit 1; }
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          security cms -D -i "$PROF" > "$RUNNER_TEMP/profile.plist"
+          UUID="$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")"
+          NAME="$(/usr/libexec/PlistBuddy -c 'Print Name' "$RUNNER_TEMP/profile.plist")"
+          PBID="$(/usr/libexec/PlistBuddy -c 'Print Entitlements:application-identifier' "$RUNNER_TEMP/profile.plist")"
+          EXP="$(/usr/libexec/PlistBuddy -c 'Print ExpirationDate' "$RUNNER_TEMP/profile.plist")"
+          cp "$PROF" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          echo "::notice::Profile '$NAME' for $PBID, expires $EXP"
+          case "$PBID" in "$TEAM_ID.$BUNDLE_ID") ;; *) echo "::error title=profile::Profile is for '$PBID' but the app is '$TEAM_ID.$BUNDLE_ID'"; exit 1;; esac
+          echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"; echo "PROFILE_UUID=$UUID" >> "$GITHUB_ENV"; echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      - name: Configure manual signing in the Xcode project
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          PBX=ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual; CODE_SIGN_IDENTITY = \"Apple Distribution\"; DEVELOPMENT_TEAM = $TEAM_ID; PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" "$PBX"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' "$PBX"
+          grep -nE "CODE_SIGN|DEVELOPMENT_TEAM|PROVISIONING_PROFILE" "$PBX"
+
+      - name: Write App Store Connect API key (for the TestFlight upload)
         if: env.HAS_KEY == 'true'
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -109,28 +171,19 @@ jobs:
           chmod 600 "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
           echo "KEY_ID=$KEY_ID" >> "$GITHUB_ENV"; echo "ISSUER=$ISSUER" >> "$GITHUB_ENV"
 
-      - name: Archive (automatic cloud signing)
-        if: env.HAS_KEY == 'true'
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      - name: Archive (manual signing, Apple Distribution)
+        if: env.HAS_SIGNING == 'true'
         run: |
           set -o pipefail
           report() { MSG="$( (grep -iE 'error|fail|provision|certificat|entitle|team|bundle' "$2" | grep -v '^\s*$' | head -30; echo '--- tail ---'; tail -n 30 "$2") | tr '\n' '|' | cut -c1-3800)"; echo "::error title=$1::${MSG}"; }
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" archive \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-            -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${KEY_ID}.p8" \
-            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" > /tmp/archive.log 2>&1 \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN" > /tmp/archive.log 2>&1 \
             || { report archive /tmp/archive.log; tail -n 150 /tmp/archive.log; exit 1; }
           grep -E "ARCHIVE SUCCEEDED|Signing Identity|Provisioning Profile" /tmp/archive.log | head -5
 
       - name: Export IPA
-        if: env.HAS_KEY == 'true'
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        if: env.HAS_SIGNING == 'true'
         run: |
           report() { MSG="$( (grep -iE 'error|fail|provision|certificat|entitle|team|bundle' "$2" | grep -v '^\s*$' | head -30; echo '--- tail ---'; tail -n 30 "$2") | tr '\n' '|' | cut -c1-3800)"; echo "::error title=$1::${MSG}"; }
           cat > "$RUNNER_TEMP/exportOptions.plist" <<EOF
@@ -139,32 +192,36 @@ jobs:
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>export</string>
-            <key>signingStyle</key><string>automatic</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
             <key>teamID</key><string>$TEAM_ID</string>
+            <key>provisioningProfiles</key><dict><key>$BUNDLE_ID</key><string>$PROFILE_NAME</string></dict>
             <key>uploadSymbols</key><true/>
             <key>manageAppVersionAndBuildNumber</key><false/>
           </dict></plist>
           EOF
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportPath "$RUNNER_TEMP/export" \
-            -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${KEY_ID}.p8" \
-            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" > /tmp/export.log 2>&1 \
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" > /tmp/export.log 2>&1 \
             || { report exportArchive /tmp/export.log; tail -n 150 /tmp/export.log; exit 1; }
           tail -n 15 /tmp/export.log
           ls -la "$RUNNER_TEMP/export"
 
       - uses: actions/upload-artifact@v4
-        if: env.HAS_KEY == 'true'
+        if: env.HAS_SIGNING == 'true'
         with:
           name: RN-Analyzer-ipa
           path: ${{ runner.temp }}/export/*.ipa
           retention-days: 30
 
       - name: Upload to TestFlight
-        if: ${{ env.HAS_KEY == 'true' && (startsWith(github.ref, 'refs/tags/ios-v') || inputs.upload) }}
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        if: ${{ env.HAS_SIGNING == 'true' && env.HAS_KEY == 'true' && (startsWith(github.ref, 'refs/tags/ios-v') || inputs.upload) }}
         run: |
           IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
-          xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+          xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$KEY_ID" --apiIssuer "$ISSUER" > /tmp/upload.log 2>&1 \
+            || { echo "::error title=TestFlight upload::$(grep -iE 'error|fail' /tmp/upload.log | head -20 | tr '\n' '|' | cut -c1-3500)"; tail -n 60 /tmp/upload.log; exit 1; }
+          tail -n 20 /tmp/upload.log
+          echo "::notice title=TestFlight::Build 2.0.${{ github.run_number }} uploaded – it appears in App Store Connect → TestFlight after processing (5–15 min)."
+
+      - name: Clean up keychain
+        if: always() && env.HAS_SIGNING == 'true'
+        run: security delete-keychain "$KEYCHAIN" 2>/dev/null || true

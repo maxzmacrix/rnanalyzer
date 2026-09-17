@@ -304,8 +304,8 @@ table.data td.label { text-align: left; }
 
 /* ---------- devices ---------- */
 .device-card { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; }
-.device-card .logo { font-weight: 900; font-size: 18px; color: var(--red); letter-spacing: -0.5px; }
-.device-card .logo span { color: #fff; }
+.device-card .logo { display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 800; font-size: 11px; letter-spacing: 1px; color: var(--text-muted); }
+.device-card .logo img { width: 56px; height: auto; display: block; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
 .kv .k { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
 .dl-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--fg-06); }
@@ -335,7 +335,10 @@ table.data td.label { text-align: left; }
 .update-banner { background: var(--accent); color: #fff; padding: 8px 14px; text-align: center; font-weight: 600; cursor: pointer; }
 
 /* ---------- device control (RN Connect) ---------- */
-.logo-rn { font-weight: 900; font-size: 20px; color: var(--red); width: 44px; height: 44px; border-radius: 10px; background: var(--fg-08); display: flex; align-items: center; justify-content: center; }
+.logo-rn { width: 48px; height: 44px; border-radius: 10px; background: var(--fg-08); display: flex; align-items: center; justify-content: center; }
+.logo-rn img { width: 36px; height: auto; display: block; }
+.about-row { display: flex; align-items: center; gap: 14px; }
+.about-logo { width: 54px; height: auto; flex: 0 0 auto; }
 .rec-btn { width: 72px; height: 72px; border-radius: 36px; border: 3px solid var(--fg-25); background: var(--fg-06); color: var(--text); display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-weight: 800; font-size: 12px; letter-spacing: 1px; flex: 0 0 auto; }
 .rec-btn .rec-dot { width: 16px; height: 16px; border-radius: 8px; background: var(--fg-35); }
 .rec-btn.on { border-color: var(--red); background: rgba(255,59,48,0.2); }

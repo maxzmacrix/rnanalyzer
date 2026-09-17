@@ -19,8 +19,16 @@ export function mount(main) {
   const known = (state.settings.deviceAddresses || []);
   const datalist = h('datalist#device-addrs', known.map((a) => h('option', { value: a })));
   addr.setAttribute('list', 'device-addrs');
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const notice = isNative ? null : h('div.card', { style: { borderColor: 'var(--accent)' } },
+    h('div', { style: { fontWeight: 700, marginBottom: '6px' } }, t('native_required_title')),
+    h('div.small', { style: { lineHeight: '1.5', color: 'var(--text-dim)' } }, t('native_required_text')),
+    h('div.row', { style: { marginTop: '10px' } }, h('button.btn.accent', { on: { click: () => { location.hash = '#/laps'; } } }, t('go_import'))));
+  const expert = h('details', { style: { margin: '0 10px' } }, h('summary.small.muted', { style: { padding: '6px 0', cursor: 'pointer' } }, t('bridge_expert')));
   root = h('div.view.scroll',
-    h('div.card',
+    notice,
+    isNative ? null : expert,
+    h('div.card', { class: isNative ? '' : 'expert-card' },
       h('div.small.muted', { style: { marginBottom: '8px', lineHeight: '1.45' } }, t('device_help')),
       h('div.row', h('div.field.grow', h('label', t('device_address')), addr, datalist), h('button.btn.accent', { on: { click: () => connect(addr.value) } }, t('connect'))),
       known.length ? h('div.row', { style: { marginTop: '8px', flexWrap: 'wrap' } }, known.map((a) => h('button.chip', { on: { click: () => { addr.value = a; connect(a); } } }, a))) : null,
@@ -30,6 +38,13 @@ export function mount(main) {
     (lapsArea = h('div')),
   );
   main.appendChild(root);
+  if (!isNative) {
+    // move the connection card into the collapsible expert section
+    const card = root.querySelector('.expert-card');
+    expert.appendChild(card);
+    expert.appendChild(deviceArea); expert.appendChild(queueArea); expert.appendChild(lapsArea);
+    if (state.settings.lastDevice) expert.open = true;
+  }
   if (state.settings.lastDevice) connect(state.settings.lastDevice);
 }
 export function unmount() {}

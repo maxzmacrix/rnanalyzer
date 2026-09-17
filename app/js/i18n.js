@@ -46,6 +46,10 @@ const dict = {
     yes: 'Yes', no: 'No', warning: 'Warning', info: 'Info',
     remove_from_selection: 'Remove from selection', videos_limit_hint: 'Videos are shown for the first {n} selected laps.',
     sound: 'Sound', muted: 'Muted',
+    native_required_title: 'Direct connection needs the native app',
+    native_required_text: 'The Race Navigator only offers PostgreSQL, FTP and a plain-HTTP interface in its WiFi. A web app in Safari cannot use any of them (browser security rules). To download laps and videos straight from the device, install the native RN Analyzer app from the App Store. In this web version, import .rnz and .mp4 files from the Files app (USB stick exported with SETTINGS › EXPORT VIDEO).',
+    bridge_expert: 'Expert: connect via rn-bridge / test server',
+    go_import: 'Import files instead',
   },
   de: {
     app: 'RN Analyzer',
@@ -92,6 +96,10 @@ const dict = {
     yes: 'Ja', no: 'Nein', warning: 'Warnung', info: 'Info',
     remove_from_selection: 'Aus Auswahl entfernen', videos_limit_hint: 'Videos werden für die ersten {n} gewählten Runden angezeigt.',
     sound: 'Ton', muted: 'Stumm',
+    native_required_title: 'Direkte Verbindung braucht die native App',
+    native_required_text: 'Der Race Navigator bietet in seinem WLAN nur PostgreSQL, FTP und eine reine HTTP-Schnittstelle an. Eine Web-App in Safari kann keine davon nutzen (Sicherheitsregeln des Browsers). Um Runden und Videos direkt vom Gerät zu laden, installiere die native RN Analyzer App aus dem App Store. In dieser Web-Version importierst Du .rnz- und .mp4-Dateien aus der Dateien-App (USB-Stick, am Gerät exportiert über SETTINGS › EXPORT VIDEO).',
+    bridge_expert: 'Experte: über rn-bridge / Testserver verbinden',
+    go_import: 'Stattdessen Dateien importieren',
   },
 };
 

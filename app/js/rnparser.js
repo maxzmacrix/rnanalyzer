@@ -119,7 +119,7 @@ export function parseRnXml(xmlText, fileName = '') {
   const gVert = new Float32Array(n); // g
   const alt = new Float32Array(n); // m
   const hdg = new Float32Array(n); // degrees
-  const dev = new Float32Array(n); // GPS deviation, m
+  const dev = new Float32Array(n); // GPS position deviation, m (attribute gd)
   const rpm = new Float32Array(n);
   const thr = new Float32Array(n); // throttle %
   const wt = new Float32Array(n); // water temp
@@ -147,7 +147,7 @@ export function parseRnXml(xmlText, fileName = '') {
     v[i] = g('gs') / 1000;
     lat[i] = g('lt'); lng[i] = g('lg');
     gLon[i] = g('la') / 1000; gLat[i] = g('lo') / 1000; gVert[i] = g('za') / 1000; // la = longitudinal (x), lo = lateral (y)
-    alt[i] = g('al'); hdg[i] = g('dr'); dev[i] = g('df') / 1000;
+    alt[i] = g('al'); hdg[i] = g('dr'); dev[i] = g('gd') / 1000; // gd = GPS position deviation (mm); df = distance offset (mm) – see RNDataHandler MTSensorMeasurement+CrossSystemXMLRepresentation
     const r = g('rp', -1); rpm[i] = r; if (r > 0) anyRpm = true;
     const tp = g('tp', -1); thr[i] = tp; if (tp >= 0) anyThr = true;
     const iob = g('iobdv', 0); obdOk[i] = iob ? 1 : 0; if (iob) anyObd = true;

@@ -55,7 +55,9 @@ const SCHEMA = {
   event:       { table: 'event',       id: 'id', name: 'name', start: 'start', end: 'end', variant: 'trackvariantid', deleted: 'isdeleted', type: 'type' },
   trackvariant:{ table: 'trackvariant', id: 'id', name: 'name', xml: 'trackdataxml', track: 'trackid', distance: 'distance', width: 'width', historical: 'ishistorical', preinstalled: 'ispreinstalled' },
   track:       { table: 'track',       id: 'id', name: 'name', distance: 'distance', width: 'width', modified: 'definitionmodificationdate', deleted: 'isdeleted', tzContinent: 'timezonecontinent', tzCity: 'timezonecity', type: 'tracktype' },
-  lapdata:     { table: 'lapdata',     id: 'id', lap: 'lapid', time: 'measurementtime', xaccel: 'xaccel', yaccel: 'yaccel', zaccel: 'zaccel', distance: 'distanceinlap', lat: 'latitude', lng: 'longitude', rpm: 'rpmvalue', speed: 'speed', pitch: 'pitch', roll: 'roll', yaw: 'yaw', alt: 'alt', direction: 'direction', deviation: 'positiondeviation', obdSpeed: 'obd2speed', oilTemp: 'oiltemp', waterTemp: 'watertemp', valid: 'validmeasurements', gear: 'gearnumber' },
+  // sensorsmeasurements = real device table (RNDataHandler/PGSQLKit ipsql demo): id, measurementtime, lapid, pitch, yaw, roll, lateralaccel, longitudinalaccel,
+  // zaccel, isgyroaccelvalid, gpsspeed, gpspositiondeviation, altitude, latitude, longitude, distanceinlap, distanceoffset, direction, meanumberinlap, isgpsvalid, rpmvalue, obdspeed, oiltemp, watertemp, isobdvalid
+  lapdata:     { table: 'sensorsmeasurements', id: 'id', lap: 'lapid', time: 'measurementtime', xaccel: 'longitudinalaccel', yaccel: 'lateralaccel', zaccel: 'zaccel', distance: 'distanceinlap', lat: 'latitude', lng: 'longitude', rpm: 'rpmvalue', speed: 'gpsspeed', pitch: 'pitch', roll: 'roll', yaw: 'yaw', alt: 'altitude', direction: 'direction', deviation: 'gpspositiondeviation', obdSpeed: 'obdspeed', oilTemp: 'oiltemp', waterTemp: 'watertemp', valid: 'isgpsvalid', gear: 'gearnumber', distanceOffset: 'distanceoffset' },
   lapsector:   { table: 'lapsector',   id: 'id', lap: 'lapid', number: 'sectornumber', start: 'start', end: 'end' },
   video:       { table: 'video',       id: 'id', name: 'videoname', start: 'start', end: 'end', status: 'status', quality: 'quality', size: 'filesize', parent: 'parentid' },
   lapVideo:    { table: 'lap_video',   lap: 'lapid', video: 'videoid' },
@@ -227,7 +229,7 @@ async function buildRnz(lapId) {
   for (const r of sm) {
     mn++;
     const valid = n(r[S.valid], 1);
-    x += `   <sm id="${r[S.id]}" mt="${fmtTime(r[S.time])}" la="${n(r[S.xaccel])}" lo="${n(r[S.yaccel])}" za="${n(r[S.zaccel])}" ds="${n(r[S.distance])}" lt="${r[S.lat] ?? 0}" lg="${r[S.lng] ?? 0}" rp="${n(r[S.rpm], -1)}" gs="${n(r[S.speed])}" gd="0" ph="${n(r[S.pitch])}" rl="${n(r[S.roll])}" ya="${n(r[S.yaw])}" al="${n(r[S.alt])}" dr="${n(r[S.direction])}" df="${n(r[S.deviation])}" os="${n(r[S.obdSpeed])}" ot="${n(r[S.oilTemp])}" wt="${n(r[S.waterTemp])}" tp="-1" mn="${mn}" ga="100" igpsv="${valid ? 1 : 0}" igyrv="1" iobdv="${n(r[S.rpm], -1) > 0 ? 1 : 0}" ipc="0">\n`;
+    x += `   <sm id="${r[S.id]}" mt="${fmtTime(r[S.time])}" la="${n(r[S.xaccel])}" lo="${n(r[S.yaccel])}" za="${n(r[S.zaccel])}" ds="${n(r[S.distance])}" lt="${r[S.lat] ?? 0}" lg="${r[S.lng] ?? 0}" rp="${n(r[S.rpm], -1)}" gs="${n(r[S.speed])}" gd="${n(r[S.deviation])}" ph="${n(r[S.pitch])}" rl="${n(r[S.roll])}" ya="${n(r[S.yaw])}" al="${n(r[S.alt])}" dr="${n(r[S.direction])}" df="${n(r[S.distanceOffset])}" os="${n(r[S.obdSpeed])}" ot="${n(r[S.oilTemp])}" wt="${n(r[S.waterTemp])}" tp="-1" mn="${mn}" ga="100" igpsv="${valid ? 1 : 0}" igyrv="1" iobdv="${n(r[S.rpm], -1) > 0 ? 1 : 0}" ipc="0">\n`;
   }
   x += '  </measurements>\n  <lapSectors>\n';
   for (const s of sectors) x += `    <lapsector>\n      <id>${s[SEC.id]}</id>\n      <sectorNumber>${n(s[SEC.number])}</sectorNumber>\n      <startTime>${fmtTime(s[SEC.start])}</startTime>\n      <endTime>${fmtTime(s[SEC.end])}</endTime>\n    </lapsector>\n`;

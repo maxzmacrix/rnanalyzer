@@ -6,7 +6,7 @@ installierbare, offline‑fähige Web‑App für iPhone, iPad, Android und Deskt
 * **Keine Abhängigkeiten, kein Build‑Schritt** – reines HTML/CSS/ES‑Modul‑JavaScript im Ordner `app/`.
 * **Offline** – Service Worker cached die App‑Shell; alle Runden, Videos und Einstellungen liegen lokal in IndexedDB.
 * **RNZ + MP4 aus dem lokalen Speicher** – Import über den Dateidialog (iOS „Dateien“‑App, USB‑Stick, iCloud Drive).
-* **Import‑Schnittstelle zum RN‑Gerät** – HTTP‑API‑Client (`app/js/device.js`) inkl. Mock‑Server zum Testen.
+* **Import‑Schnittstelle zum RN‑Gerät** – HTTP‑API‑Client (`app/js/device.js`) inkl. Mock‑Server; die direkte Verbindung zum unveränderten Gerät braucht die native App (siehe unten).
 
 ---
 
@@ -80,7 +80,8 @@ Umgesetzt nach *Race Navigator Files Format Specification rev 1.1* und verifizie
 | `lt`/`lg` | Breite/Länge | ° | ° |
 | `al` | Höhe | m | m |
 | `dr` | Kurs | ° | ° |
-| `df` | GPS‑Positionsabweichung | mm | m |
+| `gd` | GPS‑Positionsabweichung | mm | m |
+| `df` | Distanz‑Offset | mm | – |
 | `ph`/`rl`/`ya` | Gyroskop Nick/Roll/Gier | roh (÷1000 wie alte App) | – |
 | `rp`, `tp`, `wt`, `ot`, `os`, `iobdv` | OBD/CAN | –1/0 = nicht vorhanden | nur wenn vorhanden |
 | `igpsv` | GPS gültig | 0/1 | Filter für Karte |
@@ -93,30 +94,44 @@ Rundenstart (`lap.video.offsetS`).
 
 ## Geräte‑Schnittstelle – Stand der Dinge
 
-Der **unveränderte Race Navigator** bietet im „Analyzer Mode“ nur zwei Dienste an (aus dem alten Code, `RaceDataAnalyzerTests/MTPostgresTest.m` und `MTFTPTest.m`):
+Aus dem Quellcode der alten App und der Bibliothek `RNDataHandler` (`Old RN Analyzer/rndatahandler-master`) ergibt
+sich, was der **unveränderte Race Navigator** in seinem WLAN („Analyzer Mode“, Netz `<Gerät>_AP`) anbietet:
 
-* **PostgreSQL** auf der Geräte‑IP (Datenbank `rtts`, Benutzer `rtts`) – Runden, Messdaten, Fahrer, Strecken.
-* **FTP** auf der Geräte‑IP – Videodateien (`.mp4`) und Video‑Indexdateien (`.idx`).
-* Discovery per Bonjour `_racenav._tcp`; SMB nur für RAVPower‑„FileHub“‑USB‑Leser.
+| Dienst | Details |
+|---|---|
+| **HTTP‑REST/XML** | `http://<ip>:8080/resources/<uri>`, `Accept: application/xml`. URIs: `deviceinfo`, `drivers`, `vehicles`, `events`, `events/<id>`, `laps/<datum>/from`, `laps/byeventid/<id>`, `lapsectors`, `videoinfos`, `videoinfos/<datum>/from`, `videoinfos/bylapid/<id>`, `lapstovideos/<datum>/from`, `lapstovideos/bylapid/<id>`, `sensormeasurements/<von>/<bis>` (Messpunkte `<sm …/>` mit denselben Attributen wie im RNZ, Gierrate hier `yw`), `sensormeasurements/<datum>/count`, `…/next`, `tracks`, `tracks/<id>`, `trackvariants`, `trackvariants/<id>`, `trackvariantimages/<id>/<typ>`, `availablevideolayouts`, `rarequest/…` (Aktionen wie Video‑Split). Datumsformat `yyyyMMddHHmmssSSS`. |
+| **FTP** | Videodateien `.mp4` und `.idx` im Wurzelverzeichnis, Login `rtts` / `rtts8888`. |
+| **PostgreSQL** | Datenbank `rtts`, Login `rtts` / `rtts8888`, Tabelle `sensorsmeasurements` (Spalten `longitudinalaccel`, `lateralaccel`, `gpsspeed`, `gpspositiondeviation`, …). Von der alten App nur ergänzend genutzt. |
+| **Discovery** | Bonjour `_racenav._tcp`; Standard‑IP der Tests `192.168.1.158`/`.161`. |
 
-**Kein Browser kann PostgreSQL oder FTP sprechen.** Eine reine Web‑App kann deshalb nicht direkt aus dem Gerät
-laden – das ist eine Grenze der Web‑Plattform, keine der App. Daraus ergeben sich drei Wege:
+**Warum die Web‑App das nicht direkt nutzen kann:** Safari blockiert aus einer HTTPS‑Seite jeden `http://`‑Zugriff
+(Mixed Content), der Geräte‑Server sendet keine CORS‑Header, und FTP/PostgreSQL sind für Browser grundsätzlich
+unerreichbar. Die App zeigt deshalb im Tab **Geräte** den Hinweis, dass für die direkte Verbindung die **native
+App** nötig ist; der Datei‑Import (USB‑Stick aus SETTINGS › EXPORT VIDEO, iCloud, AirDrop) funktioniert in der
+Web‑Version vollständig.
+
+### Native App (empfohlener Weg für Kunden)
+
+Capacitor‑Hülle um genau diese Web‑App (`app/` unverändert), plus:
+
+* **HTTP zum Gerät** über das Capacitor‑HTTP‑Plugin (läuft nativ, kein CORS/Mixed Content) gegen die oben
+  genannten `:8080/resources/*`‑URIs. Die XML‑Antworten liefern dieselben `<sm>`‑Attribute, die `app/js/rnparser.js`
+  bereits versteht; aus Lap/Driver/Vehicle/Event/Track/Sectors/Videoinfos lässt sich das `.rnz` clientseitig
+  zusammensetzen (Vorlage: `buildRnz()` in `tools/rn-bridge/rn-bridge.mjs`, ZIP‑Writer in `app/js/zip.js`).
+* **Videos per FTP** (`rtts`/`rtts8888`) über ein kleines natives Plugin (Swift, z. B. FilesProvider/NIO‑FTP),
+  das die Datei in den App‑Container lädt und der Web‑App als Blob übergibt.
+* In `app/js/device.js` werden nur die drei Funktionen `fetchDeviceInfo`, `fetchDeviceLaps`, `downloadFile`
+  auf das Plugin umgestellt; `app/js/views/devices.js` erkennt die native Umgebung (`window.Capacitor`) und blendet
+  den Hinweis aus.
+
+### Weitere Wege
 
 | Weg | Voraussetzung | Status |
 |---|---|---|
-| **USB‑Stick** (SETTINGS › EXPORT VIDEO am Gerät, Stick per Adapter ans iPhone/iPad, Import in der App) | nichts | funktioniert heute |
-| **Native Hülle** (Capacitor‑iOS‑App um diese Web‑App, mit nativem PostgreSQL‑/FTP‑Plugin; `app/js/device.js` ruft dann das Plugin statt `fetch`) | Apple‑Developer‑Account, Mac/Xcode, App‑Store/TestFlight | empfohlener Weg für Kunden ohne weitere Hardware; Postgres‑Schema des Geräts muss bekannt sein |
-| **rn-bridge** (`tools/rn-bridge`, Node auf Laptop/Raspberry im RN‑WLAN, liefert App + HTTP‑API, erzeugt `.rnz` aus der DB, streamt Videos per FTP) | ein Rechner im WLAN | fertig, aber ungetestet gegen ein echtes Gerät; für Werkstatt/Support, nicht für Endkunden |
-| **Firmware‑HTTP‑API** (`/api/info`, `/api/laps`, `/files/<name>` mit CORS; Referenz `tools/mock-device-server.mjs`) | Änderung am Gerät | nur für künftige Geräte |
-
-Für die native Hülle und die Brücke wird das PostgreSQL‑Schema des Geräts benötigt. Es steckte im geschlossenen
-Pod `RNDataHandler` (gitlab.macrix.eu/racenavigator/rndatahandler, Tag 1.9.15), der nicht im Repository liegt.
-Mit einem Gerät in Reichweite liefert `node tools/rn-bridge/rn-bridge.mjs --device <ip> --discover` alle Tabellen,
-Spalten und die FTP‑Dateiliste; danach wird der `SCHEMA`‑Block in `rn-bridge.mjs` angepasst.
-
-Die App selbst nutzt bereits eine schmale Schnittstelle (`GET /api/info`, `GET /api/laps`, `GET /files/<name>`),
-die Brücke, Mock‑Server und eine künftige Firmware gleich bedienen. Ein natives Plugin ersetzt nur die drei
-Funktionen in `app/js/device.js`.
+| **USB‑Stick** (SETTINGS › EXPORT VIDEO, Stick per Adapter ans iPhone/iPad, Import in der App) | nichts | funktioniert heute |
+| **rn-bridge** (`tools/rn-bridge`, Node auf Laptop/Raspberry im RN‑WLAN, liefert App + HTTP‑API, erzeugt `.rnz` aus der DB, streamt Videos per FTP) | ein Rechner im WLAN | fertig, ungetestet gegen ein echtes Gerät (`--discover` zuerst); für Werkstatt/Support |
+| **App auf dem Gerät hosten** (statische Dateien im HTTP‑Server des RN, gleicher Origin → keine CORS/Mixed‑Content‑Probleme) | Update‑Paket für das Gerät | Option für künftige Firmware; ohne HTTPS kein Offline‑Cache |
+| **Firmware‑HTTP‑API mit CORS** (`/api/info`, `/api/laps`, `/files/<name>`; Referenz `tools/mock-device-server.mjs`) | Änderung am Gerät | nur für künftige Geräte |
 
 ## Ordnerstruktur
 

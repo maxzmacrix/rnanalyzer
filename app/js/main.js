@@ -31,6 +31,16 @@ function route() {
   try { view.mount(main); } catch (e) { console.error('mount failed', e); main.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
 
+export function applyTheme() {
+  const pref = state.settings.theme || 'light';
+  const dark = pref === 'dark' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#07080a' : '#ffffff');
+  emit('theme', dark ? 'dark' : 'light');
+}
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if ((state.settings.theme || 'light') === 'system') applyTheme(); });
+
 function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.title = t('app');
@@ -60,8 +70,9 @@ async function registerSW() {
 
 async function boot() {
   await initState();
+  applyTheme();
   applyI18n();
-  on('settings', (patch) => { if (patch && patch.language) { applyI18n(); if (current && current.unmount) current.unmount(); current = null; route(); } });
+  on('settings', (patch) => { if (patch && 'theme' in patch) applyTheme(); if (patch && patch.language) { applyI18n(); if (current && current.unmount) current.unmount(); current = null; route(); } });
   window.addEventListener('hashchange', route);
   route();
   registerSW();

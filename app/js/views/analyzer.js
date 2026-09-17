@@ -58,6 +58,7 @@ export function mount(main) {
     on('selection', load), on('laps', load), on('settings', onSettings), on('cursor', onCursor),
     on('player', (e) => { playBtn.innerHTML = e.playing ? icons.pause : icons.play; }),
     on('sectors', () => refreshPanels()),
+    on('theme', () => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); } }),
   );
   playBtn.innerHTML = player.playing ? icons.pause : icons.play;
   load();

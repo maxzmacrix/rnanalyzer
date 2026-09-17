@@ -14,3 +14,7 @@ node_modules/
 /ios/
 package-lock.json
 private_keys/
+
+# never commit keys / integration material
+Integration/
+*.p8

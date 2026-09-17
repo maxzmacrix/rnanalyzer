@@ -90,12 +90,24 @@ jobs:
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          if [ -z "$ASC_KEY_P8" ]; then echo "::error::Secret ASC_KEY_P8 is missing"; exit 1; fi
+          set +e
+          ok=1
+          KEY_ID="$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]')"
+          ISSUER="$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')"
+          echo "::notice::ASC_KEY_ID length ${#KEY_ID}, ASC_ISSUER_ID length ${#ISSUER}, ASC_KEY_P8 length ${#ASC_KEY_P8}"
+          if [ -z "$ASC_KEY_P8" ]; then echo "::error title=ASC_KEY_P8::Secret is empty"; ok=0; fi
+          if ! printf '%s' "$KEY_ID" | grep -Eq '^[A-Z0-9]{8,12}$'; then echo "::error title=ASC_KEY_ID::Expected the 10-character Key ID (e.g. 2X9R4HXF34), got length ${#KEY_ID}"; ok=0; fi
+          if ! printf '%s' "$ISSUER" | grep -Eqi '^[0-9a-f-]{36}$'; then echo "::error title=ASC_ISSUER_ID::Expected the Issuer ID UUID (36 characters), got length ${#ISSUER}"; ok=0; fi
+          if ! printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then echo "::error title=ASC_KEY_P8::Expected the full content of AuthKey_<KEYID>.p8 starting with -----BEGIN PRIVATE KEY-----"; ok=0; fi
+          [ "$ok" = "1" ] || exit 1
+          set -e
           mkdir -p "$HOME/private_keys" ./private_keys
-          printf '%s\n' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
-          cp "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" ./private_keys/
-          chmod 600 "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
+          cp "$HOME/private_keys/AuthKey_${KEY_ID}.p8" ./private_keys/
+          chmod 600 "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
+          echo "KEY_ID=$KEY_ID" >> "$GITHUB_ENV"; echo "ISSUER=$ISSUER" >> "$GITHUB_ENV"
 
       - name: Archive (automatic cloud signing)
         if: env.HAS_KEY == 'true'
@@ -108,8 +120,8 @@ jobs:
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" archive \
             DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
             -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${KEY_ID}.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" \
             | tail -n 80
 
       - name: Export IPA
@@ -132,8 +144,8 @@ jobs:
           EOF
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportPath "$RUNNER_TEMP/export" \
             -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" | tail -n 40
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${KEY_ID}.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" | tail -n 40
           ls -la "$RUNNER_TEMP/export"
 
       - uses: actions/upload-artifact@v4
@@ -150,4 +162,4 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
-          xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$KEY_ID" --apiIssuer "$ISSUER"

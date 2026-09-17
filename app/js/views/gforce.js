@@ -20,7 +20,7 @@ export function mount(main) {
   wrap.append(body, legend);
   main.appendChild(wrap);
   chart = new ScatterChart(canvas);
-  unsub.push(on('selection', load), on('laps', load), on('settings', load), on('cursor', onCursor));
+  unsub.push(on('selection', load), on('laps', load), on('settings', load), on('cursor', onCursor), on('theme', () => chart && chart.draw()));
   load();
 }
 export function unmount() { unsub.forEach((u) => u()); unsub = []; if (chart) chart.destroy(); chart = null; if (raf) cancelAnimationFrame(raf); }

@@ -67,6 +67,7 @@ const dict = {
     export_excel: 'Export to Excel (.xlsx)', excel_hint: 'Exports {n} selected lap(s): sheet “Lap list” and sheet “Data” with one row per distance step.', excel_channels: 'Channels', excel_step: 'Distance step [m]', generate: 'Generate', generating: 'Generating…',
     share_lap_data: 'Share lap data (.rnz)', share_video: 'Share video (.mp4)', share_both: 'Share data + video', share_hint: 'The share sheet offers Instagram, YouTube, WhatsApp, Mail, AirDrop and the Files app.', share_unsupported: 'Sharing files is not available here – the file was downloaded instead.',
     profiles: 'Layout profiles', profiles_hint: 'A profile stores the panel components, panel sizes, X axis and sector mode. Tap to apply.', save_profile: 'Save current layout as…', profile_name: 'Profile name', no_profiles: 'No profiles yet.', profile_applied: 'Profile “{n}” applied',
+    theme: 'Appearance', theme_light: 'Light', theme_dark: 'Dark', theme_system: 'System',
     discover: 'Search', no_devices_found: 'No Race Navigator found in this WiFi. Enable ANALYZER MODE on the device and join its network.',
   },
   de: {
@@ -135,6 +136,7 @@ const dict = {
     export_excel: 'Nach Excel exportieren (.xlsx)', excel_hint: 'Exportiert {n} gewählte Runde(n): Blatt „Lap list“ und Blatt „Data“ mit einer Zeile pro Distanzschritt.', excel_channels: 'Kanäle', excel_step: 'Distanzschritt [m]', generate: 'Erzeugen', generating: 'Wird erzeugt…',
     share_lap_data: 'Rundendaten teilen (.rnz)', share_video: 'Video teilen (.mp4)', share_both: 'Daten + Video teilen', share_hint: 'Im Teilen-Menü erscheinen Instagram, YouTube, WhatsApp, Mail, AirDrop und die Dateien-App.', share_unsupported: 'Dateien teilen ist hier nicht verfügbar – die Datei wurde stattdessen heruntergeladen.',
     profiles: 'Layout-Profile', profiles_hint: 'Ein Profil speichert die Panel-Komponenten, Panelgrößen, X-Achse und Sektormodus. Antippen zum Anwenden.', save_profile: 'Aktuelles Layout speichern als…', profile_name: 'Profilname', no_profiles: 'Noch keine Profile.', profile_applied: 'Profil „{n}“ angewendet',
+    theme: 'Darstellung', theme_light: 'Hell', theme_dark: 'Dunkel', theme_system: 'System',
     discover: 'Suchen', no_devices_found: 'Kein Race Navigator in diesem WLAN gefunden. Am Gerät ANALYZER MODE aktivieren und dessen Netz beitreten.',
   },
 };

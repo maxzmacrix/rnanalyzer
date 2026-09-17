@@ -80,10 +80,13 @@ export function unmount() {
 
 // ------------------------------------------------------------------ loading
 async function load() {
-  data = await ensureSelectedSamples();
+  const d = await ensureSelectedSamples();
+  if (!root) return; // view was left while samples were loading
+  data = d;
   scaledCache.clear();
   updateRefLabel();
   await updateVideos();
+  if (!root) return;
   refreshPanels();
   updatePos();
 }

@@ -6,6 +6,7 @@ import { h, setTitle, setTopButtons, switchEl, segmented, confirmDialog, toast }
 import { db } from '../db.js';
 import { APP_VERSION } from '../main.js';
 import { isNative as isNativeApp_ } from '../deviceNative.js';
+import { startTour, hasDemoData, removeDemoData } from '../tour.js';
 const isNativeApp = isNativeApp_();
 
 export function mount(main) {
@@ -61,6 +62,8 @@ export function mount(main) {
   root.append(...[
     h('h3', t('about')),
     h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${isNativeApp ? 'App' : standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
+    h('div.item', h('div.lbl', h('div', t('tour_start')), h('div.sub', t('tour_start_hint'))), h('button.btn.ghost', { on: { click: () => startTour() } }, t('tour_start_btn'))),
+    hasDemoData() ? h('div.item', h('div.lbl', h('div', t('tour_remove')), h('div.sub', t('demo_data_hint'))), h('button.btn.danger', { on: { click: async () => { await removeDemoData(); toast(t('tour_removed')); main.innerHTML = ''; mount(main); } } }, t('delete'))) : null,
     isIOS && !standalone ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
     h('div.item', h('div.lbl', h('div.sub', 'Race Navigator · RN Vision GmbH · race-navigator.com'))),
   ].filter(Boolean));

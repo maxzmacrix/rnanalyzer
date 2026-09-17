@@ -7,6 +7,7 @@ import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, confirmDi
 import { importFiles } from '../import.js';
 import { db } from '../db.js';
 import { shareFiles } from '../share.js';
+import { startTour } from '../tour.js';
 
 let root, listEl, selEl, filterEl, unsub = [];
 const collapsed = new Set();
@@ -85,7 +86,9 @@ function renderList() {
   if (filters.complete) laps = laps.filter((l) => l.complete && l.lapTimeMs > 0);
   if (filters.video) laps = laps.filter((l) => hasVideo(l));
   if (!laps.length) {
-    listEl.appendChild(h('div.empty', state.laps.length ? t('search') + ': 0' : t('no_laps')));
+    if (state.laps.length) listEl.appendChild(h('div.empty', t('search') + ': 0'));
+    else listEl.appendChild(h('div.empty.tour-offer', h('div', t('no_laps')),
+      h('button.btn.accent', { on: { click: () => startTour() } }, t('tour_start')), h('div.small.muted', t('tour_start_hint'))));
     return;
   }
   const best = bestLapIds(state.laps);
@@ -140,7 +143,8 @@ function lapRow(l, isBest, an) {
     h('div.right',
       sel ? h('span.selmark', { style: { background: color }, html: icons.check, title: t('selected', { n: state.selected.indexOf(l.id) + 1 }) }) : null,
       hv ? h('span.badge.video', t('video')) : (l.video ? h('span.badge', t('no_video')) : null),
-      isBest ? h('span.badge.best', t('best_lap')) : null),
+      isBest ? h('span.badge.best', t('best_lap')) : null,
+      l.demo ? h('span.badge', t('demo_badge')) : null),
     h('button.more', { html: icons.more, 'aria-label': t('options'), on: { click: (e) => { e.stopPropagation(); lapMenu(l); } } }),
   );
   row.style.setProperty('--lap-color', color); // custom properties need setProperty (the style map ignores them)

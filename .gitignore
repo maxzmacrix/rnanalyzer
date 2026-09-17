@@ -25,3 +25,7 @@ Integration/
 *.pem
 *.cer
 *.csr
+
+# demo data for the guided tour is part of the app
+!app/demo/*.rnz
+!app/demo/*.mp4

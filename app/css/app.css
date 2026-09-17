@@ -315,10 +315,12 @@ table.data td.label { text-align: left; }
 
 /* ---------- landscape phone: video left, panels right ---------- */
 @media (orientation: landscape) and (max-height: 500px) {
-  .analyzer.has-video { flex-direction: row; }
-  .analyzer.has-video .video-panel { flex: 0 0 42% !important; }
+  /* phone landscape: play bar on top, videos left (42 %), charts right – a grid so the play bar cannot steal width */
+  .analyzer.has-video { display: grid; grid-template-columns: 42% minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .analyzer.has-video .play-bar { grid-column: 1 / -1; grid-row: 1; }
+  .analyzer.has-video .video-panel { grid-column: 1; grid-row: 2; flex: none !important; min-height: 0; }
   .analyzer.has-video .divider.d0 { display: none; }
-  .analyzer.has-video .right-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .analyzer.has-video .right-col { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 }
 
 /* ---------- devices ---------- */
@@ -431,3 +433,25 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .event-head .stats { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 .event-head .stats b { color: var(--text); font-variant-numeric: tabular-nums; }
 .event-head .suggest { flex: 0 0 auto; align-self: center; }
+
+/* ---------- guided tour ---------- */
+.tour-root { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.tour-block { position: absolute; inset: 0; pointer-events: auto; }
+.tour-root:has(.tour-spot.hidden) .tour-block { background: rgba(0, 0, 0, 0.62); }
+.tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.62), 0 0 0 2px var(--accent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; pointer-events: none; }
+.tour-card {
+  position: fixed; left: 12px; right: 12px; max-width: 480px; margin: 0 auto; bottom: calc(var(--tab-h) + var(--sab) + 12px);
+  background: var(--sheet-bg); color: var(--text); border: 1px solid var(--panel-border); border-radius: 16px; padding: 12px 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); pointer-events: auto;
+}
+.tour-card.top { bottom: auto; top: calc(var(--top-h) + var(--sat) + 12px); }
+.tour-card.center { bottom: auto; top: 50%; transform: translateY(-50%); }
+@media (min-width: 900px) { .tour-card { left: calc(84px + 12px); } }
+.tour-head { display: flex; align-items: center; justify-content: space-between; }
+.tour-dots { display: flex; gap: 5px; align-items: center; }
+.tour-dots i { width: 7px; height: 7px; border-radius: 4px; background: var(--fg-16); transition: width 0.2s; }
+.tour-dots i.on { background: var(--accent); width: 18px; }
+.tour-dots i.done { background: var(--fg-35); }
+.tour-text { font-size: 15px; line-height: 1.45; margin: 10px 0 12px; }
+.tour-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.tour-offer { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 20px; text-align: center; }

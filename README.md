@@ -158,6 +158,14 @@ Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Action
 
 Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die Capacitor‑Konfiguration ändert.
 
+### Geführte Tour mit Beispieldaten
+
+Beim ersten Start (leere Rundenliste) und unter *Einstellungen → Geführte Tour* fährt die App einmal selbst durch die wichtigsten
+Funktionen (`app/js/tour.js`): drei Guadix‑Beispielrunden (`app/demo/`, Fahrer anonymisiert, zwei 20‑Sekunden‑Clips à 1 MB)
+werden importiert, dann werden Rundenliste, Session‑Analyse, Vergleichsvorschlag, Analyse mit laufendem Cursor, G‑Kraft, Video,
+Race‑Navigator‑Tab und Einstellungen mit Spotlight und Erklärtext gezeigt. Am Ende lassen sich die Beispieldaten behalten oder
+entfernen (auch später unter Einstellungen). Die Demodaten erzeugt `tools/make-demo.py` aus `Example files/` (braucht ffmpeg).
+
 ### Android App – im Repository enthalten
 
 Dieselbe Web‑App als Capacitor‑Android‑Hülle, gebaut auf GitHub‑Actions‑Linux‑Runnern (`.github/workflows/android.yml`).

@@ -19,7 +19,8 @@ export function mount(main) {
   setTitle(t('nav_laps'));
   const fileInput = h('input', {
     type: 'file', multiple: true,
-    accept: '.rnz,.rn,.cdrn,.mp4,.mov,.m4v,.zip,video/mp4,application/zip,application/octet-stream',
+    // Android's chooser filters by MIME type and hides unknown extensions such as .rnz – no filter there
+    accept: /Android/i.test(navigator.userAgent) ? '*/*' : '.rnz,.rn,.cdrn,.mp4,.mov,.m4v,.zip,video/mp4,application/zip,application/octet-stream',
     style: { display: 'none' },
     on: { change: (e) => { const files = [...e.target.files]; e.target.value = ''; runImport(files); } },
   });

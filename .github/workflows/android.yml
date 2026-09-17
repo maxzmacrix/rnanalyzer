@@ -65,6 +65,14 @@ jobs:
           cp -r native/android-res/. "$R"/
           grep -n "versionCode\|versionName" "$G"; grep -n "usesCleartextTraffic" android/app/src/main/AndroidManifest.xml
           ls "$R"
+          # build identity for the in-app update check (app/js/update.js)
+          TAG="${GITHUB_REF#refs/tags/}"; case "$GITHUB_REF" in refs/tags/*) ;; *) TAG="";; esac
+          printf '{"platform":"android","version":"%s","build":%s,"tag":"%s"}
+' "$MARKETING_VERSION" "${{ github.run_number }}" "$TAG" > android/app/src/main/assets/public/build.json
+          mkdir -p "$RUNNER_TEMP/out"
+          printf '{"platform":"android","version":"%s","build":%s,"tag":"%s","apk":"https://github.com/%s/releases/latest/download/RN-Analyzer.apk","release":"https://github.com/%s/releases/tag/%s"}
+' "$MARKETING_VERSION" "${{ github.run_number }}" "$TAG" "$GITHUB_REPOSITORY" "$GITHUB_REPOSITORY" "$TAG" > "$RUNNER_TEMP/out/latest.json"
+          cat android/app/src/main/assets/public/build.json "$RUNNER_TEMP/out/latest.json"
 
       - name: Signing config
         if: env.HAS_KEYSTORE == 'true'

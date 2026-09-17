@@ -106,8 +106,8 @@ sich, was der **unveränderte Race Navigator** in seinem WLAN („Analyzer Mode�
 
 **Warum die Web‑App das nicht direkt nutzen kann:** Safari blockiert aus einer HTTPS‑Seite jeden `http://`‑Zugriff
 (Mixed Content), der Geräte‑Server sendet keine CORS‑Header, und FTP/PostgreSQL sind für Browser grundsätzlich
-unerreichbar. Die App zeigt deshalb im Tab **Geräte** den Hinweis, dass für die direkte Verbindung die **native
-App** nötig ist; der Datei‑Import (USB‑Stick aus SETTINGS › EXPORT VIDEO, iCloud, AirDrop) funktioniert in der
+unerreichbar. Die Web‑Version zeigt im Tab **Geräte** deshalb nur den Hinweis auf die **native App** (kein Verbindungsdialog);
+der Datei‑Import (USB‑Stick aus SETTINGS › EXPORT VIDEO, iCloud, AirDrop) funktioniert in der
 Web‑Version vollständig.
 
 ### Native App (empfohlener Weg für Kunden)

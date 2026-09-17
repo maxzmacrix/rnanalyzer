@@ -6,6 +6,7 @@ import { fmtLapTime } from '../rnparser.js';
 import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, confirmDialog, promptDialog, initials } from '../ui.js';
 import { importFiles } from '../import.js';
 import { db } from '../db.js';
+import { shareFiles } from '../share.js';
 
 let root, listEl, selEl, unsub = [];
 const collapsed = new Set();
@@ -132,7 +133,10 @@ async function lapMenu(l) {
       `${l.track.name} · ${l.event.name}`, h('br'), `${fmtDateTime(l.startMs)} · ${l.source.device} · ${l.sampleCount} samples`, h('br'),
       l.video ? `${t('video')}: ${l.video.fileName} ${hv ? '✓' : '(' + t('video_missing') + ')'}` : t('no_video')),
     item('edit', t('edit_lap'), () => editLap(l)),
-    item('share', t('export') + ' (.rnz)', () => exportLap(l)),
+    item('share', t('share_lap_data'), () => shareLap(l, 'data')),
+    hv ? item('share', t('share_video'), () => shareLap(l, 'video')) : null,
+    hv ? item('share', t('share_both'), () => shareLap(l, 'both')) : null,
+    h('div.small.muted', { style: { padding: '4px 16px 8px' } }, t('share_hint')),
     hv ? item('trash', t('delete_video'), () => deleteVideo(l)) : null,
     item('trash', t('delete'), () => deleteLap(l), 'danger'),
   ]);
@@ -154,18 +158,20 @@ async function editLap(l) {
   await reloadLaps();
 }
 
-async function exportLap(l) {
-  const raw = await db.getRaw(l.id);
-  if (!raw) { toast(t('failed')); return; }
-  const name = raw.fileName && /\.rnz$/i.test(raw.fileName) ? raw.fileName : `${l.source.device}_Lap_${l.lapNumber}.rnz`;
-  const file = new File([raw.data], name, { type: 'application/zip' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+async function shareLap(l, what) {
+  const files = [];
+  if (what === 'data' || what === 'both') {
+    const raw = await db.getRaw(l.id);
+    if (raw) files.push(new File([raw.data], raw.fileName && /\.rnz$/i.test(raw.fileName) ? raw.fileName : `${l.source.device}_Lap_${l.lapNumber}.rnz`, { type: 'application/zip' }));
   }
-  const url = URL.createObjectURL(file);
-  const a = h('a', { href: url, download: name });
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  if (what === 'video' || what === 'both') {
+    const vk = videoKeyFor(l);
+    const rec = vk ? await db.getVideo(vk) : null;
+    if (rec) files.push(new File([rec.blob], vk, { type: rec.type || 'video/mp4' }));
+  }
+  if (!files.length) { toast(t('failed')); return; }
+  const res = await shareFiles(files, `${l.track.name} – ${t('lap_n', { n: l.lapNumber })} ${displayDriver(l)} ${fmtLapTime(l.lapTimeMs)}`);
+  if (res === 'downloaded') toast(t('share_unsupported'), 4000);
 }
 
 async function deleteLap(l) {

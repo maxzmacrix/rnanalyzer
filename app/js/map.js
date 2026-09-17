@@ -2,7 +2,20 @@
 // cursor markers, and optional OpenStreetMap raster tiles (Web Mercator) when online.
 
 const TILE = 256;
-const TILE_URL = (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+
+/** Raster tile providers. `{z}/{x}/{y}` placeholders. */
+export const PROVIDERS = {
+  osm: { id: 'osm', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap contributors', maxZoom: 19 },
+  satellite: { id: 'satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: 'Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
+  custom: { id: 'custom', url: '', attribution: '', maxZoom: 20 },
+};
+/** Provider from settings ({mapStyle, customTileUrl}). */
+export function providerFor(settings) {
+  if (settings.mapStyle === 'custom' && settings.customTileUrl) return { ...PROVIDERS.custom, url: settings.customTileUrl };
+  if (settings.mapStyle === 'satellite') return PROVIDERS.satellite;
+  return PROVIDERS.osm;
+}
+function tileUrl(p, z, x, y) { return p.url.replace('{z}', z).replace('{x}', x).replace('{y}', y).replace('{s}', 'a'); }
 
 function lngToWorld(lng) { return ((lng + 180) / 360) * TILE; }
 function latToWorld(lat) {
@@ -19,6 +32,8 @@ export class TrackMap {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
     this.opts = opts;
     this.tilesEnabled = opts.tiles !== false;
+    this.provider = opts.provider || PROVIDERS.osm;
+    this.fitZoom = 1;
     this.tracks = []; this.def = null; this.cursors = []; this.showSectors = true; this.customSplits = [];
     this.center = { x: TILE / 2, y: TILE / 2 }; this.zoom = 1; // world coords at zoom 0 + fractional zoom
     this.tileCache = new Map(); this.pending = new Set();
@@ -39,6 +54,9 @@ export class TrackMap {
     if (!this.fitted) this.fit(); else this.requestDraw();
   }
   setTiles(on) { this.tilesEnabled = !!on; this.requestDraw(); }
+  setProvider(p) { if (!p || (this.provider && p.url === this.provider.url)) return; this.provider = p; this.tileCache.clear(); this.requestDraw(); }
+  /** Center the view on a coordinate (used by "follow cursor"). */
+  centerOn(lat, lng) { if (!Number.isFinite(lat) || !Number.isFinite(lng)) return; this.center = { x: lngToWorld(lng), y: latToWorld(lat) }; this.requestDraw(); }
 
   /** tracks: [{lat,lng,n,color}], def: trackDef, cursors: [{lat,lng,color}] */
   setData({ tracks, def, cursors, showSectors, splitPositions }) {
@@ -72,6 +90,7 @@ export class TrackMap {
     const zx = Math.log2((this.w - 2 * pad) / spanX), zy = Math.log2((this.h - 2 * pad) / spanY);
     this.zoom = Math.max(1, Math.min(20, Math.min(zx, zy)));
     this.center = { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 };
+    this.fitZoom = this.zoom;
     this.fitted = true;
     this.requestDraw();
   }
@@ -145,7 +164,7 @@ export class TrackMap {
     // attribution
     if (tilesDrawn) {
       ctx.font = '10px system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      const txt = '© OpenStreetMap contributors';
+      const txt = this.provider.attribution || '';
       const tw = ctx.measureText(txt).width + 8;
       ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(this.w - tw, this.h - 14, tw, 14);
       ctx.fillStyle = '#222'; ctx.fillText(txt, this.w - 4, this.h - 2);
@@ -169,7 +188,8 @@ export class TrackMap {
     }
   }
   _drawTiles(ctx) {
-    const z = Math.max(0, Math.min(19, Math.floor(this.zoom)));
+    if (!this.provider.url) return false;
+    const z = Math.max(0, Math.min(this.provider.maxZoom || 19, Math.floor(this.zoom)));
     const n = Math.pow(2, z);
     const scaleTile = Math.pow(2, this.zoom - z); // on-screen px per tile px
     const tl = this.pxToWorld(0, 0), br = this.pxToWorld(this.w, this.h);
@@ -208,7 +228,7 @@ export class TrackMap {
     img.decoding = 'async';
     img.onload = () => this.requestDraw();
     img.onerror = () => { img.failed = true; };
-    img.src = TILE_URL(z, x, y);
+    img.src = tileUrl(this.provider, z, x, y);
     this.tileCache.set(key, img);
     if (this.tileCache.size > 400) { const first = this.tileCache.keys().next().value; this.tileCache.delete(first); }
     return img;

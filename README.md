@@ -180,6 +180,41 @@ Abfrage `GET …/resources/rarequest/{uuid}/{typ}` → `{rarequest:[{id,status,i
 Status 0 empfangen, 1 in Arbeit, 2 fertig, 3 fehlgeschlagen. Kameravorschau: `rarequest/19/{uuid}/1` liefert die
 Anzahl Kameras (`intParam1`) und den ersten TCP‑Port (`intParam2`); dort kommt ein roher MJPEG‑Strom.
 
+
+## Abgleich mit RN Analyzer für Windows
+
+Quelle: `Specification/Quickstart-Guide-RN-Analyzer-for-Windows-EN-29-09-21.pdf` und `Old RN Analyzer/rnanalyzerwindows-master`.
+
+| Windows‑Funktion | RN Analyzer 2.0 |
+|---|---|
+| Zoom auf der Y‑Achse, Pan in beide Richtungen | Zwei Finger vertikal spreizen = Y‑Zoom, horizontal = X‑Zoom, zwei Finger ziehen = Pan; Maus: Scrollrad über der Y‑Achse (oder Shift) = Y‑Zoom; Doppeltipp = Reset |
+| Bis zu 10 Runden, 5 Videos | 10 Runden, 4 Videos gleichzeitig |
+| Beliebig viele Komponenten, Größe anpassbar | Video + 2 oder 3 Panels (Optionen → Diagramm‑Panels), Größen per Griff |
+| User Profiles (Komponenten, Reihenfolge, Größen) | Optionen → Layout‑Profile (speichern, anwenden, löschen) |
+| Excel‑Export (Lap list + Data mit Distanzschritt) | Optionen → Nach Excel exportieren: Kanäle wählen, Schritt in m; `.xlsx` ohne Bibliothek erzeugt (`app/js/xlsx.js`), Ausgabe über Teilen‑Menü/Download |
+| Export der Laps als RNZ + Video (Ordner) | Runden → ⋯ → Rundendaten / Video / beides teilen (Dateien‑App, AirDrop, Mail, Instagram, YouTube, WhatsApp) |
+| Import aus Ordner | Runden → Dateien importieren (Mehrfachauswahl) |
+| „Follow“ (Karte folgt dem Cursor) | Optionen → Karte folgt dem Cursor |
+| Bing‑Luftbild | Kartenstil: Straßenkarte (OSM), Satellit (Esri World Imagery) oder eigene Kachel‑URL mit eigenem Schlüssel (Mapbox, Google, Bing) |
+| Dark Charts | Standard |
+| Notizen je Runde, Lap‑Filter/Suche | Bearbeiten → Notiz; Suche über Fahrer, Fahrzeug, Strecke, Event, Rundenzeit |
+| RN Remote Control (VNC‑Viewer, Passwort `RNRemote`) | nicht übernommen (kein VNC im Browser; die Steuerung im Tab „Steuerung“ deckt Fahrer/Fahrzeug/Strecke/Aufnahme/Video ab) |
+| Print Screen | Systemfunktion (Teilen → Drucken / Screenshot) |
+| Messpunkte‑Blatt im Excel‑Export | noch nicht umgesetzt |
+
+### Teilen zu Instagram / YouTube
+
+Die App nutzt das iOS‑Teilen‑Menü (Web Share API mit Dateien). Sobald Instagram, YouTube, WhatsApp usw. installiert
+sind, erscheinen sie dort automatisch für `.mp4`‑Videos; ein eigener Upload‑Dialog mit Login (wie früher der
+YouTube‑Upload in RN Connect) ist damit überflüssig. Wo das Teilen von Dateien nicht verfügbar ist (Desktop‑Browser),
+wird die Datei heruntergeladen.
+
+### Satellitenbilder
+
+`Setup → Kartenstil`: **Satellit** nutzt Esri World Imagery (Attribution eingeblendet; für kommerzielle Nutzung die
+Esri‑Bedingungen prüfen). Alternativ **Eigene** mit einer Kachel‑URL wie `https://api.mapbox.com/…/{z}/{x}/{y}?access_token=…`
+oder einem Google/Bing‑Kacheldienst mit eigenem Schlüssel. Einmal geladene Kacheln werden für den Offline‑Betrieb gecacht.
+
 ## Ordnerstruktur
 
 ```
@@ -202,6 +237,7 @@ app/
     import.js           Import‑Pipeline
     deviceNative.js     Geräteclient für die native App (HTTP‑XML‑API + Plugin)
     deviceControl.js    Gerätesteuerung (RN‑Connect‑Protokoll: currentstatus, rarequest)
+    xlsx.js             XLSX‑Writer (Excel‑Export), share.js  Web‑Share‑Helfer
     views/              laps, analyzer, gforce, video, devices, control, settings
 native/rn-device/       Capacitor‑Plugin (Swift): Bonjour, FTP, PostgreSQL
 capacitor.config.json   Capacitor‑Projekt (iOS‑Hülle), Build per .github/workflows/ios.yml

@@ -4,11 +4,13 @@ import {
   state, on, ensureSelectedSamples, lapColor, displayDriver, displayVehicle, setCursor, updateSettings,
   speedFactor, speedUnitLabel, distFactor, distUnitLabel, customSplits, setCustomSplits, videoKeyFor, MAX_VIDEOS, lapLabel,
 } from '../state.js';
-import { t } from '../i18n.js';
+import { t, fmtDate } from '../i18n.js';
 import { fmtLapTime } from '../rnparser.js';
-import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, switchEl, segmented, confirmDialog } from '../ui.js';
+import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, switchEl, segmented, confirmDialog, promptDialog } from '../ui.js';
+import { buildXlsx } from '../xlsx.js';
+import { shareFiles } from '../share.js';
 import { LineChart } from '../chart.js';
-import { TrackMap, nearestSample } from '../map.js';
+import { TrackMap, nearestSample, providerFor } from '../map.js';
 import {
   CHANNELS, channelArray, xArray, valueAt, positionAt, timeSlipSeries, distanceGapSeries, deviceSplits, deviceSectorTimes,
   sectorTimesFromSplits, bestTimes, geometricSplits, timeAtDistance, distanceAtTime,
@@ -42,10 +44,12 @@ export function mount(main) {
 
   videoGrid = h('div.videos');
   videoPanel = h('div.panel.video-panel', videoGrid);
-  const d0 = divider('d0');
-  panels = { A: createPanel('A'), B: createPanel('B') };
-  const d1 = divider('d1');
-  rightCol = h('div.right-col', panels.A.el, d1, panels.B.el);
+  const d0 = divider(0);
+  const keys = Number(state.settings.panelCount) === 3 ? ['A', 'B', 'C'] : ['A', 'B'];
+  panels = {};
+  const colChildren = [];
+  keys.forEach((k, i) => { panels[k] = createPanel(k); if (i) colChildren.push(divider(i)); colChildren.push(panels[k].el); });
+  rightCol = h('div.right-col', ...colChildren);
   root = h('div.analyzer', playBar, videoPanel, d0, rightCol);
   main.appendChild(root);
   applyRatios();
@@ -69,6 +73,7 @@ export function unmount() {
   videoObjs.clear();
   scaledCache.clear();
   if (cursorRaf) cancelAnimationFrame(cursorRaf); cursorRaf = 0;
+  if (root) { root.remove(); root = null; }
 }
 
 // ------------------------------------------------------------------ loading
@@ -107,7 +112,9 @@ function onSettings(patch) {
   if (!patch) return;
   if ('autoplaySpeed' in patch) { speedChip.textContent = `${patch.autoplaySpeed}×`; player.setSpeed(Number(patch.autoplaySpeed)); }
   if ('mapTiles' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setTiles(patch.mapTiles);
-  const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'xMode', 'sectors', 'units', 'colorblind', 'language'];
+  if ('mapStyle' in patch || 'customTileUrl' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setProvider(providerFor(state.settings));
+  if ('panelCount' in patch) { const main = root.parentElement; unmount(); mount(main); return; }
+  const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'xMode', 'sectors', 'units', 'colorblind', 'language'];
   if (keys.some((k) => k in patch)) { scaledCache.clear(); data = data.map((d) => ({ ...d, color: lapColor(d.lap.id) })); updateRefLabel(); refreshPanels(); updateVideoColors(); }
 }
 
@@ -169,7 +176,7 @@ function destroyPanelContent(p) {
   p.table = null; p.kind = null;
   clear(p.body); clear(p.tools);
 }
-function panelSetting(key) { return { comp: state.settings[`panel${key}`] || (key === 'A' ? 'speed' : 'map'), comp2: state.settings[`panel${key}2`] || null }; }
+function panelSetting(key) { return { comp: state.settings[`panel${key}`] || (key === 'A' ? 'speed' : key === 'B' ? 'map' : 'glat'), comp2: state.settings[`panel${key}2`] || null }; }
 
 function kindOf(id) {
   if (!id) return null;
@@ -224,7 +231,7 @@ function sectorMarkers() {
 }
 
 function refreshPanels() {
-  for (const key of ['A', 'B']) configurePanel(panels[key]);
+  for (const p of Object.values(panels)) configurePanel(p);
 }
 
 function configurePanel(p) {
@@ -251,6 +258,7 @@ function configurePanel(p) {
       p.body.appendChild(canvas);
       p.map = new TrackMap(canvas, {
         tiles: state.settings.mapTiles,
+        provider: providerFor(state.settings),
         onTap: (lat, lng) => {
           if (!data.length) return;
           const ref = data[0];
@@ -455,7 +463,13 @@ function onCursor(e) {
   cursorRaf = requestAnimationFrame(() => {
     cursorRaf = 0;
     for (const p of Object.values(panels)) {
-      if (p.map) p.map.setCursors(cursorPositions());
+      if (p.map) {
+        p.map.setCursors(cursorPositions());
+        if (state.settings.followCursor && data.length && p.map.zoom > (p.map.fitZoom || 0) + 0.3) {
+          const pos = positionAt(data[0].samples, state.cursor, xMode());
+          p.map.centerOn(pos.lat, pos.lng);
+        }
+      }
       if (p.kind === 'detail') renderDetail(p);
     }
     updatePos();
@@ -515,9 +529,93 @@ function openOptions() {
     row(t('opt_sectors'), segmented([{ value: 'default', label: t('sectors_default') }, { value: 'custom', label: t('sectors_custom') }, { value: 'none', label: t('sectors_none') }], s0.sectors, (v) => updateSettings({ sectors: v }))),
     h('div.item', { on: { click: () => { s.close(); openCustomSectors(); } } }, h('div.lbl', t('opt_edit_sectors')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),
     row(t('opt_all_tracks'), switchEl(s0.allTracks, (v) => updateSettings({ allTracks: v }))),
+    row(t('opt_panels'), segmented([{ value: 2, label: '2' }, { value: 3, label: '3' }], Number(s0.panelCount) === 3 ? 3 : 2, (v) => { s.close(); updateSettings({ panelCount: v }); })),
+    row(t('opt_follow'), switchEl(s0.followCursor, (v) => updateSettings({ followCursor: v }))),
+    row(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }, ...(s0.customTileUrl ? [{ value: 'custom', label: t('map_custom') }] : [])], s0.mapStyle || 'osm', (v) => updateSettings({ mapStyle: v }))),
     row(t('map_tiles'), switchEl(s0.mapTiles, (v) => updateSettings({ mapTiles: v }))),
+    h('div.item', { on: { click: () => { s.close(); openProfiles(); } } }, h('div.lbl', t('profiles')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),
+    h('div.item', { on: { click: () => { s.close(); openExcelExport(); } } }, h('div.lbl', t('export_excel')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),
   ]);
 }
+
+// ------------------------------------------------------------------ layout profiles (Windows "user profiles")
+const PROFILE_KEYS = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'panelCount', 'panelRatios', 'xMode', 'sectors'];
+function openProfiles() {
+  const body = h('div');
+  const build = () => {
+    clear(body);
+    const list = state.settings.profiles || [];
+    if (!list.length) body.appendChild(h('div.empty', t('no_profiles')));
+    list.forEach((pr, i) => body.appendChild(h('div.item', { on: { click: async () => { s.close(); const patch = {}; for (const k of PROFILE_KEYS) if (k in pr) patch[k] = pr[k]; await updateSettings(patch); toast(t('profile_applied', { n: pr.name })); } } },
+      h('span.lbl', pr.name),
+      h('button.tbtn', { html: icons.trash, on: { click: async (e) => { e.stopPropagation(); await updateSettings({ profiles: list.filter((_, j) => j !== i) }); build(); } } }))));
+    body.appendChild(h('div', { style: { padding: '10px 16px' } }, h('button.btn.block', { on: { click: async () => {
+      const r = await promptDialog(t('save_profile'), [{ key: 'name', label: t('profile_name'), value: '' }]);
+      if (!r || !r.name.trim()) return;
+      const pr = { name: r.name.trim() };
+      for (const k of PROFILE_KEYS) pr[k] = state.settings[k];
+      await updateSettings({ profiles: [...(state.settings.profiles || []).filter((x) => x.name !== pr.name), pr] });
+      build();
+    } } }, t('save_profile'))));
+  };
+  build();
+  const s = sheet(t('profiles'), [h('div.small.muted', { style: { padding: '6px 16px' } }, t('profiles_hint')), body]);
+}
+
+// ------------------------------------------------------------------ Excel export (Windows "Excel Export": lap list + data by distance step)
+function openExcelExport() {
+  if (!data.length) { toast(t('select_laps_first')); return; }
+  const available = ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg', 'gyrY', 'gyrP', 'gyrR', ...['rpm', 'thr', 'wt', 'ot', 'os'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]))];
+  const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add('custom:' + c.name);
+  available.push(...custom);
+  const chosen = new Set(['speed', 'glon', 'glat', 'gcomb', 'alt']);
+  const step = h('input.input', { type: 'number', min: 1, max: 500, step: 1, value: 10, inputmode: 'numeric' });
+  const rows = available.map((id) => {
+    const info = chanInfo(id);
+    const cb = h('div.check', { class: chosen.has(id) ? 'on' : '', html: chosen.has(id) ? icons.check : '' });
+    return h('div.item', { on: { click: () => { if (chosen.has(id)) chosen.delete(id); else chosen.add(id); cb.classList.toggle('on', chosen.has(id)); cb.innerHTML = chosen.has(id) ? icons.check : ''; } } }, h('span.lbl', `${info.label}${info.unit ? ' [' + info.unit + ']' : ''}`), cb);
+  });
+  const s = sheet(t('export_excel'), [
+    h('div.small.muted', { style: { padding: '6px 16px' } }, t('excel_hint', { n: data.length })),
+    h('div.field', { style: { padding: '6px 16px' } }, h('label', t('excel_step')), step),
+    h('div.group', t('excel_channels')),
+    ...rows,
+    h('div', { style: { padding: '12px 16px 16px' } }, h('button.btn.accent.block', { on: { click: async () => {
+      const st = Math.max(1, Number(step.value) || 10);
+      s.close();
+      toast(t('generating'), 20000);
+      try {
+        const blob = buildLapsWorkbook([...chosen], st);
+        const name = `RN-Analyzer-${fmtDate(Date.now())}-${data.length}laps.xlsx`;
+        const res = await shareFiles([new File([blob], name, { type: blob.type })], name);
+        toast(res === 'downloaded' ? t('share_unsupported') : t('done'), 3000);
+      } catch (e) { toast(t('action_failed', { e: e.message || e }), 5000); }
+    } } }, t('generate'))),
+  ]);
+}
+function buildLapsWorkbook(channelIds, step) {
+  const lapList = [['No', t('driver'), t('vehicle'), t('lap_time'), t('lap_number'), t('track'), t('event'), t('start_time'), t('device')]];
+  data.forEach((d, i) => lapList.push([i + 1, displayDriver(d.lap), displayVehicle(d.lap), fmtLapTime(d.lap.lapTimeMs), d.lap.lapNumber, d.lap.track.name, d.lap.event.name, fmtDate(d.lap.startMs), d.lap.source.device]));
+  const header = [`${t('distance')} [${distUnitLabel()}]`];
+  for (const d of data) {
+    header.push(`L${d.lap.lapNumber} ${displayDriver(d.lap)}: ${t('lap_time')} [s]`);
+    for (const id of channelIds) { const info = chanInfo(id); header.push(`L${d.lap.lapNumber} ${displayDriver(d.lap)}: ${info.label}${info.unit ? ' [' + info.unit + ']' : ''}`); }
+  }
+  const rowsOut = [header];
+  const dmax = Math.max(...data.map((d) => d.samples.d[d.samples.n - 1] || 0));
+  for (let dist = 0; dist <= dmax + 1e-6; dist += step) {
+    const row = [Math.round(dist * distFactor() * 100) / 100];
+    for (const d of data) {
+      const end = d.samples.d[d.samples.n - 1];
+      if (dist > end) { row.push(null); for (let k = 0; k < channelIds.length; k++) row.push(null); continue; }
+      row.push(Math.round(timeAtDistance(d.samples, dist) * 1000) / 1000);
+      for (const id of channelIds) { const v = valueAt(d.samples, id, dist, 'distance') * scaleFor(id); row.push(Number.isFinite(v) ? Math.round(v * 1000) / 1000 : null); }
+    }
+    rowsOut.push(row);
+  }
+  return buildXlsx([{ name: 'Lap list', rows: lapList, widths: [5, 18, 22, 12, 8, 18, 22, 12, 14] }, { name: 'Data', rows: rowsOut, widths: [12, ...Array(header.length - 1).fill(20)] }]);
+}
+
 
 function cursorDistance() {
   if (!data.length) return NaN;
@@ -551,24 +649,26 @@ function openCustomSectors() {
 }
 
 // ------------------------------------------------------------------ layout: dividers & ratios
-function divider(cls) {
-  const el = h('div.divider', { class: cls });
+function ratios() { const r = [...(state.settings.panelRatios || [30, 35, 35, 35])]; while (r.length < 4) r.push(35); return r; }
+/** idx 0 = between videos and the panel column; idx >= 1 = between panel idx-1 and panel idx */
+function divider(idx) {
+  const el = h('div.divider', { class: idx === 0 ? 'd0' : 'd' + idx });
   let startY = 0, startRatios = null, rootH = 0, aH = 0, bH = 0;
   el.addEventListener('pointerdown', (e) => {
     el.setPointerCapture(e.pointerId);
-    startY = e.clientY; startRatios = [...(state.settings.panelRatios || [30, 35, 35])];
-    rootH = root.clientHeight; aH = panels.A.el.clientHeight; bH = panels.B.el.clientHeight;
+    startY = e.clientY; startRatios = ratios(); rootH = root.clientHeight;
+    const keys = Object.keys(panels);
+    if (idx > 0) { aH = panels[keys[idx - 1]].el.clientHeight; bH = panels[keys[idx]].el.clientHeight; }
   });
   el.addEventListener('pointermove', (e) => {
     if (!startRatios) return;
     const dy = e.clientY - startY;
     const r = [...startRatios];
-    if (cls === 'd0') {
-      r[0] = Math.max(10, Math.min(70, startRatios[0] + (dy / Math.max(1, rootH)) * 100));
-    } else {
+    if (idx === 0) r[0] = Math.max(10, Math.min(70, startRatios[0] + (dy / Math.max(1, rootH)) * 100));
+    else {
       const na = Math.max(40, aH + dy), nb = Math.max(40, bH - dy);
-      r[1] = (na / (na + nb)) * (startRatios[1] + startRatios[2]);
-      r[2] = startRatios[1] + startRatios[2] - r[1];
+      const sum = startRatios[idx] + startRatios[idx + 1];
+      r[idx] = (na / (na + nb)) * sum; r[idx + 1] = sum - r[idx];
     }
     state.settings.panelRatios = r;
     applyRatios();
@@ -578,8 +678,7 @@ function divider(cls) {
   return el;
 }
 function applyRatios() {
-  const [r0, r1, r2] = state.settings.panelRatios || [30, 35, 35];
-  videoPanel.style.flex = `0 0 ${r0}%`;
-  panels.A.el.style.flex = `${r1} 1 0px`;
-  panels.B.el.style.flex = `${r2} 1 0px`;
+  const r = ratios();
+  videoPanel.style.flex = `0 0 ${r[0]}%`;
+  Object.keys(panels).forEach((k, i) => { panels[k].el.style.flex = `${r[i + 1]} 1 0px`; });
 }

@@ -29,7 +29,14 @@ const DEFAULT_SETTINGS = {
   panelB2: null,
   deviceAddresses: [],
   lastDevice: '',
-  panelRatios: [30, 35, 35],
+  panelRatios: [30, 35, 35, 35],
+  panelCount: 2,
+  panelC: 'glat',
+  panelC2: null,
+  followCursor: false,
+  mapStyle: 'osm', // osm | satellite | custom
+  customTileUrl: '',
+  profiles: [],
 };
 
 const listeners = new Map();

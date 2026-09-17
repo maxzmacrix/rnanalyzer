@@ -62,6 +62,11 @@ const dict = {
     changing: 'Changing…', starting: 'Starting…', stopping: 'Stopping…', loading: 'Loading…', loading_tracks: 'Loading tracks from the device…', no_results: 'No results', action_failed: 'Failed: {e}', pick_hint: 'Tap to select. Pencil = edit.',
     add_driver: 'Add driver', edit_driver: 'Edit driver', add_vehicle: 'Add car', edit_vehicle: 'Edit car',
     st_gps_unavailable: 'GPS device unavailable', st_usb_camera: 'USB camera error', st_omx_camera: 'Camera error', st_temp_warn: 'Temperature warning', st_temp_high: 'Temperature high', st_temp_critical: 'Temperature critical', st_recorder_error: 'Video recorder error',
+    opt_panels: 'Chart panels', opt_follow: 'Map follows the cursor when zoomed in', map_style: 'Map style', map_osm: 'Street map', map_satellite: 'Satellite', map_custom: 'Custom',
+    custom_tile_url: 'Custom tile URL ({z}/{x}/{y} placeholders, e.g. your Mapbox/Google key)', satellite_hint: 'Satellite imagery by Esri World Imagery (free for non‑commercial use; check the provider terms or enter your own licensed tile service).',
+    export_excel: 'Export to Excel (.xlsx)', excel_hint: 'Exports {n} selected lap(s): sheet “Lap list” and sheet “Data” with one row per distance step.', excel_channels: 'Channels', excel_step: 'Distance step [m]', generate: 'Generate', generating: 'Generating…',
+    share_lap_data: 'Share lap data (.rnz)', share_video: 'Share video (.mp4)', share_both: 'Share data + video', share_hint: 'The share sheet offers Instagram, YouTube, WhatsApp, Mail, AirDrop and the Files app.', share_unsupported: 'Sharing files is not available here – the file was downloaded instead.',
+    profiles: 'Layout profiles', profiles_hint: 'A profile stores the panel components, panel sizes, X axis and sector mode. Tap to apply.', save_profile: 'Save current layout as…', profile_name: 'Profile name', no_profiles: 'No profiles yet.', profile_applied: 'Profile “{n}” applied',
     discover: 'Search', no_devices_found: 'No Race Navigator found in this WiFi. Enable ANALYZER MODE on the device and join its network.',
   },
   de: {
@@ -125,6 +130,11 @@ const dict = {
     changing: 'Wird geändert…', starting: 'Startet…', stopping: 'Stoppt…', loading: 'Lädt…', loading_tracks: 'Strecken werden vom Gerät geladen…', no_results: 'Keine Treffer', action_failed: 'Fehlgeschlagen: {e}', pick_hint: 'Antippen zum Auswählen. Stift = bearbeiten.',
     add_driver: 'Fahrer hinzufügen', edit_driver: 'Fahrer bearbeiten', add_vehicle: 'Fahrzeug hinzufügen', edit_vehicle: 'Fahrzeug bearbeiten',
     st_gps_unavailable: 'GPS-Empfänger nicht verfügbar', st_usb_camera: 'USB-Kamera-Fehler', st_omx_camera: 'Kamerafehler', st_temp_warn: 'Temperaturwarnung', st_temp_high: 'Temperatur hoch', st_temp_critical: 'Temperatur kritisch', st_recorder_error: 'Fehler im Videorekorder',
+    opt_panels: 'Diagramm-Panels', opt_follow: 'Karte folgt dem Cursor, wenn hineingezoomt', map_style: 'Kartenstil', map_osm: 'Straßenkarte', map_satellite: 'Satellit', map_custom: 'Eigene',
+    custom_tile_url: 'Eigene Kachel-URL ({z}/{x}/{y}-Platzhalter, z. B. mit eigenem Mapbox/Google-Schlüssel)', satellite_hint: 'Satellitenbilder von Esri World Imagery (frei für nicht-kommerzielle Nutzung; Nutzungsbedingungen prüfen oder eigenen lizenzierten Kacheldienst eintragen).',
+    export_excel: 'Nach Excel exportieren (.xlsx)', excel_hint: 'Exportiert {n} gewählte Runde(n): Blatt „Lap list“ und Blatt „Data“ mit einer Zeile pro Distanzschritt.', excel_channels: 'Kanäle', excel_step: 'Distanzschritt [m]', generate: 'Erzeugen', generating: 'Wird erzeugt…',
+    share_lap_data: 'Rundendaten teilen (.rnz)', share_video: 'Video teilen (.mp4)', share_both: 'Daten + Video teilen', share_hint: 'Im Teilen-Menü erscheinen Instagram, YouTube, WhatsApp, Mail, AirDrop und die Dateien-App.', share_unsupported: 'Dateien teilen ist hier nicht verfügbar – die Datei wurde stattdessen heruntergeladen.',
+    profiles: 'Layout-Profile', profiles_hint: 'Ein Profil speichert die Panel-Komponenten, Panelgrößen, X-Achse und Sektormodus. Antippen zum Anwenden.', save_profile: 'Aktuelles Layout speichern als…', profile_name: 'Profilname', no_profiles: 'Noch keine Profile.', profile_applied: 'Profil „{n}“ angewendet',
     discover: 'Suchen', no_devices_found: 'Kein Race Navigator in diesem WLAN gefunden. Am Gerät ANALYZER MODE aktivieren und dessen Netz beitreten.',
   },
 };

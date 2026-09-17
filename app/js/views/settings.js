@@ -19,6 +19,8 @@ export function mount(main) {
     item(t('speed_units'), segmented([{ value: 'metric', label: 'km/h' }, { value: 'imperial', label: 'mph' }], s.units, (v) => updateSettings({ units: v }))),
     item(t('colorblind'), switchEl(s.colorblind, (v) => updateSettings({ colorblind: v }))),
     item(t('map_tiles'), switchEl(s.mapTiles, (v) => updateSettings({ mapTiles: v }))),
+    item(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }, { value: 'custom', label: t('map_custom') }], s.mapStyle || 'osm', (v) => updateSettings({ mapStyle: v })), t('satellite_hint')),
+    h('div.item', h('div.lbl', h('div', t('custom_tile_url')), h('input.input', { type: 'url', value: s.customTileUrl || '', placeholder: 'https://…/{z}/{x}/{y}.png', autocapitalize: 'off', spellcheck: false, on: { change: (e) => updateSettings({ customTileUrl: e.target.value.trim() }) } }))),
     item(t('opt_autoplay'), segmented([0.5, 1, 2, 4].map((x) => ({ value: x, label: x + '×' })), Number(s.autoplaySpeed), (v) => updateSettings({ autoplaySpeed: v }))),
     item(t('opt_all_tracks'), switchEl(s.allTracks, (v) => updateSettings({ allTracks: v }))),
   );

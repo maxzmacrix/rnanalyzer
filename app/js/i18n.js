@@ -195,6 +195,7 @@ const dict = {
   },
 };
 
+export const dictionaries = dict;
 let lang = 'en';
 
 export function setLanguage(l) {

@@ -46,6 +46,7 @@ export function installUpdateChecks() {
   if (!updateCheckAvailable()) return;
   setTimeout(() => checkForAppUpdate().catch(() => {}), 2500);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForAppUpdate().catch(() => {}); });
+  setInterval(() => { if (document.visibilityState === 'visible') checkForAppUpdate().catch(() => {}); }, 21 * 60 * 1000); // running apps learn about a release within ~20 min
 }
 
 function showBanner(latest) {

@@ -78,6 +78,7 @@ async function boot() {
   route();
   registerSW();
   installUpdateChecks();
+  if (/[?&]selftest/.test(location.search)) import('./selftest.js').then((m) => m.run()).catch((e) => console.error('selftest failed to start', e));
   // ask for persistent storage once (silently) so iOS/Chrome don't evict lap data
   if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persisted().then((p) => { if (!p) navigator.storage.persist().catch(() => {}); }).catch(() => {});

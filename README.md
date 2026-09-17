@@ -158,6 +158,16 @@ Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Action
 
 Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die Capacitor‑Konfiguration ändert.
 
+### Tests
+
+* `npm test` – Node‑Tests (`tools/test/unit.test.mjs`): Sprachdateien (Schlüsselparität, Platzhalter, alle in der App benutzten
+  Schlüssel), Analysefunktionen, ZIP/XLSX‑Roundtrip, Service‑Worker‑Precache‑Liste, Tabs↔Routen, Demodaten, Workflow‑Versionen.
+* **Selbsttest in der App**: Web‑Version mit `?selftest` öffnen (z. B. `http://localhost:8080/?nosw&selftest`). `app/js/selftest.js`
+  fährt die laufende App durch alle Ansichten, Knöpfe, Blätter und Dialoge (Import der Demodaten, Filter, Sortierung, Suche,
+  Vergleichsvorschlag, Auswahl, Rundenmenü, Bearbeiten, Bestätigen, Analyzer‑Steuerung, Optionen, Komponentenwahl, eigene Sektoren,
+  Excel, Rundenwahl, G‑Kraft, Video, Race‑Navigator‑Tab, Einstellungen, Tour, Löschen, Alles‑löschen) und zeigt Ergebnis und
+  Fehler in einem Panel, in der Konsole und in `window.__selftest`. Vor jedem Release beides laufen lassen.
+
 ### Geführte Tour mit Beispieldaten
 
 Beim ersten Start (leere Rundenliste) und unter *Einstellungen → Geführte Tour* fährt die App einmal selbst durch die wichtigsten

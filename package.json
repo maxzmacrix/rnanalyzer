@@ -10,7 +10,8 @@
     "ios:add": "npx cap add ios",
     "ios:sync": "npx cap sync ios",
     "android:add": "npx cap add android",
-    "android:sync": "npx cap sync android"
+    "android:sync": "npx cap sync android",
+    "test": "node --test tools/test/unit.test.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^6.1.2",

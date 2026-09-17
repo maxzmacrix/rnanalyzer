@@ -27,7 +27,7 @@ export async function removeDemoData() {
   await reloadLaps();
 }
 
-async function loadDemo(onProgress) {
+export async function loadDemoData(onProgress = () => {}) {
   const index = await (await fetch(DEMO_BASE + 'index.json', { cache: 'no-cache' })).json();
   const names = [...index.laps, ...index.videos];
   const files = [];
@@ -50,7 +50,7 @@ async function loadDemo(onProgress) {
 const STEPS = [
   { key: 'tour_welcome', center: true, dur: 0, before: async (setText) => {
     setText(t('tour_loading', { i: 0, n: '…' }));
-    await loadDemo((i, n) => setText(t('tour_loading', { i, n })));
+    await loadDemoData((i, n) => setText(t('tour_loading', { i, n })));
     await clearSelection();
     setText(t('tour_welcome'));
     await wait(1800);

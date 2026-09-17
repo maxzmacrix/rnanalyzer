@@ -34,6 +34,7 @@ jobs:
       TEAM_ID: ${{ vars.APPLE_TEAM_ID || 'Z2LYJ5597T' }}
       BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'com.macrix.RN-Analyzer' }}
       MARKETING_VERSION: '2.0.0'
+      MIN_IOS: '16.4'
       HAS_KEY: ${{ secrets.ASC_KEY_P8 != '' }}
       HAS_SIGNING: ${{ secrets.IOS_P12_BASE64 != '' && secrets.IOS_P12_PASSWORD != '' && secrets.IOS_PROFILE_BASE64 != '' }}
     steps:
@@ -60,6 +61,9 @@ jobs:
         run: |
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.macrix.rnanalyzer;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" ios/App/App.xcodeproj/project.pbxproj
           grep -c "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;" ios/App/App.xcodeproj/project.pbxproj
+          # minimum iOS: the RNZ import relies on DecompressionStream (WebKit ≥ 16.4)
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [^;]*;/IPHONEOS_DEPLOYMENT_TARGET = $MIN_IOS;/g" ios/App/App.xcodeproj/project.pbxproj
+          grep -c "IPHONEOS_DEPLOYMENT_TARGET = $MIN_IOS;" ios/App/App.xcodeproj/project.pbxproj
 
       - name: App icon and launch screen (RN logo)
         run: |

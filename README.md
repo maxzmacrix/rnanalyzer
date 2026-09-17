@@ -152,6 +152,7 @@ Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Action
 5. Workflow **„iOS app → TestFlight“** unter *Actions* per *Run workflow* starten (oder Tag `ios-v2.0.0-bN` pushen).
    Ohne Signatur‑Secrets läuft nur der Kompilier‑Check (mit Warnung); mit Secrets werden Archiv, Export und
    TestFlight‑Upload automatisch ausgeführt. Fehler erscheinen als Annotationen in der Run‑Übersicht.
+   Mindest‑iOS ist 16.4 (`MIN_IOS` im Workflow; der RNZ‑Import braucht `DecompressionStream`), Gerätefamilie iPhone + iPad.
    App‑Icon und Startbildschirm kommen aus `native/ios-assets/` (erzeugt mit `tools/make-icons.py` aus dem RN‑Logo‑PDF).
 6. In App Store Connect → TestFlight Tester einladen; später *Zur Prüfung einreichen* wie gewohnt.
 

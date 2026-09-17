@@ -279,13 +279,13 @@ canvas { display: block; touch-action: none; }
 .panel { position: relative; min-height: 60px; display: flex; flex-direction: column; overflow: hidden; }
 .panel .panel-body { flex: 1; min-height: 0; position: relative; }
 .panel .panel-body > canvas, .panel .panel-body > .table-wrap { position: absolute; inset: 0; }
-.panel-tools { position: absolute; left: 6px; bottom: 6px; display: flex; gap: 4px; z-index: 2; }
+.panel-tools { position: absolute; right: 8px; top: 6px; display: flex; gap: 4px; z-index: 2; }
 .panel-tools button, .chip {
   background: var(--chip-bg); border: 1px solid var(--fg-16); color: var(--chip-fg); border-radius: 8px; height: 28px; min-width: 28px; padding: 0 8px;
   font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
 }
 .panel-tools button svg { width: 16px; height: 16px; fill: currentColor; }
-.panel-title { position: absolute; right: 8px; top: 6px; z-index: 2; display: flex; gap: 4px; }
+.panel-title { position: absolute; right: calc(8px + var(--tools-w, 0px)); top: 6px; z-index: 2; display: flex; gap: 4px; }
 .panel-title .chip { max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .divider { flex: 0 0 14px; display: flex; align-items: center; justify-content: center; cursor: row-resize; touch-action: none; background: var(--fg-04); }
 .divider::after { content: ""; width: 44px; height: 4px; border-radius: 2px; background: var(--fg-35); }

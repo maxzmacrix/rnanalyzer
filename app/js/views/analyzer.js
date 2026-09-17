@@ -280,7 +280,11 @@ function configurePanel(p) {
   const info = chanInfo(comp) || { label: comp };
   const info2 = p.comp2Id ? chanInfo(p.comp2Id) : null;
   p.titleChip.textContent = info2 ? `${info.label} + ${info2.label}` : info.label;
-  if (p.chart) requestAnimationFrame(() => { if (p.chart) p.chart.setReserveRight(p.titleChip.offsetWidth + 20); });
+  requestAnimationFrame(() => {
+    const tw = p.tools.children.length ? p.tools.offsetWidth + 6 : 0;
+    p.el.style.setProperty('--tools-w', tw + 'px');
+    if (p.chart) p.chart.setReserveRight(p.titleChip.offsetWidth + tw + 20);
+  });
   renderPanel(p);
 }
 

@@ -32,14 +32,14 @@ function route() {
 }
 
 export function applyTheme() {
-  const pref = state.settings.theme || 'light';
+  const pref = state.settings.theme || 'dark';
   const dark = pref === 'dark' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   if (dark) document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme');
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', dark ? '#07080a' : '#ffffff');
   emit('theme', dark ? 'dark' : 'light');
 }
-if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if ((state.settings.theme || 'light') === 'system') applyTheme(); });
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if ((state.settings.theme || 'dark') === 'system') applyTheme(); });
 
 function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });

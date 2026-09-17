@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS = {
   mapStyle: 'osm', // osm | satellite | custom
   customTileUrl: '',
   profiles: [],
-  theme: 'light', // light | dark | system
+  theme: 'dark', // light | dark | system
 };
 
 const listeners = new Map();

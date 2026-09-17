@@ -15,7 +15,7 @@ export function mount(main) {
 
   root.append(
     h('h3', t('settings_title')),
-    item(t('theme'), segmented([{ value: 'light', label: t('theme_light') }, { value: 'dark', label: t('theme_dark') }, { value: 'system', label: t('theme_system') }], s.theme || 'light', (v) => updateSettings({ theme: v }))),
+    item(t('theme'), segmented([{ value: 'light', label: t('theme_light') }, { value: 'dark', label: t('theme_dark') }, { value: 'system', label: t('theme_system') }], s.theme || 'dark', (v) => updateSettings({ theme: v }))),
     item(t('language'), segmented([{ value: 'en', label: 'English' }, { value: 'de', label: 'Deutsch' }], s.language, (v) => updateSettings({ language: v }))),
     item(t('speed_units'), segmented([{ value: 'metric', label: 'km/h' }, { value: 'imperial', label: 'mph' }], s.units, (v) => updateSettings({ units: v }))),
     item(t('colorblind'), switchEl(s.colorblind, (v) => updateSettings({ colorblind: v }))),

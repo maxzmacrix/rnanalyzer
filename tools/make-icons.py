@@ -14,7 +14,8 @@ from PIL import Image, ImageDraw
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PDF = sys.argv[1] if len(sys.argv) > 1 else r"C:\Users\MaxZuchowski\OneDrive - Macrix\Dokumente\Projekte\RN Vision.Org\Logos\RN Logo\RN-Logo.pdf"
-BG_TOP, BG_BOTTOM = (0x16, 0x18, 0x1e), (0x07, 0x08, 0x0a)   # matches the app's dark theme
+BG_TOP, BG_BOTTOM = (0x16, 0x18, 0x1e), (0x07, 0x08, 0x0a)   # splash: matches the app's dark theme
+ICON_BG = (0xff, 0xff, 0xff)                                 # app icon: brand logo on white
 RED = (0xed, 0x1c, 0x24)
 
 doc = fitz.open(PDF)
@@ -65,16 +66,15 @@ if white is not None:
 logo_svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.2f} {H:.2f}">{mask_svg}'
             f'<path d="{red_d}" {mark_attr}/></svg>')
 
-# icon.svg: dark gradient square, logo ~74 % wide, centred
+# icon.svg: white square, logo ~74 % wide, centred
 S = 512
 scale = S * 0.74 / W
 lw, lh = W * scale, H * scale
 tx, ty = (S - lw) / 2, (S - lh) / 2
 icon_svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {S} {S}">'
-            f'<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0" stop-color="#%02x%02x%02x"/><stop offset="1" stop-color="#%02x%02x%02x"/></linearGradient>{mask_svg}</defs>'
-            f'<rect width="{S}" height="{S}" fill="url(#bg)"/>'
-            f'<g transform="translate({tx:.2f} {ty:.2f}) scale({scale:.4f})"><path d="{red_d}" {mark_attr}/></g></svg>') % (BG_TOP + BG_BOTTOM)
+            f'<defs>{mask_svg}</defs>'
+            f'<rect width="{S}" height="{S}" fill="#%02x%02x%02x"/>'
+            f'<g transform="translate({tx:.2f} {ty:.2f}) scale({scale:.4f})"><path d="{red_d}" {mark_attr}/></g></svg>') % ICON_BG
 
 # ---------- raster: render the mark with transparent counters ----------
 def render_mark(width_px):
@@ -102,7 +102,7 @@ def gradient(size, top=BG_TOP, bottom=BG_BOTTOM):
 
 def compose(size, logo_frac, alpha=False, mark_cache={}):
     big = size * 2
-    bg = gradient(big).convert('RGBA')
+    bg = gradient(big, ICON_BG, ICON_BG).convert('RGBA')
     mark = render_mark(int(big * logo_frac))
     bg.alpha_composite(mark, ((big - mark.width) // 2, (big - mark.height) // 2))
     out = bg.resize((size, size), Image.LANCZOS)

@@ -532,7 +532,7 @@ function openOptions() {
     row(t('opt_all_tracks'), switchEl(s0.allTracks, (v) => updateSettings({ allTracks: v }))),
     row(t('opt_panels'), segmented([{ value: 2, label: '2' }, { value: 3, label: '3' }], Number(s0.panelCount) === 3 ? 3 : 2, (v) => { s.close(); updateSettings({ panelCount: v }); })),
     row(t('opt_follow'), switchEl(s0.followCursor, (v) => updateSettings({ followCursor: v }))),
-    row(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }, ...(s0.customTileUrl ? [{ value: 'custom', label: t('map_custom') }] : [])], s0.mapStyle || 'osm', (v) => updateSettings({ mapStyle: v }))),
+    row(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }], s0.mapStyle === 'satellite' ? 'satellite' : 'osm', (v) => updateSettings({ mapStyle: v }))),
     row(t('map_tiles'), switchEl(s0.mapTiles, (v) => updateSettings({ mapTiles: v }))),
     h('div.item', { on: { click: () => { s.close(); openProfiles(); } } }, h('div.lbl', t('profiles')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),
     h('div.item', { on: { click: () => { s.close(); openExcelExport(); } } }, h('div.lbl', t('export_excel')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),

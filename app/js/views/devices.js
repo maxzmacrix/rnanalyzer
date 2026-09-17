@@ -12,9 +12,8 @@ let root, deviceArea, lapsArea, queueArea;
 let base = '', info = null, deviceLaps = [], selected = new Map(); // dataFile -> {data:bool, video:bool}
 let queue = [], running = false, sortMode = 'start';
 
-export function mount(main) {
-  setTitle(t('devices_title'));
-  setTopButtons([], [tbtn('', () => connect(), { icon: 'refresh', title: t('connect') })]);
+export function mount(main, slots) {
+  if (!slots) { setTitle(t('devices_title')); setTopButtons([], [tbtn('', () => connect(), { icon: 'refresh', title: t('connect') })]); }
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const addr = h('input.input', { type: 'url', placeholder: isNative ? '192.168.1.158' : 'http://192.168.1.1:8080', value: state.settings.lastDevice || '', autocapitalize: 'off', autocorrect: 'off', spellcheck: false, inputmode: 'url' });
   addr.addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(addr.value); });
@@ -43,18 +42,22 @@ export function mount(main) {
     } catch (e) { toast(String(e.message || e)); }
     discoverBtn.disabled = false;
   } } }, t('discover'));
-  root = h('div.view.scroll',
-    h('div.card',
-      h('div.small.muted', { style: { marginBottom: '8px', lineHeight: '1.45' } }, t('device_help')),
-      h('div.row', h('div.field.grow', h('label', t('device_address')), addr, datalist), discoverBtn, h('button.btn.accent', { on: { click: () => connect(addr.value) } }, t('connect'))),
-      found,
-      known.length ? h('div.row', { style: { marginTop: '8px', flexWrap: 'wrap' } }, known.map((a) => h('button.chip', { on: { click: () => { addr.value = a; connect(a); } } }, a))) : null,
-    ),
-    (deviceArea = h('div')),
-    (queueArea = h('div')),
-    (lapsArea = h('div')),
+  const connCard = h('div.card',
+    h('div.small.muted', { style: { marginBottom: '8px', lineHeight: '1.45' } }, t('device_help')),
+    h('div.row', h('div.field.grow', h('label', t('device_address')), addr, datalist), discoverBtn, h('button.btn.accent', { on: { click: () => connect(addr.value) } }, t('connect'))),
+    found,
+    known.length ? h('div.row', { style: { marginTop: '8px', flexWrap: 'wrap' } }, known.map((a) => h('button.chip', { on: { click: () => { addr.value = a; connect(a); } } }, a))) : null,
   );
-  main.appendChild(root);
+  deviceArea = h('div'); queueArea = h('div'); lapsArea = h('div');
+  if (slots) {
+    // embedded in the Race Navigator tab: connection card on top, device info + downloads in the import section
+    slots.connection.appendChild(connCard);
+    slots.laps.append(deviceArea, queueArea, lapsArea);
+    root = slots.laps;
+  } else {
+    root = h('div.view.scroll', connCard, deviceArea, queueArea, lapsArea);
+    main.appendChild(root);
+  }
   if (state.settings.lastDevice) connect(state.settings.lastDevice);
   else discoverBtn.click();
 }

@@ -106,7 +106,7 @@ sich, was der **unveränderte Race Navigator** in seinem WLAN („Analyzer Mode�
 
 **Warum die Web‑App das nicht direkt nutzen kann:** Safari blockiert aus einer HTTPS‑Seite jeden `http://`‑Zugriff
 (Mixed Content), der Geräte‑Server sendet keine CORS‑Header, und FTP/PostgreSQL sind für Browser grundsätzlich
-unerreichbar. Die Web‑Version zeigt im Tab **Geräte** deshalb nur den Hinweis auf die **native App** (kein Verbindungsdialog);
+unerreichbar. Die Web‑Version zeigt im Tab **Race Navigator** deshalb nur den Hinweis auf die **native App** (kein Verbindungsdialog);
 der Datei‑Import (USB‑Stick aus SETTINGS › EXPORT VIDEO, iCloud, AirDrop) funktioniert in der
 Web‑Version vollständig.
 
@@ -122,7 +122,8 @@ Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Action
   `videoinfos`, `lapstovideos`, `lapsectors`, `trackvariants`, `tracks` und `sensormeasurements` über die
   HTTP‑XML‑API (`fetch` läuft in der App nativ, also ohne CORS/Mixed‑Content), setzt daraus die `.rn`‑XML
   zusammen und übergibt sie der normalen RNZ‑Import‑Pipeline; Videos kommen per FTP über das Plugin.
-  Der Tab **Geräte** zeigt in der App den Verbindungsdialog mit „Suchen“ (Bonjour) statt des Hinweises.
+  Der Tab **Race Navigator** zeigt in der App auf einer Seite Verbindung (Adresse, „Suchen“ per Bonjour), die Gerätesteuerung
+  (ehemals RN Connect) und den Runden-/Video‑Import statt des Hinweises.
 
 **Build & TestFlight einrichten (einmalig, ca. 15 Minuten, kein Mac nötig):**
 
@@ -174,8 +175,8 @@ HTTP‑API des Geräts; in der Web‑Version zeigt der Tab nur den Hinweis auf d
 
 | RN Connect | RN Analyzer 2.0 |
 |---|---|
-| Geräteliste / Pairing | Tab **Geräte** (Bonjour‑Suche `_racenav._tcp`, Adresse) |
-| Laps herunterladen, sortieren, suchen | Tab **Geräte** → Runden/Videos mit Fortschritt; Tab **Runden** |
+| Geräteliste / Pairing | Tab **Race Navigator** (Bonjour‑Suche `_racenav._tcp`, Adresse) |
+| Laps herunterladen, sortieren, suchen | Tab **Race Navigator** → Abschnitt Import mit Fortschritt; Tab **Runden** |
 | Videos ansehen, teilen | Tab **Video** / **Analyzer**; Teilen als `.rnz` über das iOS‑Share‑Sheet |
 | Basic Data: Aufnahme an/aus, Aufnahmemodus (manuell, Auto 20/40 km/h) | **Steuerung** → REC‑Taste, Modus |
 | Fahrer / Fahrzeug verwalten (wählen, anlegen, umbenennen) | **Steuerung** → Fahrer, Fahrzeug |
@@ -210,7 +211,7 @@ Quelle: `Specification/Quickstart-Guide-RN-Analyzer-for-Windows-EN-29-09-21.pdf`
 | Export der Laps als RNZ + Video (Ordner) | Runden → ⋯ → Rundendaten / Video / beides teilen (Dateien‑App, AirDrop, Mail, Instagram, YouTube, WhatsApp) |
 | Import aus Ordner | Runden → Dateien importieren (Mehrfachauswahl) |
 | „Follow“ (Karte folgt dem Cursor) | Optionen → Karte folgt dem Cursor |
-| Bing‑Luftbild | Kartenstil: Straßenkarte (OSM), Satellit (Esri World Imagery) oder eigene Kachel‑URL mit eigenem Schlüssel (Mapbox, Google, Bing) |
+| Bing‑Luftbild | Kartenstil: Straßenkarte (OSM) oder Satellit (Esri World Imagery) |
 | Dark Charts | Standard |
 | Notizen je Runde, Lap‑Filter/Suche | Bearbeiten → Notiz; Suche über Fahrer, Fahrzeug, Strecke, Event, Rundenzeit |
 | RN Remote Control (VNC‑Viewer, Passwort `RNRemote`) | nicht übernommen (kein VNC im Browser; die Steuerung im Tab „Steuerung“ deckt Fahrer/Fahrzeug/Strecke/Aufnahme/Video ab) |
@@ -227,14 +228,13 @@ wird die Datei heruntergeladen.
 ### Satellitenbilder
 
 `Setup → Kartenstil`: **Satellit** nutzt Esri World Imagery (Attribution eingeblendet; für kommerzielle Nutzung die
-Esri‑Bedingungen prüfen). Alternativ **Eigene** mit einer Kachel‑URL wie `https://api.mapbox.com/…/{z}/{x}/{y}?access_token=…`
-oder einem Google/Bing‑Kacheldienst mit eigenem Schlüssel. Einmal geladene Kacheln werden für den Offline‑Betrieb gecacht.
+Esri‑Bedingungen prüfen). Einmal geladene Kacheln werden für den Offline‑Betrieb gecacht.
 
 ## Ordnerstruktur
 
 ```
 app/
-  index.html            App‑Shell (Tabs: Runden, Analyzer, G‑Kraft, Video, Geräte, Setup)
+  index.html            App‑Shell (4 Tabs: Runden · Analyse [Diagramme | G‑Kraft | Video] · Race Navigator · Einstellungen)
   manifest.webmanifest  PWA‑Manifest, icons/ PNG+SVG
   sw.js                 Service Worker (Precache + OSM‑Kachel‑Cache)
   css/app.css

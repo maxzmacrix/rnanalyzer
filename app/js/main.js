@@ -4,22 +4,22 @@ import { initState, state, on, emit } from './state.js';
 import { t, getLanguage } from './i18n.js';
 import { setTitle, setTopButtons, toast } from './ui.js';
 import * as lapsView from './views/laps.js';
-import * as analyzerView from './views/analyzer.js';
-import * as gforceView from './views/gforce.js';
-import * as videoView from './views/video.js';
-import * as devicesView from './views/devices.js';
+import * as analyzeView from './views/analyze.js';
+import * as deviceView from './views/device.js';
 import * as settingsView from './views/settings.js';
-import * as controlView from './views/control.js';
 
 export const APP_VERSION = '2.0.0';
 
-const views = { laps: lapsView, analyzer: analyzerView, gforce: gforceView, video: videoView, devices: devicesView, control: controlView, settings: settingsView };
+const views = { laps: lapsView, analyze: analyzeView, device: deviceView, settings: settingsView };
+// old routes (bookmarks, home-screen icons from v2.0.0–2.0.6)
+const ALIASES = { analyzer: 'analyze', gforce: 'analyze/gforce', video: 'analyze/video', devices: 'device', control: 'device' };
 let current = null;
 let currentName = '';
 
 function route() {
   const hash = location.hash || '#/laps';
   const name = (hash.replace(/^#\/?/, '').split(/[/?]/)[0]) || 'laps';
+  if (ALIASES[name]) { location.replace('#/' + ALIASES[name]); return; }
   const view = views[name] || views.laps;
   if (current && currentName === name) { current.update && current.update(); return; }
   if (current && current.unmount) { try { current.unmount(); } catch (e) { console.error(e); } }

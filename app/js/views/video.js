@@ -16,7 +16,7 @@ export function mount(main) {
   speedLbl = h('span.pos', `${t('speed')} ${rate}×`);
   setTopButtons(
     [tbtn(t('choose_lap'), chooseLap, { icon: 'video' })],
-    [tbtn('', () => setRate(rate - 0.25), { icon: 'minus', title: '−' }), speedLbl, tbtn('', () => setRate(rate + 0.25), { icon: 'plus', title: '+' }), tbtn(t('laps_btn'), () => openLapPicker(() => pickDefault(true)), { icon: 'laps' })],
+    [tbtn(t('laps_btn'), () => openLapPicker(() => pickDefault(true)), { icon: 'laps' })],
   );
   stage = h('div.stage');
   hud = h('div.hud');
@@ -30,6 +30,8 @@ export function mount(main) {
       playBtn,
       h('button.rbtn', { html: icons.fwd, on: { click: () => step(1) }, title: t('step_fwd') }),
       h('button.rbtn', { html: icons.mute, title: t('sound'), on: { click: (e) => { muted = !muted; if (videoEl) videoEl.muted = muted; e.currentTarget.innerHTML = muted ? icons.mute : icons.sound; } } })),
+    h('div.row', { style: { justifyContent: 'center', gap: '10px', marginTop: '4px' } },
+      h('button.rbtn.small', { html: icons.minus, title: '−', on: { click: () => setRate(rate - 0.25) } }), speedLbl, h('button.rbtn.small', { html: icons.plus, title: '+', on: { click: () => setRate(rate + 0.25) } })),
   );
   root = h('div.view.player', stage, controls);
   main.appendChild(root);

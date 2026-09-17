@@ -57,6 +57,7 @@ export const icons = {
 };
 
 export function setTitle(text) { document.getElementById('top-title').textContent = text; }
+export function setTitleEl(el) { const h1 = clear(document.getElementById('top-title')); h1.appendChild(el); }
 export function setTopButtons(left = [], right = []) {
   const l = clear(document.getElementById('top-left'));
   const r = clear(document.getElementById('top-right'));

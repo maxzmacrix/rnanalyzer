@@ -12,8 +12,6 @@ let drivers = [], vehicles = [], variantNames = new Map();
 const els = {};
 
 export function mount(main) {
-  setTitle(t('control_title'));
-  setTopButtons([], []);
   if (!isNative()) {
     root = h('div.view.scroll', h('div.card', { style: { borderColor: 'var(--accent)' } },
       h('div', { style: { fontWeight: 700, marginBottom: '6px' } }, t('control_title')),
@@ -36,13 +34,11 @@ async function connect() {
   clear(root);
   const dev = state.settings.lastDevice;
   if (!dev) {
-    root.appendChild(h('div.card', h('div', { style: { fontWeight: 700 } }, t('control_no_device')), h('div.small.muted', { style: { margin: '6px 0 10px' } }, t('control_no_device_hint')),
-      h('button.btn.accent', { on: { click: () => { location.hash = '#/devices'; } } }, t('nav_devices'))));
+    root.appendChild(h('div.card', h('div', { style: { fontWeight: 700 } }, t('control_no_device')), h('div.small.muted', { style: { marginTop: '6px' } }, t('control_no_device_hint'))));
     return;
   }
   if (ctrl) { ctrl.stopPolling(); if (unsubStatus) unsubStatus(); }
   ctrl = new DeviceControl(dev);
-  setTopButtons([], [tbtn('', () => ctrl && ctrl.refresh().catch((e) => toast(String(e.message || e))), { icon: 'refresh', title: t('connect') })]);
   root.appendChild(h('div.empty', t('connect') + '…'));
   try { info = await nativeInfo(dev); } catch (e) { clear(root); root.appendChild(h('div.card', { style: { borderColor: 'var(--red)' } }, t('connection_failed', { e: e.message || e }))); return; }
   buildLayout();

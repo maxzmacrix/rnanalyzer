@@ -2,6 +2,7 @@ import Foundation
 import Capacitor
 import Network
 import PostgresClientKit
+import HealthKit
 
 /// Capacitor plugin giving the RN Analyzer web app access to an unmodified Race Navigator:
 ///  - discover():     Bonjour browse for `_racenav._tcp.` → [{name, host, port}]
@@ -19,6 +20,8 @@ public class RnDevicePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cameraStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cameraStop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthAvailable", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthHeartRate", returnType: CAPPluginReturnPromise),
     ]
 
     private var camera: MJPEGSocketStream?
@@ -108,6 +111,39 @@ public class RnDevicePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func cameraStop(_ call: CAPPluginCall) {
         camera?.stop(); camera = nil
         call.resolve()
+    }
+
+    // MARK: - Apple Health (heart rate from Apple Watch etc.)
+
+    private lazy var healthStore: HKHealthStore? = HKHealthStore.isHealthDataAvailable() ? HKHealthStore() : nil
+
+    @objc func healthAvailable(_ call: CAPPluginCall) {
+        call.resolve(["available": HKHealthStore.isHealthDataAvailable()])
+    }
+
+    /// healthHeartRate({from: ms, to: ms}) → {samples: [{t: ms, bpm: Double}]} (asks for read permission on first use)
+    @objc func healthHeartRate(_ call: CAPPluginCall) {
+        guard let store = healthStore, let type = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+            call.reject("Health data not available on this device"); return
+        }
+        let from = call.getDouble("from") ?? 0
+        let to = call.getDouble("to") ?? 0
+        guard to > from else { call.reject("from/to (ms) required"); return }
+        store.requestAuthorization(toShare: nil, read: [type]) { _, err in
+            if let err = err { call.reject("HealthKit: \(err.localizedDescription)"); return }
+            let start = Date(timeIntervalSince1970: from / 1000), end = Date(timeIntervalSince1970: to / 1000)
+            let pred = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let q = HKSampleQuery(sampleType: type, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, samples, error in
+                if let error = error { call.reject("HealthKit: \(error.localizedDescription)"); return }
+                let unit = HKUnit.count().unitDivided(by: .minute())
+                let out: [[String: Any]] = (samples as? [HKQuantitySample] ?? []).map { s in
+                    ["t": s.startDate.timeIntervalSince1970 * 1000, "bpm": s.quantity.doubleValue(for: unit)]
+                }
+                call.resolve(["samples": out])
+            }
+            store.execute(q)
+        }
     }
 
     // MARK: - PostgreSQL

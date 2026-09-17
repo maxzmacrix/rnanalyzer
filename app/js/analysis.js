@@ -54,6 +54,7 @@ export const CHANNELS = {
   wt:      { key: 'wt',   label: 'ch_wt',    unit: '°C', decimals: 0, kind: 'number', group: 'obd', avail: 'waterTemp' },
   ot:      { key: 'ot',   label: 'ch_ot',    unit: '°C', decimals: 0, kind: 'number', group: 'obd', avail: 'oilTemp' },
   os:      { key: 'os',   label: 'ch_os',    unit: 'speed', decimals: 1, kind: 'number', group: 'obd', avail: 'obdSpeed' },
+  hr:      { key: 'hr',   label: 'ch_hr',    unit: 'bpm', decimals: 0, kind: 'number', group: 'health', avail: 'hr' },
   timeslip:{ key: null,   label: 'ch_timeslip', unit: 's', decimals: 2, kind: 'timeslip' },
   map:     { key: null,   label: 'ch_map',      kind: 'map' },
   detail:  { key: null,   label: 'ch_detail',   kind: 'detail' },

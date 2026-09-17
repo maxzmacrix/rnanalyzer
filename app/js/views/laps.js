@@ -9,6 +9,7 @@ import { db } from '../db.js';
 import { shareFiles } from '../share.js';
 import { startTour } from '../tour.js';
 import { getSessionWeather } from '../weather.js';
+import { healthAvailable, loadHeartRate } from '../health.js';
 
 let root, listEl, selEl, filterEl, unsub = [];
 const collapsed = new Set();
@@ -146,7 +147,8 @@ function lapRow(l, isBest, an) {
       sel ? h('span.selmark', { style: { background: color }, html: icons.check, title: t('selected', { n: state.selected.indexOf(l.id) + 1 }) }) : null,
       hv ? h('span.badge.video', t('video')) : (l.video ? h('span.badge', t('no_video')) : null),
       isBest ? h('span.badge.best', t('best_lap')) : null,
-      l.demo ? h('span.badge', t('demo_badge')) : null),
+      l.demo ? h('span.badge', t('demo_badge')) : null,
+      l.channels && l.channels.hr ? h('span.badge.hr', { title: t('ch_hr') }, '♥') : null),
     h('button.more', { html: icons.more, 'aria-label': t('options'), on: { click: (e) => { e.stopPropagation(); lapMenu(l); } } }),
   );
   row.style.setProperty('--lap-color', color); // custom properties need setProperty (the style map ignores them)
@@ -196,8 +198,10 @@ function analyzeSession(laps) {
   const times = cleanLaps.map((l) => l.lapTimeMs / 1000);
   const mean = times.reduce((a, b) => a + b, 0) / (times.length || 1);
   const sigma = times.length > 1 ? Math.sqrt(times.reduce((a, x) => a + (x - mean) ** 2, 0) / times.length) : NaN;
-  const byTime = [...cleanLaps].sort((a, b) => a.lapTimeMs - b.lapTimeMs);
-  const typical = byTime[Math.floor(byTime.length / 2)] || null; // median lap = "typical" pace
+  const picked = new Set([bestLap ? bestLap.id : null, ...bestSecLap].filter(Boolean));
+  const rest = [...cleanLaps].filter((l) => !picked.has(l.id)).sort((a, b) => a.lapTimeMs - b.lapTimeMs);
+  const byTime = rest.length ? rest : [...cleanLaps].sort((a, b) => a.lapTimeMs - b.lapTimeMs);
+  const typical = byTime[Math.floor(byTime.length / 2)] || null; // median of the remaining laps = "typical" pace
   return { total: laps.length, bestMs, bestByDriver, bestLapId: bestLap ? bestLap.id : null, clean: new Set(cleanLaps.map((l) => l.id)), outliers, nSec, bestSec, bestSecLap, theoreticalMs, sigma, typicalId: typical ? typical.id : null };
 }
 function sessionStatsHtml(an) {
@@ -256,6 +260,11 @@ async function lapMenu(l) {
       `${l.track.name} · ${l.event.name}`, h('br'), `${fmtDateTime(l.startMs)} · ${l.source.device} · ${l.sampleCount} samples`, h('br'),
       l.video ? `${t('video')}: ${l.video.fileName} ${hv ? '✓' : '(' + t('video_missing') + ')'}` : t('no_video')),
     item('edit', t('edit_lap'), () => editLap(l)),
+    healthAvailable() ? item('pulse', t('health_load'), async () => {
+      toast(t('health_loading'), 20000);
+      try { const n = await loadHeartRate(l); toast(n ? t('health_loaded', { n }) : t('health_none'), 4000); }
+      catch (e) { toast(t('health_failed', { e: e.message || e }), 5000); }
+    }) : null,
     item('share', t('share_lap_data'), () => shareLap(l, 'data')),
     hv ? item('share', t('share_video'), () => shareLap(l, 'video')) : null,
     hv ? item('share', t('share_both'), () => shareLap(l, 'both')) : null,

@@ -83,6 +83,17 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 'RN Analyzer connects to your Race Navigator in the local WiFi to download laps and videos.'" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSBonjourServices array" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSBonjourServices:0 string _racenav._tcp" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string 'RN Analyzer reads your heart rate from Apple Health to show it next to the lap data.'" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSHealthUpdateUsageDescription string 'RN Analyzer does not write health data.'" "$PLIST"
+          # HealthKit entitlement (capability is enabled on the App ID and part of the provisioning profile)
+          cat > ios/App/App/App.entitlements <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.developer.healthkit</key><true/>
+            <key>com.apple.developer.healthkit.access</key><array/>
+          </dict></plist>
+          EOF
           /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$PLIST"
@@ -147,7 +158,7 @@ jobs:
         if: env.HAS_SIGNING == 'true'
         run: |
           PBX=ios/App/App.xcodeproj/project.pbxproj
-          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual; CODE_SIGN_IDENTITY = \"Apple Distribution\"; DEVELOPMENT_TEAM = $TEAM_ID; PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" "$PBX"
+          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual; CODE_SIGN_IDENTITY = \"Apple Distribution\"; DEVELOPMENT_TEAM = $TEAM_ID; PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\"; CODE_SIGN_ENTITLEMENTS = App\/App.entitlements;/g" "$PBX"
           sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' "$PBX"
           grep -nE "CODE_SIGN|DEVELOPMENT_TEAM|PROVISIONING_PROFILE" "$PBX"
 

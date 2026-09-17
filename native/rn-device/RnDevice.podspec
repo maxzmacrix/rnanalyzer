@@ -8,6 +8,7 @@ Pod::Spec.new do |s|
   s.source = { :git => 'https://github.com/maxzmacrix/rnanalyzer.git', :tag => s.version.to_s }
   s.source_files = 'ios/Plugin/**/*.{swift,h,m}'
   s.ios.deployment_target = '13.0'
+  s.frameworks = 'HealthKit', 'Network'
   s.dependency 'Capacitor'
   s.dependency 'PostgresClientKit', '~> 1.5'
   s.swift_version = '5.1'

@@ -459,3 +459,5 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 
 /* ---------- session weather ---------- */
 .event-head .weather { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+.badge.hr { background: rgba(229, 32, 43, 0.15); color: var(--accent); font-size: 12px; }

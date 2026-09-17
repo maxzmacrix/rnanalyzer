@@ -55,6 +55,12 @@ export const db = {
     if (raw) t.objectStore('raw').put({ id: lap.id, data: raw, fileName: lap.source.fileName });
     await txDone(t);
   },
+  async putSamples(id, samples) {
+    const d = await open();
+    const t = tx(d, ['samples'], 'readwrite');
+    t.objectStore('samples').put({ ...samples, id });
+    await txDone(t);
+  },
   async updateLap(lap) {
     const d = await open();
     const t = tx(d, ['laps'], 'readwrite');

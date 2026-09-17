@@ -2,7 +2,7 @@
 // element in question, a short explanation, automatic advance (pausable). Demo laps are flagged `demo: true`
 // so they can be removed again with one tap.
 
-import { state, setSelection, clearSelection, reloadLaps, videoKeyFor } from './state.js';
+import { state, setSelection, clearSelection, reloadLaps, videoKeyFor, hasVideo, MAX_LAPS } from './state.js';
 import { importFiles } from './import.js';
 import { db } from './db.js';
 import { player } from './sync.js';
@@ -60,6 +60,10 @@ const STEPS = [
   { key: 'tour_filters', route: '#/laps', target: '.filter-bar', dur: 6500 },
   { key: 'tour_suggest', route: '#/laps', target: '.sel-summary', dur: 7000, before: async () => {
     const b = document.querySelector('.event-head .suggest'); if (b) b.click(); await wait(600);
+    // the video scenes need two laps with clips – add demo laps with video if the suggestion did not include them
+    const withVideo = state.laps.filter((l) => l.demo && hasVideo(l)).map((l) => l.id);
+    const ids = [...state.selected]; for (const id of withVideo) if (!ids.includes(id) && ids.length < MAX_LAPS) ids.push(id);
+    if (ids.length !== state.selected.length) { await setSelection(ids); await wait(300); }
   } },
   { key: 'tour_play', route: '#/analyze/charts', target: '.play-bar', dur: 8000, before: async () => { await wait(900); await player.play(); } },
   { key: 'tour_chart', route: '#/analyze/charts', target: () => document.querySelectorAll('.right-col .panel')[0], dur: 8000 },

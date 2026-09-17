@@ -361,7 +361,7 @@ function detailRows() {
   const rows = [];
   const base = ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg', 'gyrY', 'gyrP', 'gyrR'];
   for (const id of base) rows.push(id);
-  for (const id of ['rpm', 'thr', 'wt', 'ot', 'os']) if (data.some((d) => d.lap.channels[CHANNELS[id].avail])) rows.push(id);
+  for (const id of ['rpm', 'thr', 'wt', 'ot', 'os', 'hr']) if (data.some((d) => d.lap.channels[CHANNELS[id].avail])) rows.push(id);
   const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add(c.name);
   for (const name of custom) rows.push('custom:' + name);
   return rows;
@@ -521,7 +521,7 @@ function openComponentSheet(key) {
   for (const id of ['timeslip', 'map', 'detail', 'overview', 'sections']) items.push(viewRow(id));
   items.push(h('div.group', t('group_gyro')));
   for (const id of ['gyrY', 'gyrP', 'gyrR']) items.push(numRow(id));
-  const obd = ['rpm', 'thr', 'wt', 'ot', 'os'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
+  const obd = ['rpm', 'thr', 'wt', 'ot', 'os', 'hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
   if (obd.length) { items.push(h('div.group', t('group_obd'))); for (const id of obd) items.push(numRow(id)); }
   const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add(c.name);
   if (custom.size) { items.push(h('div.group', 'Custom CAN')); for (const name of custom) items.push(numRow('custom:' + name)); }
@@ -575,7 +575,7 @@ function openProfiles() {
 // ------------------------------------------------------------------ Excel export (Windows "Excel Export": lap list + data by distance step)
 function openExcelExport() {
   if (!data.length) { toast(t('select_laps_first')); return; }
-  const available = ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg', 'gyrY', 'gyrP', 'gyrR', ...['rpm', 'thr', 'wt', 'ot', 'os'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]))];
+  const available = ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg', 'gyrY', 'gyrP', 'gyrR', ...['rpm', 'thr', 'wt', 'ot', 'os', 'hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]))];
   const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add('custom:' + c.name);
   available.push(...custom);
   const chosen = new Set(['speed', 'glon', 'glat', 'gcomb', 'alt']);

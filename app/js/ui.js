@@ -34,6 +34,7 @@ export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild);
 
 export const icons = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+  pulse: '<svg viewBox="0 0 24 24"><path d="M3 12h3l2-5 4 10 3-7 1.5 2H21v2h-5.5l-2.5-3-3 7-4-10-1 2.5H3z"/></svg>',
   chart: '<svg viewBox="0 0 24 24"><path d="M3 3h2v18h16v-2H5V3zM8 13l4 4 5-8 4 5-1.6 1.2L17 12.4l-4.7 7.5L8 15.8l-3.4 4.1L3 18.6z"/></svg>',
   gforce: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v4h4v2h-4v4h-2v-4H7v-2h4z"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',

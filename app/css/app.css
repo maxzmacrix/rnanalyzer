@@ -388,6 +388,12 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .seg button .ico svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 .topbar h1 .seg.title-seg { vertical-align: middle; }
 .topbar .title-seg button { padding: 5px 11px; font-size: 12.5px; }
+/* mode switch stays centred regardless of how many buttons sit left/right (it must not jump between modes) */
+.topbar { position: relative; }
+.topbar:has(.title-seg) h1 { position: absolute; left: 50%; top: var(--sat); height: var(--top-h); display: flex; align-items: center; transform: translateX(-50%); flex: none; overflow: visible; margin: 0; }
+.topbar:has(.title-seg) #top-right { margin-left: auto; }
+/* table panels: keep the header row clear of the panel title chip */
+.panel:has(> .panel-body > .table-wrap table.data) .table-wrap { top: 34px; }
 /* narrow phones: mode switch as icons, top-bar buttons icon-only so nothing gets clipped */
 @media (max-width: 600px) {
   .topbar .title-seg button .lbl { display: none; }

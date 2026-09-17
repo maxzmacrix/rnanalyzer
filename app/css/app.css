@@ -21,6 +21,7 @@
   --sector-default: #0b6fb0;
   --sector-custom: #8a5e00;
   --offline-fg: #b3141e;
+  --purple: #7e22ce;
   --fg-025: rgba(10,12,16,0.025); --fg-04: rgba(10,12,16,0.04); --fg-05: rgba(10,12,16,0.05); --fg-06: rgba(10,12,16,0.06);
   --fg-08: rgba(10,12,16,0.08); --fg-10: rgba(10,12,16,0.1); --fg-12: rgba(10,12,16,0.12); --fg-16: rgba(10,12,16,0.16);
   --fg-20: rgba(10,12,16,0.2); --fg-25: rgba(10,12,16,0.25); --fg-30: rgba(10,12,16,0.3); --fg-35: rgba(10,12,16,0.35);
@@ -65,6 +66,7 @@
   --sector-default: #6be5f6;
   --sector-custom: #ffe14d;
   --offline-fg: #ffb4ae;
+  --purple: #c77dff;
   --fg-025: rgba(255,255,255,0.025); --fg-04: rgba(255,255,255,0.04); --fg-05: rgba(255,255,255,0.05); --fg-06: rgba(255,255,255,0.06);
   --fg-08: rgba(255,255,255,0.08); --fg-10: rgba(255,255,255,0.1); --fg-12: rgba(255,255,255,0.12); --fg-16: rgba(255,255,255,0.16);
   --fg-20: rgba(255,255,255,0.2); --fg-25: rgba(255,255,255,0.25); --fg-30: rgba(255,255,255,0.3); --fg-35: rgba(255,255,255,0.35);
@@ -407,3 +409,20 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .device-page .view, .device-page .view.scroll { flex: none; min-height: 0; overflow: visible; display: block; }
 .rbtn.small { width: 34px; height: 34px; }
 .rbtn.small svg { width: 18px; height: 18px; }
+
+/* ---------- session analysis in the lap list ---------- */
+.filter-bar { display: flex; gap: 6px; padding: 0 10px 8px; overflow-x: auto; scrollbar-width: none; align-items: center; flex: 0 0 auto; }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-bar .chip { flex: 0 0 auto; white-space: nowrap; }
+.filter-bar .chip.on { background: var(--seg-on-bg); color: var(--seg-on-fg); border-color: transparent; }
+.filter-bar .sep { flex: 0 0 1px; width: 1px; height: 18px; background: var(--fg-16); margin: 0 2px; }
+.lap-row .time-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lap-row .delta { font-size: 12px; font-weight: 600; color: var(--text-dim); }
+.lap-row.outlier .time { color: var(--grey); }
+.lap-row .secs { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: 11.5px; color: var(--text-dim); }
+.lap-row .sec b { font-weight: 600; color: var(--text-muted); margin-right: 3px; }
+.lap-row .sec.best { color: var(--purple); font-weight: 700; }
+.lap-row .sec.best b { color: var(--purple); }
+.event-head .stats { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.event-head .stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+.event-head .suggest { flex: 0 0 auto; align-self: center; }

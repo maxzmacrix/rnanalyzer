@@ -28,10 +28,19 @@ export function mount(main) {
 
   // storage
   const storageInfo = h('div.sub', '…');
-  const persistBtn = h('button.btn.ghost', { on: { click: async () => { const ok = await db.persist(); toast(ok ? t('persisted') : t('not_persisted')); refreshStorage(); } } }, t('persist_storage'));
+  const persistInfo = h('div.sub', { style: { marginTop: '4px' } }, '…');
+  const persistBtn = h('button.btn.ghost', { on: { click: async () => { const ok = await db.persist(); toast(ok ? t('persisted') : t('not_persisted')); refreshStorage(); refreshPersist(); } } }, t('protect'));
+  async function refreshPersist() {
+    let p = false;
+    try { p = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : false; } catch { p = false; }
+    persistInfo.textContent = p ? '✓ ' + t('storage_protected') : t('storage_unprotected');
+    persistInfo.style.color = p ? 'var(--green)' : '';
+    persistBtn.classList.toggle('hidden', !!p);
+  }
+  refreshPersist();
   root.append(
     h('h3', t('storage')),
-    h('div.item', h('div.lbl', h('div', t('storage')), storageInfo), persistBtn),
+    h('div.item', h('div.lbl', h('div', t('storage')), storageInfo, persistInfo), persistBtn),
     h('div.item', h('div.lbl', h('div', t('delete_all_videos'))), h('button.btn.danger', { on: { click: async () => {
       if (!(await confirmDialog(t('confirm_delete_videos'), { danger: true, okLabel: t('delete') }))) return;
       await db.deleteAllVideos(); await reloadLaps(); refreshStorage(); toast(t('done'));

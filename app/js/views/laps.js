@@ -8,9 +8,12 @@ import { importFiles } from '../import.js';
 import { db } from '../db.js';
 import { shareFiles } from '../share.js';
 
-let root, listEl, selEl, unsub = [];
+let root, listEl, selEl, filterEl, unsub = [];
 const collapsed = new Set();
 let query = '';
+// session analysis filters (kept while the app runs)
+const filters = { complete: false, outliers: false, video: false, driver: '', vehicle: '', sort: 'session' };
+const OUTLIER_PCT = 5; // laps slower than best + 5 % count as outliers (traffic, mistakes, in/out laps)
 
 export function mount(main) {
   setTitle(t('nav_laps'));
@@ -24,6 +27,7 @@ export function mount(main) {
   const search = h('input.input', { type: 'search', placeholder: t('search'), value: query, on: { input: (e) => { query = e.target.value; renderList(); } } });
   root = h('div.view',
     h('div.laps-toolbar', search, fileInput),
+    (filterEl = h('div.filter-bar')),
     (selEl = h('div.sel-summary')),
     (listEl = h('div.scroll.grow')),
   );
@@ -74,6 +78,11 @@ function renderList() {
   }
   const q = query.trim();
   laps = laps.filter((l) => matches(l, q));
+  renderFilterBar(laps);
+  if (filters.driver) laps = laps.filter((l) => displayDriver(l) === filters.driver);
+  if (filters.vehicle) laps = laps.filter((l) => displayVehicle(l) === filters.vehicle);
+  if (filters.complete) laps = laps.filter((l) => l.complete && l.lapTimeMs > 0);
+  if (filters.video) laps = laps.filter((l) => hasVideo(l));
   if (!laps.length) {
     listEl.appendChild(h('div.empty', state.laps.length ? t('search') + ': 0' : t('no_laps')));
     return;
@@ -88,41 +97,133 @@ function renderList() {
   const sorted = [...groups.values()].sort((a, b) => (b.first.event.startMs || b.first.startMs) - (a.first.event.startMs || a.first.startMs));
   for (const g of sorted) {
     const l0 = g.first;
+    const an = analyzeSession(g.laps);
     const isCollapsed = collapsed.has(g.key);
     const head = h('div.event-head', { class: isCollapsed ? 'collapsed' : '', on: { click: () => { if (collapsed.has(g.key)) collapsed.delete(g.key); else collapsed.add(g.key); renderList(); } } },
       h('span.chev', { html: icons.chev, style: { display: 'inline-flex' } }),
       h('div.grow',
         h('div.title', l0.track.name || l0.event.name || '–'),
-        h('div.sub', `${l0.event.name && l0.event.name !== l0.track.name ? l0.event.name + ' · ' : ''}${fmtDate(l0.event.startMs || l0.startMs)} · ${l0.source.device} · ${t('laps_count', { n: g.laps.length })}`)),
+        h('div.sub', `${l0.event.name && l0.event.name !== l0.track.name ? l0.event.name + ' · ' : ''}${fmtDate(l0.event.startMs || l0.startMs)} · ${l0.source.device} · ${t('laps_count', { n: g.laps.length })}`),
+        an.clean.size >= 2 ? h('div.stats', { html: sessionStatsHtml(an) }) : null),
+      an.clean.size >= 2 ? h('button.chip.suggest', { on: { click: (e) => { e.stopPropagation(); suggestComparison(an); } } }, t('suggest_compare')) : null,
     );
     listEl.appendChild(head);
     if (isCollapsed) continue;
-    g.laps.sort((a, b) => a.startMs - b.startMs);
-    for (const l of g.laps) listEl.appendChild(lapRow(l, best.has(l.id)));
+    let rows = g.laps;
+    if (filters.outliers) rows = rows.filter((l) => !an.outliers.has(l.id));
+    sortLaps(rows, an);
+    for (const l of rows) listEl.appendChild(lapRow(l, best.has(l.id), an));
   }
 }
 
-function lapRow(l, isBest) {
+function lapRow(l, isBest, an) {
   const sel = isSelected(l.id);
   const color = lapColor(l.id);
   const hv = hasVideo(l);
+  const secs = sectorTimes(l);
+  const isOutlier = an && an.outliers.has(l.id);
+  const dBest = an && an.bestByDriver.get(displayDriver(l));
+  const delta = an && l.complete && l.lapTimeMs > 0 && dBest > 0 && l.lapTimeMs !== dBest ? (l.lapTimeMs - dBest) / 1000 : NaN;
   const row = h('div.lap-row', {
-    class: `${sel ? 'selected' : ''} ${l.complete ? '' : 'incomplete'} ${isBest ? 'best' : ''}`,
+    class: `${sel ? 'selected' : ''} ${l.complete ? '' : 'incomplete'} ${isBest ? 'best' : ''} ${isOutlier ? 'outlier' : ''}`,
     style: { '--lap-color': color },
     on: { click: async (e) => { if (e.target.closest('.more')) return; const ok = await toggleSelect(l.id); if (!ok) toast(t('max_selected', { n: MAX_LAPS })); } },
   },
     h('div.bar'),
     h('div.avatar', l.driver.photo ? h('img', { src: l.driver.photo, alt: '' }) : initials(displayDriver(l))),
     h('div.info',
-      h('div.time.mono', fmtLapTime(l.lapTimeMs)),
+      h('div.time-row', h('div.time.mono', fmtLapTime(l.lapTimeMs)), Number.isFinite(delta) ? h('span.delta.mono', `+${delta.toFixed(3)}`) : null, isOutlier ? h('span.badge', t('outlier')) : null),
       h('div.l1', `${displayDriver(l)} · ${displayVehicle(l)}`),
-      h('div.l2', `${t('lap_n', { n: l.lapNumber })} · ${fmtTimeOfDay(l.startMs)}${l.note ? ' · ' + l.note : ''}`)),
+      h('div.l2', `${t('lap_n', { n: l.lapNumber })} · ${fmtTimeOfDay(l.startMs)}${l.note ? ' · ' + l.note : ''}`),
+      secs.length ? h('div.secs', secs.map((s, j) => h('span.sec.mono', { class: an && an.bestSecLap[j] === l.id ? 'best' : '', title: an && an.bestSecLap[j] === l.id ? t('best_sector') : '' }, h('b', `S${j + 1}`), fmtSec(s)))) : null),
     h('div.right',
       hv ? h('span.badge.video', t('video')) : (l.video ? h('span.badge', t('no_video')) : null),
       isBest ? h('span.badge.best', t('best_lap')) : null),
     h('button.more', { html: icons.more, 'aria-label': t('options'), on: { click: (e) => { e.stopPropagation(); lapMenu(l); } } }),
   );
   return row;
+}
+
+// ------------------------------------------------------------------ session analysis
+function sectorTimes(l) { return (l.sectors || []).map((s) => s.endS - s.startS).filter((x) => Number.isFinite(x) && x > 0); }
+function fmtSec(s) { return s < 60 ? s.toFixed(3) : fmtLapTime(s * 1000); }
+
+/** Best lap, outliers, best sector per index, theoretical best and consistency for the laps of one session. */
+function analyzeSession(laps) {
+  const complete = laps.filter((l) => l.complete && l.lapTimeMs > 0);
+  const bestMs = complete.length ? Math.min(...complete.map((l) => l.lapTimeMs)) : NaN;
+  const bestLap = complete.find((l) => l.lapTimeMs === bestMs);
+  // outliers and deltas are judged per driver (a slower driver's laps are not outliers of the faster one)
+  const bestByDriver = new Map();
+  for (const l of complete) { const d = displayDriver(l); if (!bestByDriver.has(d) || l.lapTimeMs < bestByDriver.get(d)) bestByDriver.set(d, l.lapTimeMs); }
+  const isOutlier = (l) => l.lapTimeMs > bestByDriver.get(displayDriver(l)) * (1 + OUTLIER_PCT / 100);
+  const cleanLaps = complete.filter((l) => !isOutlier(l));
+  const outliers = new Set(complete.filter(isOutlier).map((l) => l.id));
+  // sector count = most common count among clean laps that carry device sectors
+  const counts = new Map();
+  for (const l of cleanLaps) { const n = sectorTimes(l).length; if (n) counts.set(n, (counts.get(n) || 0) + 1); }
+  const nSec = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 0;
+  const withSec = cleanLaps.filter((l) => sectorTimes(l).length === nSec);
+  const bestSec = [], bestSecLap = [];
+  for (let j = 0; j < nSec; j++) {
+    let bl = null, bt = Infinity;
+    for (const l of withSec) { const v = sectorTimes(l)[j]; if (v < bt) { bt = v; bl = l; } }
+    bestSec.push(bt); bestSecLap.push(bl ? bl.id : null);
+  }
+  const theoreticalMs = nSec ? bestSec.reduce((a, b) => a + b, 0) * 1000 : NaN;
+  const times = cleanLaps.map((l) => l.lapTimeMs / 1000);
+  const mean = times.reduce((a, b) => a + b, 0) / (times.length || 1);
+  const sigma = times.length > 1 ? Math.sqrt(times.reduce((a, x) => a + (x - mean) ** 2, 0) / times.length) : NaN;
+  const byTime = [...cleanLaps].sort((a, b) => a.lapTimeMs - b.lapTimeMs);
+  const typical = byTime[Math.floor(byTime.length / 2)] || null; // median lap = "typical" pace
+  return { total: laps.length, bestMs, bestByDriver, bestLapId: bestLap ? bestLap.id : null, clean: new Set(cleanLaps.map((l) => l.id)), outliers, nSec, bestSec, bestSecLap, theoreticalMs, sigma, typicalId: typical ? typical.id : null };
+}
+function sessionStatsHtml(an) {
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const parts = [];
+  if (Number.isFinite(an.theoreticalMs)) parts.push(`${esc(t('theoretical_short'))} <b>${fmtLapTime(an.theoreticalMs)}</b> (−${((an.bestMs - an.theoreticalMs) / 1000).toFixed(3)})`);
+  if (Number.isFinite(an.sigma)) parts.push(`σ <b>${an.sigma.toFixed(3)} s</b>`);
+  parts.push(esc(t('clean_laps', { c: an.clean.size, n: an.total })));
+  return parts.join(' · ');
+}
+function sortLaps(rows, an) {
+  const sec = /^s(\d+)$/.exec(filters.sort);
+  if (filters.sort === 'time') rows.sort((a, b) => ((a.complete && a.lapTimeMs > 0) ? a.lapTimeMs : Infinity) - ((b.complete && b.lapTimeMs > 0) ? b.lapTimeMs : Infinity) || a.startMs - b.startMs);
+  else if (sec) { const j = Number(sec[1]) - 1; rows.sort((a, b) => (sectorTimes(a)[j] ?? Infinity) - (sectorTimes(b)[j] ?? Infinity) || a.startMs - b.startMs); }
+  else rows.sort((a, b) => a.startMs - b.startMs);
+}
+async function suggestComparison(an) {
+  const ids = [];
+  const add = (id) => { if (id && !ids.includes(id) && ids.length < MAX_LAPS) ids.push(id); };
+  add(an.bestLapId);
+  for (const id of an.bestSecLap) add(id);
+  add(an.typicalId);
+  if (!ids.length) return;
+  await setSelection(ids);
+  toast(t('suggest_done', { n: ids.length }), 4000);
+}
+function renderFilterBar(laps) {
+  clear(filterEl);
+  if (!state.laps.length) return;
+  const chip = (label, on, fn, cls = '') => h('button.chip', { class: `${on ? 'on' : ''} ${cls}`, on: { click: () => { fn(); renderList(); } } }, label);
+  const maxSec = Math.max(0, ...laps.map((l) => sectorTimes(l).length));
+  filterEl.append(
+    chip(t('filter_complete'), filters.complete, () => { filters.complete = !filters.complete; }),
+    chip(t('filter_outliers'), filters.outliers, () => { filters.outliers = !filters.outliers; }, ''),
+    chip(t('filter_video'), filters.video, () => { filters.video = !filters.video; }),
+    h('span.sep'),
+    chip(t('sort_session'), filters.sort === 'session', () => { filters.sort = 'session'; }),
+    chip(t('sort_time'), filters.sort === 'time', () => { filters.sort = 'time'; }),
+    ...Array.from({ length: Math.min(maxSec, 8) }, (_, j) => chip(`S${j + 1}`, filters.sort === `s${j + 1}`, () => { filters.sort = `s${j + 1}`; })),
+  );
+  const drivers = [...new Set(laps.map(displayDriver))].filter((d) => d && d !== '–');
+  const vehicles = [...new Set(laps.map(displayVehicle))].filter((v) => v && v !== '–');
+  if (drivers.length > 1 || filters.driver) {
+    filterEl.append(h('span.sep'), chip(t('all_drivers'), !filters.driver, () => { filters.driver = ''; }), ...drivers.map((d) => chip(d, filters.driver === d, () => { filters.driver = filters.driver === d ? '' : d; })));
+  }
+  if (vehicles.length > 1 || filters.vehicle) {
+    filterEl.append(h('span.sep'), chip(t('all_vehicles'), !filters.vehicle, () => { filters.vehicle = ''; }), ...vehicles.map((v) => chip(v, filters.vehicle === v, () => { filters.vehicle = filters.vehicle === v ? '' : v; })));
+  }
 }
 
 async function lapMenu(l) {

@@ -58,6 +58,7 @@ export function mount(main) {
     on('selection', load), on('laps', load), on('settings', onSettings), on('cursor', onCursor),
     on('player', (e) => { playBtn.innerHTML = e.playing ? icons.pause : icons.play; }),
     on('sectors', () => refreshPanels()),
+    on('theme', () => onSettings({ theme: true })),
     on('theme', () => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); } }),
   );
   playBtn.innerHTML = player.playing ? icons.pause : icons.play;
@@ -115,7 +116,7 @@ function onSettings(patch) {
   if ('mapTiles' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setTiles(patch.mapTiles);
   if ('mapStyle' in patch || 'customTileUrl' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setProvider(providerFor(state.settings));
   if ('panelCount' in patch) { const main = root.parentElement; unmount(); mount(main); return; }
-  const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'xMode', 'sectors', 'units', 'colorblind', 'language'];
+  const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'xMode', 'sectors', 'units', 'theme', 'language'];
   if (keys.some((k) => k in patch)) { scaledCache.clear(); data = data.map((d) => ({ ...d, color: lapColor(d.lap.id) })); updateRefLabel(); refreshPanels(); updateVideoColors(); }
 }
 
@@ -227,7 +228,8 @@ function sectorMarkers() {
     splitsD = deviceSplits(ref.lap, ref.samples);
     if (!splitsD.length) splitsD = geometricSplits(ref.samples, ref.lap.trackDef);
   }
-  const color = mode === 'custom' ? '#ffe14d' : '#6be5f6';
+  const css = getComputedStyle(document.documentElement);
+  const color = (mode === 'custom' ? css.getPropertyValue('--sector-custom') : css.getPropertyValue('--sector-default')).trim() || '#6be5f6';
   return splitsD.map((d, i) => ({ x: xMode() === 'time' ? timeAtDistance(ref.samples, d) : d, label: `S${i + 1}`, color, d }));
 }
 

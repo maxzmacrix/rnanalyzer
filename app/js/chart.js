@@ -252,9 +252,9 @@ export class LineChart {
         ctx.font = FONT_BOLD; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         const txt = this.fmtX(this.cursor);
         const tw = ctx.measureText(txt).width + 8;
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(Math.min(Math.max(px - tw / 2, r.x), r.x + r.w - tw), r.y + r.h + 1, tw, 14);
         ctx.fillStyle = colCursor;
+        ctx.fillRect(Math.min(Math.max(px - tw / 2, r.x), r.x + r.w - tw), r.y + r.h + 1, tw, 14);
+        ctx.fillStyle = '#ffffff';
         ctx.fillText(txt, Math.min(Math.max(px, r.x + tw / 2), r.x + r.w - tw / 2), r.y + r.h + 2);
       }
     }

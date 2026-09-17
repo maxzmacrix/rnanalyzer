@@ -125,18 +125,20 @@ export class TrackMap {
     }
     // track definition
     if (this.def) {
+      const sectorColor = css.getPropertyValue('--sector-default').trim() || '#6be5f6';
       const drawLine = (pts, color, width, dash) => {
         if (!pts || pts.length < 2) return;
-        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
         ctx.beginPath();
         pts.forEach((p, i) => { const q = this.toPx(p.lat, p.lng); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
-        ctx.stroke(); ctx.setLineDash([]);
+        // dark halo so the line is readable on light street tiles as well as on satellite imagery
+        ctx.setLineDash([]); ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = width + 2.5; ctx.stroke();
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]);
       };
       drawLine(this.def.startLine, '#ffffff', 3);
       if (this.showSectors) {
         (this.def.sectors || []).forEach((s, i) => {
-          drawLine(s.points, '#6be5f6', 2, [5, 4]);
-          if (s.points && s.points.length) { const q = this.toPx(s.points[0].lat, s.points[0].lng); this._label(ctx, `S${i + 1}`, q.x, q.y - 8, '#6be5f6'); }
+          drawLine(s.points, sectorColor, 2, [5, 4]);
+          if (s.points && s.points.length) { const q = this.toPx(s.points[0].lat, s.points[0].lng); this._label(ctx, `S${i + 1}`, q.x, q.y - 10, '#ffffff', true); }
         });
       }
       (this.def.curves || []).forEach((c) => {
@@ -152,7 +154,7 @@ export class TrackMap {
       const q = this.toPx(sp.lat, sp.lng);
       ctx.fillStyle = '#ffe14d'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(q.x, q.y - 9); ctx.lineTo(q.x + 6, q.y); ctx.lineTo(q.x, q.y + 9); ctx.lineTo(q.x - 6, q.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-      if (sp.label) this._label(ctx, sp.label, q.x, q.y - 16, '#ffe14d');
+      if (sp.label) this._label(ctx, sp.label, q.x, q.y - 18, '#ffe14d', true);
     }
     // cursors
     for (const c of this.cursors) {
@@ -174,7 +176,7 @@ export class TrackMap {
     ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (boxed) {
       const w = ctx.measureText(text).width + 8;
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 8, w, 16, 4) : ctx.rect(x - w / 2, y - 8, w, 16); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 8, w, 16, 4) : ctx.rect(x - w / 2, y - 8, w, 16); ctx.fill();
     }
     ctx.fillStyle = color; ctx.fillText(text, x, y);
   }

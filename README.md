@@ -227,8 +227,8 @@ wird die Datei heruntergeladen.
 
 ### Satellitenbilder
 
-`Setup → Kartenstil`: **Satellit** nutzt Esri World Imagery (Attribution eingeblendet; für kommerzielle Nutzung die
-Esri‑Bedingungen prüfen). Einmal geladene Kacheln werden für den Offline‑Betrieb gecacht.
+`Einstellungen → Kartenstil`: **Satellit** nutzt Esri World Imagery (Attribution eingeblendet). Einmal geladene Kacheln
+werden für den Offline‑Betrieb gecacht.
 
 ## Ordnerstruktur
 

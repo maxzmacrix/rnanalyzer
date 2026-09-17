@@ -1,5 +1,5 @@
 /* RN Analyzer service worker – app shell precache + runtime caching of map tiles. */
-const VERSION = 'rn-analyzer-v2.0.7';
+const VERSION = 'rn-analyzer-v2.0.8';
 const SHELL = `${VERSION}-shell`;
 const TILES = `${VERSION}-tiles`;
 const ASSETS = [

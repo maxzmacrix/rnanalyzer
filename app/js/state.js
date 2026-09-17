@@ -6,9 +6,10 @@ import { setLanguage, detectLanguage } from './i18n.js';
 export const MAX_LAPS = 10;
 export const MAX_VIDEOS = 4;
 
+// Lap colours: bright set for the dark theme, darker set (≥ 4.5:1 on white) for the light theme – both used as text colours too.
 export const PALETTES = {
-  normal: ['#ff9a1f', '#3fd162', '#4aa3ff', '#ff4d4d', '#c77dff', '#ffe14d', '#33e0e0', '#ff7ad1', '#b6ff3f', '#d2a679'],
-  colorblind: ['#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7', '#BBBBBB', '#FFFFFF', '#8B6D3F'],
+  dark: ['#ff9a1f', '#3fd162', '#4aa3ff', '#ff4d4d', '#c77dff', '#ffe14d', '#33e0e0', '#ff7ad1', '#b6ff3f', '#d2a679'],
+  light: ['#c2410c', '#15803d', '#1d4ed8', '#b91c1c', '#7e22ce', '#8a5406', '#0f766e', '#be185d', '#4d7c0f', '#8d5524'],
 };
 
 // Web version: English by default. Native app (Capacitor): follow the device language.
@@ -108,11 +109,12 @@ export function videoKeyFor(lap) {
 }
 export function hasVideo(lap) { return !!videoKeyFor(lap); }
 
-export function palette() { return state.settings.colorblind ? PALETTES.colorblind : PALETTES.normal; }
+export function isDarkTheme() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+export function palette() { return isDarkTheme() ? PALETTES.dark : PALETTES.light; }
 export function lapColor(id) {
   const i = state.selected.indexOf(id);
   const p = palette();
-  return i >= 0 ? p[i % p.length] : '#9aa4b8';
+  return i >= 0 ? p[i % p.length] : (isDarkTheme() ? '#9aa4b8' : '#6b7380');
 }
 export function selectedLaps() {
   return state.selected.map((id) => state.lapsById.get(id)).filter(Boolean);

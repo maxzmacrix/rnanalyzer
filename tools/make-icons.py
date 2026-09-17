@@ -5,6 +5,7 @@
 Writes:
   app/icons/icon.svg, logo.svg, icon-192.png, icon-512.png, icon-512-maskable.png, apple-touch-icon.png
   native/ios-assets/AppIcon-1024.png (no alpha, as required by iOS), splash-2732.png (dark, logo centred)
+  native/android-res/  launcher icons (legacy + adaptive) for every density, dark splash drawable
 
 Requires: pip install pymupdf pillow
 """
@@ -125,3 +126,37 @@ mark = render_mark(int(S2 * 0.34))
 bg.alpha_composite(mark, ((S2 - mark.width) // 2, (S2 - mark.height) // 2))
 bg.convert('RGB').save(os.path.join(native, 'splash-2732.png'), optimize=True)
 print('icons written; logo fill', fill_hex, 'bbox', bbox)
+
+# ---------- Android resources (copied over the Capacitor template's res/ in CI) ----------
+import shutil
+ares = os.path.join(ROOT, 'native', 'android-res')
+shutil.rmtree(ares, ignore_errors=True)
+DENS = {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}
+def rounded_mask(size, radius):
+    m = Image.new('L', (size, size), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255); return m
+def circle_mask(size):
+    m = Image.new('L', (size, size), 0); ImageDraw.Draw(m).ellipse([0, 0, size - 1, size - 1], fill=255); return m
+for name, f in DENS.items():
+    d = os.path.join(ares, f'mipmap-{name}'); os.makedirs(d, exist_ok=True)
+    s48 = int(48 * f)
+    legacy = compose(s48, 0.74, alpha=True)
+    sq = legacy.copy(); sq.putalpha(rounded_mask(s48, int(s48 * 0.18)))
+    sq.save(os.path.join(d, 'ic_launcher.png'), optimize=True)
+    rd_ = compose(s48, 0.62, alpha=True); rd_.putalpha(circle_mask(s48))
+    rd_.save(os.path.join(d, 'ic_launcher_round.png'), optimize=True)
+    # adaptive foreground: 108dp canvas, safe zone = inner 66 dp -> logo about 52 % of the canvas
+    s108 = int(108 * f)
+    fg = Image.new('RGBA', (s108, s108), (0, 0, 0, 0))
+    mark = render_mark(int(s108 * 0.52))
+    fg.alpha_composite(mark, ((s108 - mark.width) // 2, (s108 - mark.height) // 2))
+    fg.save(os.path.join(d, 'ic_launcher_foreground.png'), optimize=True)
+os.makedirs(os.path.join(ares, 'mipmap-anydpi-v26'), exist_ok=True)
+adaptive = ('<?xml version="1.0" encoding="utf-8"?>\n<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+            '    <background android:drawable="@color/ic_launcher_background"/>\n    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n</adaptive-icon>\n')
+open(os.path.join(ares, 'mipmap-anydpi-v26', 'ic_launcher.xml'), 'w').write(adaptive)
+open(os.path.join(ares, 'mipmap-anydpi-v26', 'ic_launcher_round.xml'), 'w').write(adaptive)
+os.makedirs(os.path.join(ares, 'values'), exist_ok=True)
+open(os.path.join(ares, 'values', 'ic_launcher_background.xml'), 'w').write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#FFFFFF</color>\n</resources>\n')
+os.makedirs(os.path.join(ares, 'drawable'), exist_ok=True)
+Image.open(os.path.join(native, 'splash-2732.png')).resize((1920, 1920), Image.LANCZOS).save(os.path.join(ares, 'drawable', 'splash.png'), optimize=True)
+print('android res written')

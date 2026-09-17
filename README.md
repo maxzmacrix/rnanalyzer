@@ -158,6 +158,27 @@ Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Action
 
 Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die Capacitor‑Konfiguration ändert.
 
+### Android App – im Repository enthalten
+
+Dieselbe Web‑App als Capacitor‑Android‑Hülle, gebaut auf GitHub‑Actions‑Linux‑Runnern (`.github/workflows/android.yml`).
+Das Plugin `native/rn-device/android` (Java) bietet dieselbe Schnittstelle wie die iOS‑Variante: mDNS‑Suche
+(`NsdManager`), FTP‑Download, Kamera‑MJPEG über TCP und PostgreSQL (pgjdbc) als Fallback. Mindestens Android 8 (API 26).
+
+1. Signaturschlüssel einmalig erzeugen (kein Android Studio nötig):
+
+   ```bash
+   node tools/android-keystore-setup.mjs
+   ```
+
+   Die drei ausgegebenen Werte als Secrets anlegen: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`.
+   Den Ordner `Integration/android-signing/` sichern – Updates müssen mit demselben Schlüssel signiert sein.
+2. Tag pushen, z. B. `android-v2.0.0-b1`. Der Workflow baut `RN-Analyzer.apk` (direkte Installation) und `RN-Analyzer.aab`
+   (Play Store) und veröffentlicht beides als GitHub‑Release. Fester Download‑Link für Kunden:
+   `https://github.com/maxzmacrix/rnanalyzer/releases/latest/download/RN-Analyzer.apk` – die Web‑Version zeigt ihn auf
+   Android‑Geräten im Tab **Race Navigator** an.
+3. Optional Play Store: Entwicklerkonto (einmalig 25 USD, am besten auf RN Vision), App anlegen, `RN-Analyzer.aab` hochladen.
+   Ohne Keystore‑Secrets baut der Workflow eine Debug‑APK zum Testen.
+
 ### Weitere Wege
 
 | Weg | Voraussetzung | Status |

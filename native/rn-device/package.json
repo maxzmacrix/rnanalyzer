@@ -1,13 +1,23 @@
 {
   "name": "rn-device",
   "version": "0.1.0",
-  "description": "Capacitor plugin: Race Navigator device access (Bonjour discovery, FTP video download, PostgreSQL fallback)",
+  "description": "Capacitor plugin: Race Navigator device access (Bonjour/mDNS discovery, FTP video download, camera MJPEG, PostgreSQL fallback) - iOS + Android",
   "main": "dist/plugin.js",
   "license": "MIT",
   "private": true,
-  "files": ["dist", "ios", "RnDevice.podspec"],
+  "files": [
+    "dist",
+    "ios",
+    "RnDevice.podspec",
+    "android"
+  ],
   "capacitor": {
-    "ios": { "src": "ios" }
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
   },
   "peerDependencies": {
     "@capacitor/core": "^6.0.0"

@@ -5,6 +5,8 @@ import { t, fmtBytes } from '../i18n.js';
 import { h, setTitle, setTopButtons, switchEl, segmented, confirmDialog, toast } from '../ui.js';
 import { db } from '../db.js';
 import { APP_VERSION } from '../main.js';
+import { isNative as isNativeApp_ } from '../deviceNative.js';
+const isNativeApp = isNativeApp_();
 
 export function mount(main) {
   setTitle(t('settings_title'));
@@ -45,7 +47,7 @@ export function mount(main) {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   root.append(...[
     h('h3', t('about')),
-    h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
+    h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${isNativeApp ? 'App' : standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
     isIOS && !standalone ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
     h('div.item', h('div.lbl', h('div.sub', 'Race Navigator · RN Vision GmbH · race-navigator.com'))),
   ].filter(Boolean));

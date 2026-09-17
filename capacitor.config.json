@@ -13,5 +13,13 @@
     "CapacitorHttp": {
       "enabled": true
     }
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#07080a",
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "cleartext": true
   }
 }

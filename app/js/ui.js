@@ -34,6 +34,8 @@ export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild);
 
 export const icons = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+  chart: '<svg viewBox="0 0 24 24"><path d="M3 3h2v18h16v-2H5V3zM8 13l4 4 5-8 4 5-1.6 1.2L17 12.4l-4.7 7.5L8 15.8l-3.4 4.1L3 18.6z"/></svg>',
+  gforce: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v4h4v2h-4v4h-2v-4H7v-2h4z"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
   more: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   close: '<svg viewBox="0 0 24 24"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7l1.4-1.4 6.3 6.3 6.3-6.3z"/></svg>',
@@ -65,8 +67,8 @@ export function setTopButtons(left = [], right = []) {
 }
 export function tbtn(label, onClick, opts = {}) {
   return h('button.tbtn', { class: opts.class || '', on: { click: onClick }, title: opts.title || '', 'aria-label': opts.title || label || '' },
-    opts.icon ? h('span', { html: icons[opts.icon] || opts.icon, style: { display: 'inline-flex' } }) : null,
-    label ? h('span', label) : null);
+    opts.icon ? h('span.ticon', { html: icons[opts.icon] || opts.icon, style: { display: 'inline-flex' } }) : null,
+    label ? h('span.tlabel', label) : null);
 }
 
 let toastTimer = 0;
@@ -132,7 +134,8 @@ export function switchEl(on, onChange) {
 export function segmented(options, value, onChange) {
   const seg = h('div.seg');
   for (const o of options) {
-    const b = h('button', { class: o.value === value ? 'on' : '', on: { click: () => { seg.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); onChange(o.value); } } }, o.label);
+    const b = h('button', { class: o.value === value ? 'on' : '', title: o.label, 'aria-label': o.label, on: { click: () => { seg.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); onChange(o.value); } } },
+      o.icon ? h('span.ico', { html: icons[o.icon] || o.icon }) : null, h('span.lbl', o.label));
     seg.appendChild(b);
   }
   return seg;

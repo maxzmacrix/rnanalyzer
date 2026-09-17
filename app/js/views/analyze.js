@@ -26,9 +26,9 @@ function show(name) {
   sub = SUBS[name]; subName = name; lastSub = name;
   sub.mount(mainEl);
   const seg = segmented([
-    { value: 'charts', label: t('seg_charts') },
-    { value: 'gforce', label: t('seg_gforce') },
-    { value: 'video', label: t('seg_video') },
+    { value: 'charts', label: t('seg_charts'), icon: 'chart' },
+    { value: 'gforce', label: t('seg_gforce'), icon: 'gforce' },
+    { value: 'video', label: t('seg_video'), icon: 'video' },
   ], name, (v) => { location.hash = `#/analyze/${v}`; });
   seg.classList.add('title-seg');
   setTitleEl(seg);

@@ -519,7 +519,7 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 :root[data-glass] .view.scroll, :root[data-glass] .scroll.grow { padding-bottom: var(--tabspace); }
 :root[data-glass] .analyzer { margin-bottom: calc(var(--tab-h) + var(--sab) + 18px); }
 :root[data-glass] .toast { bottom: calc(var(--tabspace) + 6px); }
-:root[data-glass] .tour-card { bottom: calc(var(--tabspace) + 4px); }
+:root[data-glass] .tour-card:not(.top):not(.center) { bottom: calc(var(--tabspace) + 4px); }
 :root[data-glass] .update-banner { position: relative; }
 }
 
@@ -527,6 +527,8 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .coach { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
 .coach-head { font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .coach-head .gap { margin-left: auto; font-size: 15px; }
+.panel .coach-head { padding-right: 120px; } /* the floating panel title chip sits top right */
+.event-head .session-delete { color: var(--text-dim); flex: 0 0 auto; }
 .coach .lost { color: var(--accent); } .coach .gained { color: var(--green); }
 .coach-narrative { font-size: 14px; line-height: 1.45; padding: 10px 12px; border-radius: 12px; background: var(--fg-06); }
 .coach-note { min-height: 14px; }

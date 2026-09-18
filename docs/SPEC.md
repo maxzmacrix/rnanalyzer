@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.1 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.2 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -74,6 +74,8 @@ The app has four tabs. The web version has no Race Navigator tab because the bro
   the same session and driver. When the session has none, the closest match from another session on the same track is
   taken, ranked by same driver, same car, similar weather (dry/wet from the cached session weather), same track variant
   and being faster. A partner from another session is announced under the button with its date and the reasons.
+* Session header: "Delete session" removes all laps of the session and the videos only they use, after one
+  confirmation that names the counts. Data on the device is not touched.
 * Lap menu: Edit (driver, vehicle, note; overrides device data for display only), Share (lap data `.rnz`, video `.mp4`,
   both), load heart rate from Apple Health / Health Connect (native app), Delete (lap, video).
 * Import via the file dialog: `.rnz`, `.rn`, `.xml`, `.mp4`/`.mov`/`.m4v`, and `.zip` folders, which are unpacked.
@@ -163,7 +165,9 @@ another one. Sign convention as in the coach: plus and red = time lost. Video cl
 
 On first start (empty list) and from Settings: three anonymised Guadix sample laps and two 20-second clips are imported,
 then the app drives itself through the lap list, the comparison, the analysis with a running cursor, g-force, video, the
-Race Navigator tab and Settings. At the end the demo data can be kept or removed.
+Race Navigator tab and Settings. During the analysis scenes the tour sets the default panels (gap + speed, map, coach) so
+the texts match what is shown, and restores the user's own layout when it ends. At the end the demo data can be kept or
+removed.
 
 ### 3.7 Cross-cutting
 
@@ -412,6 +416,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.2 | 2026-09-18 | "Delete session" button in the session header (laps and their videos, with confirmation). Panel title chip no longer covers the coach head. Guided tour: shows the default panels (gap, map, coach) during the analysis scenes and restores the user's layout afterwards; selects two laps itself instead of clicking through the new suggestion sheet; the card no longer stretches to full height with the floating tab bar on phones |
 | 2.1.1 | 2026-09-18 | Highlights panel explains the lap choice and lets the user switch laps; sign convention aligned with the coach. Coach panel names whose behaviour the facts describe. Component sheet stays open while checkboxes are toggled. "Suggest comparison" picks two laps (fastest and typical, video preferred) and explains the choice before opening the analysis. Fix: after enlarging a video and changing the laps, the video grid stayed in the enlarged mode with every cell hidden. Filter chips in the lap list wrap on mouse devices instead of scrolling with a hidden scrollbar. Android release from a manual workflow run |
 | 2.1.0 | 2026-09-18 | Context-aware comparison partner, what-if per corner, highlights panel and chart markers, interior apex detection; specification in the repository; documentation in English |
 | 2.0.x | 2026-09-17 | Rewrite as offline web app with native shells: answer-first analysis, corner coach with on-device AI, session weather, heart rate, guided tour, RN Connect control, Android and iOS builds |

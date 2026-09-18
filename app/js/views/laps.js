@@ -148,6 +148,7 @@ function renderList() {
         an.clean.size >= 2 ? h('div.stats', { html: sessionStatsHtml(an) }) : null,
         weatherLine(g.laps)),
       an.clean.size >= 2 ? h('button.chip.suggest', { on: { click: (e) => { e.stopPropagation(); suggestComparison(an); } } }, t('suggest_compare')) : null,
+      h('button.tbtn.session-delete', { html: icons.trash, title: t('delete_session'), 'aria-label': t('delete_session'), on: { click: (e) => { e.stopPropagation(); deleteSession(g.laps); } } }),
     );
     listEl.appendChild(head);
     if (isCollapsed) continue;
@@ -245,6 +246,20 @@ function sessionStatsHtml(an) {
   if (Number.isFinite(an.bestMs)) parts.push(`${esc(t('best_short'))} <b>${fmtLapTime(an.bestMs)}</b>`);
   if (Number.isFinite(an.theoreticalMs) && an.bestMs - an.theoreticalMs > 1) parts.push(`${esc(t('theoretical_short'))} <b>${fmtLapTime(an.theoreticalMs)}</b> (−${((an.bestMs - an.theoreticalMs) / 1000).toFixed(3)})`);
   return parts.join(' · ');
+}
+/** Delete every lap of a session and the videos only they use, after one confirmation. */
+async function deleteSession(laps) {
+  const videoKeys = new Set(laps.map(videoKeyFor).filter(Boolean));
+  const ok = await confirmDialog(t('confirm_delete_session', { n: laps.length, v: videoKeys.size }), { title: t('delete_session'), okLabel: t('delete'), danger: true });
+  if (!ok) return;
+  const ids = new Set(laps.map((l) => l.id));
+  for (const l of laps) await db.deleteLap(l.id);
+  for (const key of videoKeys) {
+    const stillUsed = state.laps.some((o) => !ids.has(o.id) && videoKeyFor(o) === key);
+    if (!stillUsed) await db.deleteVideo(key);
+  }
+  await reloadLaps();
+  toast(t('session_deleted', { n: laps.length }), 3000);
 }
 function sortLaps(rows, an) {
   if (filters.sort === 'time') rows.sort((a, b) => ((a.complete && a.lapTimeMs > 0) ? a.lapTimeMs : Infinity) - ((b.complete && b.lapTimeMs > 0) ? b.lapTimeMs : Infinity) || a.startMs - b.startMs);

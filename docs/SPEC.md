@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.25 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.26 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -200,8 +200,9 @@ another one. Sign convention as in the coach: plus and red = time lost. Video cl
 On first start (empty list) and from Settings: two anonymised Guadix sample laps, each with its complete lap video (640 px,
 about 4 MB, not precached), are imported,
 then the app drives itself through the lap list, the comparison, the analysis with a running cursor, g-force, video, the
-Race Navigator tab and Settings. During the analysis scenes the tour sets the default panels (gap + speed, map, coach) so
-the texts match what is shown, and restores the user's own layout when it ends. At the end the demo data can be kept or
+Race Navigator tab and Settings. During the analysis scenes the tour sets the default panels (gap + speed, map, coach) and
+lifts a maximised panel so the texts match what is shown, and restores the user's own layout, the maximised panel included,
+when it ends. At the end the demo data can be kept or
 removed.
 
 ### 3.7 Cross-cutting
@@ -466,6 +467,7 @@ material. Whoever shares the software shares this repository plus the store and 
 | 2.1.23 | 2026-09-18 | Web page description names Android; `tools/make-demo.py` prepared to ship the complete lap videos for the tour (regeneration needs the source videos) |
 | 2.1.24 | 2026-09-18 | Guided tour ships the complete lap videos of both sample laps (86 s each, about 4 MB) instead of 20-second clips |
 | 2.1.25 | 2026-09-18 | Video cells and the enlarged video follow the video's own aspect ratio instead of a fixed 16:9 |
+| 2.1.26 | 2026-09-18 | Guided tour lifts a maximised panel for its analysis scenes and restores it afterwards; the analyzer applies a maximise change made from outside |
 | 2.1.20 | 2026-09-18 | Android build fix: the share sheet uses the app template's FileProvider instead of declaring a second one (manifest merge conflict in 2.1.19, whose Android build failed) |
 | 2.1.19 | 2026-09-18 | Android: native share sheet for diagnostics, lap data and videos through the plugin (the WebView has no Web Share API, the mail fallback cut the log at 1800 characters); device timeouts are logged as such |
 | 2.1.18 | 2026-09-18 | Satellite imagery is the default map style; existing installs on the old default follow (settings migration 4) |

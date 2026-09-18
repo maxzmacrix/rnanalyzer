@@ -148,6 +148,7 @@ function onSettings(patch) {
   if ('autoplaySpeed' in patch) { speedChip.textContent = `${patch.autoplaySpeed}×`; player.setSpeed(Number(patch.autoplaySpeed)); }
   if ('mapTiles' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setTiles(patch.mapTiles);
   if ('mapStyle' in patch || 'customTileUrl' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setProvider(providerFor(state.settings));
+  if ('maxPanel' in patch && (patch.maxPanel || null) !== maxPanelKey) applyMaxPanel(patch.maxPanel); // changed from outside (guided tour)
   const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'stripChannels', 'xMode', 'sectors', 'units', 'theme', 'language'];
   if (keys.some((k) => k in patch)) { scaledCache.clear(); data = data.map((d) => ({ ...d, color: lapColor(d.lap.id) })); if ('xMode' in patch) refreshSlips(); updateRefLabel(); refreshPanels(); updateVideoColors(); updatePos(); }
 }

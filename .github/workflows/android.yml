@@ -7,9 +7,16 @@ name: Android app
 #   ANDROID_KEY_ALIAS          key alias (default rnanalyzer)
 # Tags `android-v*` publish the APK/AAB as a GitHub Release, so customers can download it from
 #   https://github.com/maxzmacrix/rnanalyzer/releases/latest/download/RN-Analyzer.apk
+# A manual run with `release: true` does the same without a tag (the release step creates the tag
+# `android-v<version>-b<run>` on the built commit).
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a GitHub Release (creates the tag android-v<version>-b<run>)
+        type: boolean
+        default: false
   push:
     tags: ['android-v*']
     branches: [main]
@@ -69,6 +76,7 @@ jobs:
           ls "$R"
           # build identity for the in-app update check (app/js/update.js)
           TAG="${GITHUB_REF#refs/tags/}"; case "$GITHUB_REF" in refs/tags/*) ;; *) TAG="";; esac
+          if [ -z "$TAG" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.release }}" = "true" ]; then TAG="android-v${MARKETING_VERSION}-b${{ github.run_number }}"; fi
           echo "{\"platform\":\"android\",\"version\":\"$MARKETING_VERSION\",\"build\":${{ github.run_number }},\"tag\":\"$TAG\"}" > android/app/src/main/assets/public/build.json
           mkdir -p "$RUNNER_TEMP/out"
           echo "{\"platform\":\"android\",\"version\":\"$MARKETING_VERSION\",\"build\":${{ github.run_number }},\"tag\":\"$TAG\",\"apk\":\"https://github.com/$GITHUB_REPOSITORY/releases/latest/download/RN-Analyzer.apk\",\"release\":\"https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG\"}" > "$RUNNER_TEMP/out/latest.json"
@@ -132,17 +140,17 @@ jobs:
           path: ${{ runner.temp }}/out/*
           retention-days: 30
 
-      - name: Publish GitHub Release (tag)
-        if: startsWith(github.ref, 'refs/tags/android-v')
+      - name: Publish GitHub Release (tag, or manual run with release=true)
+        if: startsWith(github.ref, 'refs/tags/android-v') || (github.event_name == 'workflow_dispatch' && inputs.release)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
+          TAG="${GITHUB_REF#refs/tags/}"; case "$GITHUB_REF" in refs/tags/*) ;; *) TAG="android-v${MARKETING_VERSION}-b${{ github.run_number }}";; esac
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$TAG" "$RUNNER_TEMP"/out/* --repo "$GITHUB_REPOSITORY" --clobber 2> /tmp/gh.log || { echo "::error title=release upload::$(tr '\n' ' ' < /tmp/gh.log | cut -c1-1500)"; exit 1; }
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest > /dev/null 2>&1 || true
           else
-            gh release create "$TAG" "$RUNNER_TEMP"/out/* --repo "$GITHUB_REPOSITORY" --latest \
+            gh release create "$TAG" "$RUNNER_TEMP"/out/* --repo "$GITHUB_REPOSITORY" --latest --target "$GITHUB_SHA" \
               --title "RN Analyzer $MARKETING_VERSION for Android (build ${{ github.run_number }})" \
               --notes "Android app for the Race Navigator. Install: download RN-Analyzer.apk on the phone, open it and allow the installation. RN-Analyzer.aab is the Play Store bundle." 2> /tmp/gh.log \
               || { echo "::error title=release create::$(tr '\n' ' ' < /tmp/gh.log | cut -c1-1500)"; exit 1; }

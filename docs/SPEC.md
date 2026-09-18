@@ -393,7 +393,7 @@ The bridge is complete but not tested against a real device.
 |---|---|---|---|
 | Web/PWA | `app/` | GitHub Pages (`pages.yml`), static, HTTPS | Push to `main` |
 | iOS (iPhone, iPad) | Capacitor + `native/rn-device` | `ios.yml` on a macOS runner: generate project, Info.plist, signing from secrets, archive, TestFlight upload | Tag `ios-v*`, push to `main` (compile check), manual |
-| Android | Capacitor + `native/rn-device` | `android.yml`: generate project, minSdk 26, keystore from secrets, APK + AAB, GitHub release with `latest.json` | Tag `android-v*`, push to `main` |
+| Android | Capacitor + `native/rn-device` | `android.yml`: generate project, minSdk 26, keystore from secrets, APK + AAB, GitHub release with `latest.json` | Tag `android-v*`, or a manual run with `release: true` (creates the tag itself); push to `main` builds without publishing |
 
 Versions: `APP_VERSION` in `main.js`, `version` in `package.json` and `MARKETING_VERSION` in both workflows must be
 equal (tested). Build number = GitHub run number. The service worker cache version `rn-analyzer-vX.Y.Z` in `sw.js` is

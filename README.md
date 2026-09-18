@@ -245,7 +245,7 @@ The plugin `native/rn-device/android` (Java) offers the same interface as the iO
 
    Create the three printed values as secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`.
    Back up the folder `Integration/android-signing/` – updates must be signed with the same key.
-2. Push a tag, e.g. `android-v2.1.0-b1`. The workflow builds `RN-Analyzer.apk` (direct installation) and `RN-Analyzer.aab`
+2. Push a tag, e.g. `android-v2.1.0-b1`, or start the workflow **Android app** under *Actions* with *release* ticked (it creates the tag `android-v<version>-b<run>` itself). The workflow builds `RN-Analyzer.apk` (direct installation) and `RN-Analyzer.aab`
    (Play Store) and publishes both as a GitHub release. Fixed download link for customers:
    `https://github.com/maxzmacrix/rnanalyzer/releases/latest/download/RN-Analyzer.apk` – the web version shows it on
    Android devices in the **Race Navigator** tab.

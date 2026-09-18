@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.17 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.18 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -91,7 +91,7 @@ black, and only shows while a frame loads.
 * **Reference** is always the fastest complete lap of the selection, regardless of tap order.
 * **Panel components** (freely assignable; defaults Panel A = gap with speed as second curve, Panel B = map, Panel C =
   coach): gap to the fastest lap (time mode: distance gap), channel line chart, map (fastest lap painted red/green by the
-  compared lap's time lost, OSM or Esri satellite, start and sector lines, corner numbers, optional "map follows the
+  compared lap's time lost, Esri satellite by default or OSM streets, start and sector lines, corner numbers, optional "map follows the
   cursor"), g-force (scatter lateral vs. longitudinal), values at the cursor, lap overview (min/max, best values
   marked), sector times (device sectors, geometric fallback, custom sectors; best possible and fastest contiguous lap),
   corner coach (section 3.5), highlights (section 3.8), channel strips (below).
@@ -146,7 +146,7 @@ card with "Search again" (Bonjour `_racenav._tcp`) and "Enter address".
 ### 3.4 Settings (`#/settings`)
 
 Language (device, DE, EN), units km/h or mph, appearance (system, light, dark), colour-blind-friendly palette, load map
-tiles, map style (streets, satellite), floating tab bar, session weather, on-device AI explanation, storage (usage,
+tiles, map style (satellite by default, streets), floating tab bar, session weather, on-device AI explanation, storage (usage,
 request persistent storage, delete all videos, delete everything), check for update (Android APK), start the guided
 tour and remove demo data, reset settings (all settings back to defaults after confirmation; laps, videos and custom
 sectors stay), diagnostics (section 3.7), version and notices.
@@ -454,6 +454,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.18 | 2026-09-18 | Satellite imagery is the default map style; existing installs on the old default follow (settings migration 4) |
 | 2.1.17 | 2026-09-18 | Italian and French added (full dictionaries, language picker, parity test for all languages) |
 | 2.1.16 | 2026-09-18 | Playback: the reference video drives the cursor only inside its clip, the clock takes over before and after (short demo clips play from any cursor position); demo data reduced to the two laps with video; landscape side rail keeps its width beside the notch |
 | 2.1.15 | 2026-09-18 | Video cells exactly 16:9 and centred (no letterbox bars), graphite cell background; channel strips scroll by touch |

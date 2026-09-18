@@ -37,14 +37,14 @@ const DEFAULT_SETTINGS = {
   stripChannels: ['speed', 'glon', 'glat', 'gyrY', 'rpm', 'thr'], // channel strips panel; channels the laps do not carry are skipped
   maxPanel: null, // panel key (A/B/C) that fills the analysis screen, null = normal layout
   followCursor: false,
-  mapStyle: 'osm', // osm | satellite | custom
+  mapStyle: 'satellite', // satellite (default) | osm | custom
   customTileUrl: '',
   profiles: [],
   theme: 'system', // light | dark | system – follows the phone, light by day at the track
   weather: true, // session weather from Open-Meteo
   glassBar: true, // floating, translucent tab bar (iOS 26 look, restrained)
   aiCoach: true, // on-device language model narrates the coach facts (Apple Intelligence / Gemini Nano)
-  settingsVersion: 3,
+  settingsVersion: 4,
 };
 
 const listeners = new Map();
@@ -84,6 +84,12 @@ export async function initState() {
   if (saved && (Number(state.settings.settingsVersion) || 1) < 3) {
     if (!saved.panelC || saved.panelC === 'glat') state.settings.panelC = 'coach';
     state.settings.settingsVersion = 3;
+    await db.setSetting('settings', state.settings);
+  }
+  if (saved && (Number(state.settings.settingsVersion) || 1) < 4) {
+    // satellite imagery is the default map: installs still on the old default (streets) follow, a custom URL stays
+    if (state.settings.mapStyle === 'osm') state.settings.mapStyle = 'satellite';
+    state.settings.settingsVersion = 4;
     await db.setSetting('settings', state.settings);
   }
   setLanguage(state.settings.language);

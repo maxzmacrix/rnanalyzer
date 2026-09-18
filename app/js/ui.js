@@ -43,6 +43,8 @@ export const icons = {
   check: '<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
   minus: '<svg viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></svg>',
+  expand: '<svg viewBox="0 0 24 24"><path d="M4 4h7v2H7.4l4.3 4.3-1.4 1.4L6 7.4V11H4zm16 16h-7v-2h3.6l-4.3-4.3 1.4-1.4 4.3 4.3V13h2z"/></svg>',
+  shrink: '<svg viewBox="0 0 24 24"><path d="M11 13v7H9v-3.6l-4.3 4.3-1.4-1.4L7.6 15H4v-2zm2-2V4h2v3.6l4.3-4.3 1.4 1.4L16.4 9H20v2z"/></svg>',
   fit: '<svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg>',
   chev: '<svg viewBox="0 0 24 24"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
   back: '<svg viewBox="0 0 24 24"><path d="M15.4 7.4 10.8 12l4.6 4.6L14 18l-6-6 6-6z"/></svg>',

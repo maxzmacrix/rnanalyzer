@@ -291,8 +291,20 @@ canvas { display: block; touch-action: none; }
 .panel-tools button svg { width: 16px; height: 16px; fill: currentColor; }
 .panel-title { position: absolute; right: 8px; top: 6px; z-index: 2; display: flex; gap: 4px; }
 .panel-title .chip { max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet .item .chip.small { min-height: 32px; padding: 0 12px; font-size: 13px; margin-left: 8px; flex: none; }
 .divider { flex: 0 0 14px; display: flex; align-items: center; justify-content: center; cursor: row-resize; touch-action: none; background: var(--fg-04); }
 .divider::after { content: ""; width: 44px; height: 4px; border-radius: 2px; background: var(--fg-35); }
+/* touch: a divider you can grab with a gloved thumb */
+@media (pointer: coarse) {
+  .divider { flex-basis: 24px; }
+  .divider::after { width: 60px; height: 5px; }
+}
+/* one panel maximised: videos, dividers and the other panels step aside (the panel keeps its chart, only the layout changes) */
+.analyzer.panel-max .video-panel, .analyzer.panel-max .divider { display: none !important; }
+.analyzer.panel-max.has-video { display: flex; flex-direction: column; }
+.analyzer.panel-max .right-col { flex: 1 1 0; }
+.panel-title .chip.icon { min-width: 34px; padding: 0 8px; }
+.panel-title .chip.icon svg { width: 18px; height: 18px; fill: currentColor; }
 .videos { display: grid; gap: 4px; padding: 4px; height: 100%; grid-auto-rows: 1fr; grid-template-columns: repeat(auto-fit, minmax(45%, 1fr)); }
 .videos.one { grid-template-columns: 1fr; }
 .vcell { position: relative; background: #000; border-radius: 8px; overflow: hidden; border: 2px solid var(--lap-color, transparent); min-height: 0; }

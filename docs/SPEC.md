@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.14 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.15 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -84,7 +84,9 @@ The app has four tabs. The web version has no Race Navigator tab because the bro
 ### 3.2 Analyze (`#/analyze`)
 
 One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap enlarges, speaker toggles sound), two panels
-(three on large screens), play bar at the bottom.
+(three on large screens), play bar at the bottom. Every video cell is exactly 16:9 and centred in its grid area (sized by
+`fitVideoCells()` on every resize), so no letterbox bars appear inside the cell; the cell background is graphite, not
+black, and only shows while a frame loads.
 
 * **Reference** is always the fastest complete lap of the selection, regardless of tap order.
 * **Panel components** (freely assignable; defaults Panel A = gap with speed as second curve, Panel B = map, Panel C =
@@ -99,7 +101,8 @@ One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap en
   lines and highlight markers run through all strips. Each strip shows its label, unit and the values of every lap at the
   cursor. Channels are chosen in the component sheet ("Choose channels…", setting `stripChannels`, default speed,
   longitudinal g, lateral g, yaw, RPM, throttle); channels the selected laps do not carry are skipped. The strips keep a
-  minimum height, so the panel scrolls when many channels are chosen. The y axis does not zoom in this view.
+  minimum height, so the panel scrolls when many channels are chosen (one finger up/down scrolls, sideways moves the
+  cursor, `touch-action: pan-y`). The y axis does not zoom in this view.
 * **Channels**: speed, longitudinal / lateral / vertical / combined acceleration, GPS deviation, altitude, heading,
   gyroscope (yaw/pitch/roll), OBD/CAN (RPM, throttle, water and oil temperature, OBD speed, only when present in the
   file), heart rate, custom CAN channels from `.cdrn`.
@@ -449,6 +452,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.15 | 2026-09-18 | Video cells exactly 16:9 and centred (no letterbox bars), graphite cell background; channel strips scroll by touch |
 | 2.1.14 | 2026-09-18 | Charts start below the title chips, marker labels at the plot bottom (no overlaps); maximised panel remembered across tab switches |
 | 2.1.13 | 2026-09-18 | Component sheet is a flat alphabetical list of views; channels are chosen through a "Channels" chip in the panel title |
 | 2.1.12 | 2026-09-18 | Component sheet lists views only, one channel picker for chart, gap overlay and strips; maximise button per panel; wider dividers on touch devices |

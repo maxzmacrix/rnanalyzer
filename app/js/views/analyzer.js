@@ -49,6 +49,7 @@ export function mount(main) {
   const playBar = h('div.play-bar', rewindBtn, playBtn, speedChip, posLbl, gapLbl, refLbl);
 
   videoGrid = h('div.videos');
+  videoRo = new ResizeObserver(() => fitVideoCells()); videoRo.observe(videoGrid);
   videoPanel = h('div.panel.video-panel', videoGrid);
   const d0 = divider(0);
   const keys = autoPanelCount() === 3 ? ['A', 'B', 'C'] : ['A', 'B'];
@@ -81,6 +82,7 @@ export function unmount() {
   player.clearVideos();
   for (const v of videoObjs.values()) { try { v.el.pause(); v.el.removeAttribute('src'); v.el.load(); } catch { /* ignore */ } URL.revokeObjectURL(v.url); }
   videoObjs.clear(); bigVideo = null;
+  if (videoRo) { videoRo.disconnect(); videoRo = null; }
   scaledCache.clear();
   if (cursorRaf) cancelAnimationFrame(cursorRaf); cursorRaf = 0;
   if (root) { root.remove(); root = null; }
@@ -199,6 +201,21 @@ async function updateVideos() {
   videoPanel.classList.toggle('hidden', !has);
   root.querySelector('.divider.d0').classList.toggle('hidden', !has);
   if (data.filter((d) => videoKeyFor(d.lap)).length > MAX_VIDEOS) toast(t('videos_limit_hint', { n: MAX_VIDEOS }), 2500);
+  fitVideoCells();
+}
+let videoRo = null;
+/** Every video cell is exactly 16:9 and centred in its grid area: no letterbox bars inside the cell, the app background shows around it instead. */
+function fitVideoCells() {
+  if (!videoGrid) return;
+  if (videoGrid.classList.contains('max')) { for (const v of videoObjs.values()) { v.cell.style.width = ''; v.cell.style.height = ''; } return; }
+  const n = videoObjs.size;
+  if (!n) return;
+  const cols = Math.max(1, getComputedStyle(videoGrid).gridTemplateColumns.split(' ').filter(Boolean).length);
+  const rows = Math.ceil(n / cols);
+  const gap = 4, pad = 4;
+  const cw = (videoGrid.clientWidth - 2 * pad - gap * (cols - 1)) / cols, ch = (videoGrid.clientHeight - 2 * pad - gap * (rows - 1)) / rows;
+  const w = Math.max(40, Math.min(cw, ch * 16 / 9));
+  for (const v of videoObjs.values()) { v.cell.style.width = `${Math.floor(w)}px`; v.cell.style.height = `${Math.floor(w * 9 / 16)}px`; }
 }
 function updateVideoColors() { for (const [id, v] of videoObjs) v.cell.style.setProperty('--lap-color', lapColor(id)); }
 let bigVideo = null;
@@ -209,6 +226,7 @@ function toggleBigVideo(cell) {
   videoGrid.classList.toggle('max', !!bigVideo);
   root.classList.toggle('video-max', !!bigVideo);
   sizeBigVideo();
+  fitVideoCells();
   requestAnimationFrame(() => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); if (p.scatter) p.scatter.draw(); } });
 }
 /** The enlarged video takes the panel width at 16:9, but never more than 60 % of the height – panels and play bar stay visible. */

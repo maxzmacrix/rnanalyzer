@@ -60,6 +60,7 @@ export const CHANNELS = {
   gforce:  { key: null,   label: 'ch_gforce',   kind: 'scatter' },
   coach:   { key: null,   label: 'ch_coach',    kind: 'coach' },
   highlights: { key: null, label: 'ch_highlights', kind: 'highlights' },
+  strips:  { key: null,   label: 'ch_strips',    kind: 'strips' },
   detail:  { key: null,   label: 'ch_detail',   kind: 'detail' },
   overview:{ key: null,   label: 'ch_overview', kind: 'overview' },
   sections:{ key: null,   label: 'ch_sections', kind: 'sections' },

@@ -280,6 +280,9 @@ canvas { display: block; touch-action: none; }
 .panel { position: relative; min-height: 60px; display: flex; flex-direction: column; overflow: hidden; }
 .panel .panel-body { flex: 1; min-height: 0; position: relative; }
 .panel .panel-body > canvas, .panel .panel-body > .table-wrap { position: absolute; inset: 0; }
+/* channel strips: the canvas grows with the strip count, the body scrolls */
+.panel .panel-body.scroll-y { overflow-y: auto; overflow-x: hidden; }
+.panel .panel-body.scroll-y > canvas { position: relative; inset: auto; display: block; }
 .panel-tools { position: absolute; right: 8px; top: 6px; display: flex; gap: 4px; z-index: 2; }
 .chip {
   min-height: 40px; min-width: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--fg-12); background: var(--chip-bg); color: var(--chip-fg);

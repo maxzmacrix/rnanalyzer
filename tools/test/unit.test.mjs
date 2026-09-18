@@ -17,6 +17,7 @@ globalThis.localStorage ??= { getItem() { return null; }, setItem() {}, removeIt
 
 const analysis = await import('../../app/js/analysis.js');
 const zip = await import('../../app/js/zip.js');
+const rnparser = await import('../../app/js/rnparser.js');
 const xlsx = await import('../../app/js/xlsx.js');
 const i18n = await import('../../app/js/i18n.js');
 
@@ -299,6 +300,19 @@ test('weather: wet/dry classification of a session summary', async () => {
 });
 
 // ------------------------------------------------------------------ zip / xlsx
+test('rnparser: samples are put into chronological order regardless of document order', () => {
+  const el = (id, mt) => ({ id, mt, getAttribute: (k) => (k === 'id' ? String(id) : k === 'mt' ? mt : null) });
+  const inOrder = [el(1, '2024-07-05 10:36:32.600'), el(2, '2024-07-05 10:36:32.700'), el(3, '2024-07-05 10:36:32.800')];
+  const same = rnparser.orderSamples(inOrder);
+  assert.equal(same.unordered, 0);
+  assert.equal(same.els, inOrder); // untouched when already chronological
+  // storage order from the device: a later block first, then the earlier one, a row without time in between
+  const scrambled = [el(30, '2024-07-05 10:36:35.000'), el(31, '2024-07-05 10:36:35.100'), el(10, '2024-07-05 10:36:33.000'), el(11, ''), el(12, '2024-07-05 10:36:33.200'), el(31, '2024-07-05 10:36:35.100')];
+  const r = rnparser.orderSamples(scrambled);
+  assert.ok(r.unordered > 0);
+  assert.deepEqual(r.els.map((e) => e.id), [10, 11, 12, 30, 31, 31]); // no-time row keeps its predecessor's time; equal times keep document order
+});
+
 test('zip: zipStore → unzip round trip', async () => {
   const data = new TextEncoder().encode('hello rn');
   const buf = zip.zipStore([{ name: 'a/b.txt', data }, { name: 'c.bin', data: new Uint8Array([1, 2, 3]) }]);
@@ -366,7 +380,7 @@ test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
   const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.equal(v, '2.1.21');
+  assert.equal(v, '2.1.22');
   assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
   assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
   assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));

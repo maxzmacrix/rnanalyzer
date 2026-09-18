@@ -84,6 +84,29 @@ export async function parseRnzBuffer(buffer, fileName) {
 /**
  * Parse the XML text of an .rn file.
  */
+/**
+ * Put sample elements into chronological order. The device's HTTP API and some exports do not guarantee the order of
+ * `<sm>` rows (rows come back in storage order); the parser used to trust the document order and only clamped time and
+ * distance, which drew straight lines across the map and spikes in the charts. Sort key: measurement time `mt`,
+ * ties by numeric `id`, then document position. Elements without a parsable `mt` keep the time of their predecessor.
+ * Returns the ordered array plus the number of rows that were out of place (0 = already chronological).
+ */
+export function orderSamples(els) {
+  const keyed = new Array(els.length);
+  let last = 0, maxSeen = -Infinity, unordered = 0;
+  for (let i = 0; i < els.length; i++) {
+    let tm = parseDeviceTime(els[i].getAttribute('mt'));
+    if (!Number.isFinite(tm)) tm = last; // no time: stays next to its predecessor
+    if (tm < maxSeen) unordered++;
+    maxSeen = Math.max(maxSeen, tm);
+    last = tm;
+    keyed[i] = { el: els[i], i, tm, id: Number(els[i].getAttribute('id')) || 0 };
+  }
+  if (!unordered) return { els, unordered: 0 };
+  keyed.sort((a, b) => (a.tm - b.tm) || (a.id - b.id) || (a.i - b.i));
+  return { els: keyed.map((k) => k.el), unordered };
+}
+
 export function parseRnXml(xmlText, fileName = '') {
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
   const perr = doc.getElementsByTagName('parsererror')[0];
@@ -107,7 +130,8 @@ export function parseRnXml(xmlText, fileName = '') {
   const lapId = text(lapEl, 'id') || text(lapEl, 'sourceLapId') || String(startMs);
 
   // ---- measurements -------------------------------------------------------
-  const smEls = measEl ? children(measEl, 'sm') : [];
+  const ordered = orderSamples(measEl ? children(measEl, 'sm') : []);
+  const smEls = ordered.els;
   const n = smEls.length;
   const t = new Float32Array(n); // seconds since lap start
   const d = new Float32Array(n); // metres since lap start
@@ -266,7 +290,7 @@ export function parseRnXml(xmlText, fileName = '') {
     sampleCount: n,
   };
 
-  const samples = { n, t, d, v, lat, lng, gLat, gLon, gVert, alt, hdg, dev, rpm, thr, wt, ot, os, gyrP, gyrR, gyrY, gpsOk, obdOk };
+  const samples = { n, t, d, v, lat, lng, gLat, gLon, gVert, alt, hdg, dev, rpm, thr, wt, ot, os, gyrP, gyrR, gyrY, gpsOk, obdOk, reordered: ordered.unordered };
   lap.stats = computeStats(samples, lap);
   return { lap, samples };
 }

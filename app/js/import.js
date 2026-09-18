@@ -36,6 +36,7 @@ export async function importFiles(files, onProgress) {
           }
         }
         const { lap, samples, raw } = await parseRnzBuffer(buf, name);
+        if (samples.reordered) record('import', `${name}: ${samples.reordered} of ${samples.n} samples were out of time order, sorted`);
         const existing = await db.getLap(lap.id);
         if (existing) { lap.note = existing.note || ''; lap.importedAt = existing.importedAt; if (existing.driverOverride) lap.driverOverride = existing.driverOverride; if (existing.vehicleOverride) lap.vehicleOverride = existing.vehicleOverride; }
         await db.putLap(lap, samples, raw);

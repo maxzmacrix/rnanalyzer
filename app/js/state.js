@@ -204,6 +204,11 @@ export function setCursor(x, source) {
   emit('cursor', { x: state.cursor, source });
 }
 
+/** Back to the defaults for every setting (language follows the device again). Laps, videos and custom sectors stay. */
+export async function resetSettings() {
+  await updateSettings({ ...DEFAULT_SETTINGS, language: detectLanguage() });
+}
+
 export async function updateSettings(patch) {
   Object.assign(state.settings, patch);
   if (patch.language) setLanguage(patch.language);

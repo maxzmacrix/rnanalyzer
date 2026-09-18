@@ -10,7 +10,7 @@ import * as settingsView from './views/settings.js';
 import { installUpdateChecks } from './update.js';
 import { initTabbar } from './tabbar.js';
 
-export const APP_VERSION = '2.1.4';
+export const APP_VERSION = '2.1.5';
 
 const views = { laps: lapsView, analyze: analyzeView, device: deviceView, settings: settingsView };
 const nativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());

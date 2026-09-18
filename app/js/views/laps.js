@@ -29,7 +29,7 @@ export function mount(main) {
     style: { display: 'none' },
     on: { change: (e) => { const files = [...e.target.files]; e.target.value = ''; runImport(files); } },
   });
-  setTopButtons([], [tbtn(t('import_files'), () => fileInput.click(), { icon: 'upload', class: 'primary' })]);
+  setTopButtons([], [tbtn(t('import_files'), () => fileInput.click(), { icon: 'import', class: 'primary' })]);
   const search = h('input.input', { type: 'search', placeholder: t('search'), value: query, on: { input: (e) => { query = e.target.value; renderList(); } } });
   root = h('div.view',
     h('div.laps-toolbar', search, fileInput),

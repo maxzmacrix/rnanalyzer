@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.2 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.3 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -416,6 +416,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.3 | 2026-09-18 | Import button shows an arrow into the tray (files come in), not the upload arrow |
 | 2.1.2 | 2026-09-18 | Landscape side-rail layout only when the viewport is clearly wider than tall (aspect ≥ 4:3), so a zoomed squarish desktop window keeps the stacked layout; videos in the side rail stack vertically. Lap times of both compared laps shown in the coach head, on the video labels and next to the reference in the play bar. "Delete session" button in the session header (laps and their videos, with confirmation). Panel title chip no longer covers the coach head. Guided tour: shows the default panels (gap, map, coach) during the analysis scenes and restores the user's layout afterwards; selects two laps itself instead of clicking through the new suggestion sheet; the card no longer stretches to full height with the floating tab bar on phones |
 | 2.1.1 | 2026-09-18 | Highlights panel explains the lap choice and lets the user switch laps; sign convention aligned with the coach. Coach panel names whose behaviour the facts describe. Component sheet stays open while checkboxes are toggled. "Suggest comparison" picks two laps (fastest and typical, video preferred) and explains the choice before opening the analysis. Fix: after enlarging a video and changing the laps, the video grid stayed in the enlarged mode with every cell hidden. Filter chips in the lap list wrap on mouse devices instead of scrolling with a hidden scrollbar. Android release from a manual workflow run |
 | 2.1.0 | 2026-09-18 | Context-aware comparison partner, what-if per corner, highlights panel and chart markers, interior apex detection; specification in the repository; documentation in English |

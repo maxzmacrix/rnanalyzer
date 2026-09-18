@@ -149,10 +149,10 @@ The Capacitor iOS shell is included and is built **without a Mac** on GitHub Act
    (Apple's "cloud signing" using only the API key does not work reliably on throwaway runners, because the certificate
    created in one run has no private key in the next run – hence the fixed certificate.)
 4. Optionally as *Variables*: `APPLE_TEAM_ID` (default `Z2LYJ5597T`, Macrix Software GmbH) and `IOS_BUNDLE_ID`
-   (default `com.macrix.RN-Analyzer`, the bundle ID of the previous app – the build then appears as version 2.0.0
+   (default `com.macrix.RN-Analyzer`, the bundle ID of the previous app – the build then appears as version 2.1.0
    in the existing App Store entry). If the developer account belongs to a different team, set both variables and
    create an app with this bundle ID once in App Store Connect.
-5. Start the workflow **"iOS app → TestFlight"** under *Actions* via *Run workflow* (or push a tag `ios-v2.0.0-bN`).
+5. Start the workflow **"iOS app → TestFlight"** under *Actions* via *Run workflow* (or push a tag `ios-v2.1.0-bN`).
    Without signing secrets only the compile check runs (with a warning); with secrets, archive, export and
    TestFlight upload run automatically. Errors appear as annotations in the run overview.
    Minimum iOS is 16.4 (`MIN_IOS` in the workflow; the RNZ import needs `DecompressionStream`), device family iPhone + iPad.
@@ -245,7 +245,7 @@ The plugin `native/rn-device/android` (Java) offers the same interface as the iO
 
    Create the three printed values as secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`.
    Back up the folder `Integration/android-signing/` – updates must be signed with the same key.
-2. Push a tag, e.g. `android-v2.0.0-b1`. The workflow builds `RN-Analyzer.apk` (direct installation) and `RN-Analyzer.aab`
+2. Push a tag, e.g. `android-v2.1.0-b1`. The workflow builds `RN-Analyzer.apk` (direct installation) and `RN-Analyzer.aab`
    (Play Store) and publishes both as a GitHub release. Fixed download link for customers:
    `https://github.com/maxzmacrix/rnanalyzer/releases/latest/download/RN-Analyzer.apk` – the web version shows it on
    Android devices in the **Race Navigator** tab.

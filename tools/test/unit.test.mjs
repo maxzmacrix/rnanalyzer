@@ -169,6 +169,32 @@ test('coach: what-if apex estimate is positive, grows with the speed step and is
   assert.ok(Number.isNaN(whatIfApex(cmp.samples, { ...c, cmp: null }, 1)), 'no metrics → NaN');
 });
 
+// ------------------------------------------------------------------ highlights
+test('highlights: g peak in the corner, time loss against the reference, off-line excursion', async () => {
+  globalThis.window ??= globalThis;
+  const { detectHighlights, offTrack } = await import('../../app/js/highlights.js');
+  const ref = syntheticLap(340, 22), cmp = syntheticLap(300, 19);
+  // single lap: only g peaks, inside the corner (400–460 m)
+  const single = detectHighlights(ref);
+  assert.ok(single.length >= 1 && single.every((e) => e.kind === 'gpeak'), JSON.stringify(single));
+  assert.ok(single[0].d >= 330 && single[0].d <= 480, `g peak in braking zone or corner, got ${single[0].d}`);
+  // compared lap: a loss event around the corner, no gain, no off-line (same line)
+  const ev = detectHighlights(cmp, ref);
+  const loss = ev.filter((e) => e.kind === 'loss'), gain = ev.filter((e) => e.kind === 'gain'), off = ev.filter((e) => e.kind === 'offtrack');
+  assert.ok(loss.length >= 1 && loss[0].d > 250 && loss[0].d < 500, `loss ${JSON.stringify(loss)}`);
+  assert.equal(gain.length, 0); assert.equal(off.length, 0);
+  assert.deepEqual(ev.map((e) => e.d), [...ev.map((e) => e.d)].sort((a, b) => a - b), 'sorted by distance');
+  // off-line: shift the compared lap 12 m sideways between 600 and 700 m (default half width 5 m + 2 m margin)
+  const wide = { lap: cmp.lap, samples: { ...cmp.samples, lng: Float64Array.from(cmp.samples.lng) } };
+  const degPerM = 1 / (111320 * Math.cos((37 * Math.PI) / 180));
+  for (let i = 0; i < wide.samples.n; i++) if (wide.samples.d[i] >= 600 && wide.samples.d[i] <= 700) wide.samples.lng[i] += 12 * degPerM;
+  const offs = offTrack(wide.samples, ref.samples, NaN);
+  assert.equal(offs.length, 1, JSON.stringify(offs));
+  assert.ok(offs[0].d >= 600 && offs[0].d <= 700 && Math.abs(offs[0].value - 12) < 1.5, JSON.stringify(offs[0]));
+  // a wide track (20 m) swallows the same excursion
+  assert.equal(offTrack(wide.samples, ref.samples, 20).length, 0);
+});
+
 // ------------------------------------------------------------------ reference choice
 test('reference: same session and driver first, otherwise same track with same car and similar weather', async () => {
   const { pickReference } = await import('../../app/js/reference.js');
@@ -275,10 +301,12 @@ test('demo data: index lists existing, anonymised laps', async () => {
 test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
-  assert.match(ios, /MARKETING_VERSION: '2\.0\.0'/);
-  assert.match(android, /MARKETING_VERSION: '2\.0\.0'/);
-  assert.equal(pkg.version, '2.0.0');
-  assert.match(rd('app/js/main.js'), /APP_VERSION = '2\.0\.0'/);
+  const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
+  assert.equal(v, '2.1.0');
+  assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
+  assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
+  assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
+  assert.equal(pkg.version, v);
   assert.match(ios, /runs-on: macos-26/);
   assert.match(ios, /MIN_IOS: '16\.4'/);
 });

@@ -33,7 +33,7 @@ jobs:
     env:
       TEAM_ID: ${{ vars.APPLE_TEAM_ID || 'Z2LYJ5597T' }}
       BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'com.macrix.RN-Analyzer' }}
-      MARKETING_VERSION: '2.0.0'
+      MARKETING_VERSION: '2.1.0'
       MIN_IOS: '16.4'
       HAS_KEY: ${{ secrets.ASC_KEY_P8 != '' }}
       HAS_SIGNING: ${{ secrets.IOS_P12_BASE64 != '' && secrets.IOS_P12_PASSWORD != '' && secrets.IOS_PROFILE_BASE64 != '' }}
@@ -77,7 +77,7 @@ jobs:
       - name: Configure Info.plist (local network, Bonjour, HTTP to device, version)
         run: |
           PLIST=ios/App/App/Info.plist
-          BUILD="2.0.${{ github.run_number }}"
+          BUILD="2.1.${{ github.run_number }}"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 'RN Analyzer connects to your Race Navigator in the local WiFi to download laps and videos.'" "$PLIST"
@@ -235,7 +235,7 @@ jobs:
           xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$KEY_ID" --apiIssuer "$ISSUER" > /tmp/upload.log 2>&1 \
             || { echo "::error title=TestFlight upload::$(grep -iE 'error|fail' /tmp/upload.log | head -20 | tr '\n' '|' | cut -c1-3500)"; tail -n 60 /tmp/upload.log; exit 1; }
           tail -n 20 /tmp/upload.log
-          echo "::notice title=TestFlight::Build 2.0.${{ github.run_number }} uploaded – it appears in App Store Connect → TestFlight after processing (5–15 min)."
+          echo "::notice title=TestFlight::Build 2.1.${{ github.run_number }} uploaded – it appears in App Store Connect → TestFlight after processing (5–15 min)."
 
       - name: Clean up keychain
         if: always() && env.HAS_SIGNING == 'true'

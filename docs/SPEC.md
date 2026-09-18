@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.0.0 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.0 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -87,7 +87,7 @@ One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap en
   compared lap's time lost, OSM or Esri satellite, start and sector lines, corner numbers, optional "map follows the
   cursor"), g-force (scatter lateral vs. longitudinal), values at the cursor, lap overview (min/max, best values
   marked), sector times (device sectors, geometric fallback, custom sectors; best possible and fastest contiguous lap),
-  corner coach (section 3.5).
+  corner coach (section 3.5), highlights (section 3.8).
 * **Channels**: speed, longitudinal / lateral / vertical / combined acceleration, GPS deviation, altitude, heading,
   gyroscope (yaw/pitch/roll), OBD/CAN (RPM, throttle, water and oil temperature, OBD speed, only when present in the
   file), heart rate, custom CAN channels from `.cdrn`. Five main rows visible, the rest under "More channels".
@@ -139,6 +139,20 @@ tour and remove demo data, version and notices.
 `ai.js` optionally turns the facts into three to four sentences with a language model **on the device**: iOS 26 via
 Apple Foundation Models, Android via Gemini Nano (ML Kit GenAI Prompt API, supported devices only). Without a model the
 template text remains. Nothing leaves the phone.
+
+### 3.8 Highlights (moments worth jumping to)
+
+`highlights.js` finds, from telemetry alone, the moments of the compared lap (or the only lap) worth looking at, and
+shows them as a panel list and as labelled markers on the charts. A tap moves the cursor and seeks the videos there.
+
+* **g peak**: the three hardest moments (combined lateral and longitudinal g ≥ 0.8 g, local maximum over ±1 s), at least
+  100 m apart.
+* **loss / gain**: the lap loses or gains at least 0.25 s against the fastest lap within 50 m; up to three of each, the
+  largest, at least 100 m apart.
+* **off line**: the lap runs more than half the track width plus 2 m away from the fastest lap's line for at least one
+  second (default half width 5 m when the track definition has none). One event per excursion, at its widest point.
+
+Rows are labelled with the corner from the coach when the moment lies in one. Video clips are not cut or exported.
 
 ### 3.6 Guided tour
 
@@ -204,6 +218,7 @@ single Capacitor plugin `RnDevice` that the app registers at runtime.
 | `app/js/import.js` | Import pipeline: laps before videos, unpack zipped folders, duplicates keep note and overrides |
 | `app/js/analysis.js` | Interpolation, channel definitions `CHANNELS`, gap (time slip / distance gap), sector times, geometric sectors, axis steps |
 | `app/js/coach.js` | Corner detection, corner metrics, comparison, tolerances `T`, patterns, what-if estimate `whatIfApex` |
+| `app/js/highlights.js` | Highlight detection `detectHighlights` (g peaks, time loss/gain within 50 m, off-line excursions), thresholds `H` |
 | `app/js/reference.js` | Context-aware comparison partner `pickReference` (session, driver, car, weather, variant, pace) |
 | `app/js/ai.js` | Availability and invocation of the on-device language model via the plugin |
 | `app/js/sync.js` | Playback engine `player`: cursor from the reference video or a clock, videos synchronised by distance/time, drift tolerance 0.35 s |
@@ -338,6 +353,8 @@ Videos of 70 to 80 MB are expected; the app requests persistent storage so the s
 * **Best lap per driver** per event and track for the yellow marker.
 * **Corner coach**: section 3.5. A corner is a region of the reference with |lateral g| above threshold, bounded by the
   track definition.
+* **Highlights**: section 3.8; thresholds in `H` of `highlights.js`. Off-line distance = distance from a sample to the
+  nearest reference sample within ±15 samples of the same lap distance.
 * **Video sync**: the reference video provides the time; other videos are seeked to the time at which their lap reached
   the same distance (or time); re-seek from 0.35 s drift.
 
@@ -386,6 +403,13 @@ bumped with every change to app files, otherwise installed PWAs do not see the c
 Not committed (`.gitignore`): example files, old source code, specification PDFs, generated native projects, signing
 material. Whoever shares the software shares this repository plus the store and Pages links.
 
+### Version history
+
+| Version | Date | Contents |
+|---|---|---|
+| 2.1.0 | 2026-09-18 | Context-aware comparison partner, what-if per corner, highlights panel and chart markers, interior apex detection; specification in the repository; documentation in English |
+| 2.0.x | 2026-09-17 | Rewrite as offline web app with native shells: answer-first analysis, corner coach with on-device AI, session weather, heart rate, guided tour, RN Connect control, Android and iOS builds |
+
 ---
 
 ## 9. Quality assurance
@@ -431,7 +455,8 @@ Short form of the architecture decisions. New decisions are appended here, never
 | 2026-09 | Weather from Open-Meteo, automatic best-lap reference, heart rate from health apps | Context without personal data; reference choice was a source of errors; watches are common among drivers |
 | 2026-09 | **"RN Plattform"** (requirements document from March 2023: accounts, subscription, chat, events, coach marketplace, teams, leaderboards, live) **not as an extension of this product** | It is a second product with a backend, running costs, moderation and GDPR duties, and it reverses the principle "data stays on the device". Network effect across the RN device base unclear; the 2023 market claim unverified. Instead, without a backend: compare other drivers' laps via file, track directory with "open in Maps", coaching package as an export. A leaderboard experiment only as a separate, small undertaking. |
 
-| 2026-09-18 | From the AI ideas paper ("AI-Powered Innovation for the Next-Gen Race Navigator", 14 features) **only two adopted**: context-aware comparison partner (Smart Lap Comparison, without tyre/fuel data) and what-if per corner (from Predictive Lap Modeling, as an estimate, not a simulation). Not adopted for this app: coach read-aloud, driver fingerprint, highlight markers, session summary sharing, NL telemetry Q&A, telemetry+video fusion, leaderboards, community coach, setup optimizer, pit/tyre strategy, maintenance predictor, AR/VR, real-time coaching | Both adopted features run on the data in the RNZ, offline and deterministically. The rest needs a cloud, other users' data, vehicle sensors the Race Navigator does not record (tyre and brake temperatures, oil pressure), or belongs to RN Loop/RN Line per the portfolio boundaries. |
+| 2026-09-18 | From the AI ideas paper ("AI-Powered Innovation for the Next-Gen Race Navigator", 14 features) **only two adopted**: context-aware comparison partner (Smart Lap Comparison, without tyre/fuel data) and what-if per corner (from Predictive Lap Modeling, as an estimate, not a simulation). Not adopted for this app: coach read-aloud, driver fingerprint, session summary sharing, NL telemetry Q&A, telemetry+video fusion, leaderboards, community coach, setup optimizer, pit/tyre strategy, maintenance predictor, AR/VR, real-time coaching | Both adopted features run on the data in the RNZ, offline and deterministically. The rest needs a cloud, other users' data, vehicle sensors the Race Navigator does not record (tyre and brake temperatures, oil pressure), or belongs to RN Loop/RN Line per the portfolio boundaries. |
+| 2026-09-18 | **Highlights adopted** as the third feature from the AI ideas paper (owner decision): markers and a jump list from telemetry (g peaks, time loss/gain, off-line excursions). Automatic video cutting and export stay out | Detection is deterministic on RNZ data and reuses the synchronised video for the jump; cutting clips in the browser is expensive and fragile and adds nothing the jump does not already give |
 | 2026-09-18 | Portfolio positioning (RN Line, RN Cloud spine) and the three bridges (deep link to lap and time, per-lap aggregate export, import from URL) **not adopted for now** | Decision by the owner on 2026-09-18: only the two features above. The bridges remain listed as candidates. |
 
 Open candidates (not decided): deep link to lap and timestamp, per-lap aggregate export (JSON), import from an HTTPS link, file handler for `.rnz` in the native app, samples sheet in the Excel export, pit-lane

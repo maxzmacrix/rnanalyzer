@@ -23,6 +23,14 @@ export function describeWeatherCode(code) {
   return { icon: '🌡️', key: 'wx_unknown' };
 }
 
+/** Wet session? true when the hours saw rain (WMO code ≥ 51) or measurable precipitation; null when unknown. */
+export function isWet(w) {
+  if (!w) return null;
+  const code = Number(w.code), precip = Number(w.precip);
+  if (!Number.isFinite(code) && !Number.isFinite(precip)) return null;
+  return (Number.isFinite(code) && code >= 51) || (Number.isFinite(precip) && precip > 0.5);
+}
+
 export function windDirectionLabel(deg) {
   if (!Number.isFinite(deg)) return '';
   return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((deg % 360) + 360) % 360 / 45) % 8];

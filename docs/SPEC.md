@@ -67,6 +67,10 @@ The app has four tabs. The web version has no Race Navigator tab because the bro
 * Filters (complete, with video, outliers), sort by time, search across driver, vehicle, track, event, lap time.
 * Selection of up to 10 laps. The red "Compare with best lap (+0.391)" button opens the analysis; "Suggest comparison"
   picks a typical lap against the best.
+* **Context-aware comparison partner** (`reference.js`): for a single selected lap the partner is the best complete lap of
+  the same session and driver. When the session has none, the closest match from another session on the same track is
+  taken, ranked by same driver, same car, similar weather (dry/wet from the cached session weather), same track variant
+  and being faster. A partner from another session is announced under the button with its date and the reasons.
 * Lap menu: Edit (driver, vehicle, note; overrides device data for display only), Share (lap data `.rnz`, video `.mp4`,
   both), load heart rate from Apple Health / Health Connect (native app), Delete (lap, video).
 * Import via the file dialog: `.rnz`, `.rn`, `.xml`, `.mp4`/`.mov`/`.m4v`, and `.zip` folders, which are unpacked.
@@ -120,11 +124,17 @@ tour and remove demo data, version and notices.
 `coach.js` explains deterministically where and why a lap loses against the reference:
 
 * Corners from the track definition; fallback: peaks of lateral acceleration.
-* Per corner: braking point (longitudinal g < −0.25 g), apex (minimum speed), throttle point (longitudinal g > 0.12 g),
+* Per corner: braking point (longitudinal g < −0.25 g), apex (the interior local speed minimum nearest to the corner
+  anchor; fallback the window minimum), throttle point (longitudinal g > 0.12 g),
   exit speed, lateral line offset to the reference, time lost from the gap curve, split into braking and exit.
 * Differences below sensor tolerance are not mentioned: 8 m braking point, 1 m/s apex, 1.5 m line, 0.05 s.
 * Patterns across corners ("you brake earlier in 5 of 16 corners").
-* Shown as a panel: summary, corner list by time lost, the tip follows the cursor, the current corner is highlighted.
+* **What-if per corner** (`whatIfApex`): "+5 km/h at the apex ≈ −0.12 s" (imperial: +3 mph). Deterministic estimate on
+  the compared lap's own samples: the extra speed is applied as a triangle peaking at the apex and fading to zero at the
+  braking and throttle points, same line assumed. Marked as an estimate; shown per corner and handed to the narration.
+  It is not a simulation: no tyre, fuel or weather modelling.
+* Shown as a panel: summary, corner list by time lost with the what-if line, the tip follows the cursor, the current
+  corner is highlighted.
 
 `ai.js` optionally turns the facts into three to four sentences with a language model **on the device**: iOS 26 via
 Apple Foundation Models, Android via Gemini Nano (ML Kit GenAI Prompt API, supported devices only). Without a model the
@@ -193,7 +203,8 @@ single Capacitor plugin `RnDevice` that the app registers at runtime.
 | `app/js/rnparser.js` | `.rnz`/`.rn`/`.cdrn` → lap record and sample arrays (section 5) |
 | `app/js/import.js` | Import pipeline: laps before videos, unpack zipped folders, duplicates keep note and overrides |
 | `app/js/analysis.js` | Interpolation, channel definitions `CHANNELS`, gap (time slip / distance gap), sector times, geometric sectors, axis steps |
-| `app/js/coach.js` | Corner detection, corner metrics, comparison, tolerances `T`, patterns |
+| `app/js/coach.js` | Corner detection, corner metrics, comparison, tolerances `T`, patterns, what-if estimate `whatIfApex` |
+| `app/js/reference.js` | Context-aware comparison partner `pickReference` (session, driver, car, weather, variant, pace) |
 | `app/js/ai.js` | Availability and invocation of the on-device language model via the plugin |
 | `app/js/sync.js` | Playback engine `player`: cursor from the reference video or a clock, videos synchronised by distance/time, drift tolerance 0.35 s |
 | `app/js/chart.js` | Canvas line chart and scatter plot, zoom/pan, cursor, sector lines |
@@ -205,7 +216,7 @@ single Capacitor plugin `RnDevice` that the app registers at runtime.
 | `app/js/tabbar.js` | Tab bar with press-and-slide and highlight pill |
 | `app/js/tour.js` | Load/remove demo data, guided tour |
 | `app/js/update.js` | Android update check against the newest GitHub release |
-| `app/js/weather.js` | Session weather from Open-Meteo, WMO codes, wind direction, cache |
+| `app/js/weather.js` | Session weather from Open-Meteo, WMO codes, wind direction, wet/dry classification `isWet`, cache |
 | `app/js/health.js` | Heart rate from Apple Health / Health Connect resampled to the lap's time base, channel `hr` |
 | `app/js/device.js` | HTTP client for the simple device API (`/api/info`, `/api/laps`, `/files/<name>`), mixed-content detection |
 | `app/js/deviceNative.js` | Device client of the native app: Race Navigator HTTP-XML API (port 8080), assembles `.rn` XML, videos via FTP through the plugin, Bonjour discovery |
@@ -316,6 +327,11 @@ Videos of 70 to 80 MB are expected; the app requests persistent storage so the s
 
 * **Gap (time slip)**: Δt = t_cmp(d) − t_ref(d) over distance in 5 m steps; in time mode Δs = d_cmp(t) − d_ref(t).
 * **Reference**: the fastest complete lap of the selection; without a complete lap, the first selected one.
+* **Comparison partner for one lap** (lap list): score = same session 8, same driver 4, same car 3, same wet/dry state 2
+  (different state −4), same track variant 1, faster 1; ties go to the faster lap. Only complete laps on the same track.
+* **What-if per corner**: Δt = Σ dd · (1/v − 1/(v + Δv·w)) over the compared lap from braking to throttle point, with
+  w rising linearly from 0 at the braking point to 1 at the apex and back to 0 at the throttle point; Δv = 5 km/h
+  (3 mph). Reported only when ≥ 0.01 s.
 * **Sectors**: device sectors from the RNZ; otherwise geometric from the sector lines of the track definition (nearest
   sample to the line); custom splits override both. Best possible lap = sum of the best sectors; fastest contiguous lap
   = best sequence of real sectors.
@@ -394,6 +410,9 @@ material. Whoever shares the software shares this repository plus the store and 
 * AI explanation only on devices with Apple Intelligence (iOS 26) or Gemini Nano; otherwise template text.
 * rn-bridge and the PostgreSQL fallback are not verified against a real device.
 * Samples sheet in the Excel export is missing (the Windows app had it).
+* Corner windows are the midpoints between the corner anchors of the track definition. For fast kinks and closely spaced
+  corners the speed minimum can fall on a window boundary; such corners get no braking/apex facts and no what-if line.
+  Windows derived from the speed profile itself would be the fix (candidate).
 
 ---
 
@@ -412,7 +431,10 @@ Short form of the architecture decisions. New decisions are appended here, never
 | 2026-09 | Weather from Open-Meteo, automatic best-lap reference, heart rate from health apps | Context without personal data; reference choice was a source of errors; watches are common among drivers |
 | 2026-09 | **"RN Plattform"** (requirements document from March 2023: accounts, subscription, chat, events, coach marketplace, teams, leaderboards, live) **not as an extension of this product** | It is a second product with a backend, running costs, moderation and GDPR duties, and it reverses the principle "data stays on the device". Network effect across the RN device base unclear; the 2023 market claim unverified. Instead, without a backend: compare other drivers' laps via file, track directory with "open in Maps", coaching package as an export. A leaderboard experiment only as a separate, small undertaking. |
 
-Open candidates (not decided): file handler for `.rnz` in the native app, samples sheet in the Excel export, pit-lane
+| 2026-09-18 | From the AI ideas paper ("AI-Powered Innovation for the Next-Gen Race Navigator", 14 features) **only two adopted**: context-aware comparison partner (Smart Lap Comparison, without tyre/fuel data) and what-if per corner (from Predictive Lap Modeling, as an estimate, not a simulation). Not adopted for this app: coach read-aloud, driver fingerprint, highlight markers, session summary sharing, NL telemetry Q&A, telemetry+video fusion, leaderboards, community coach, setup optimizer, pit/tyre strategy, maintenance predictor, AR/VR, real-time coaching | Both adopted features run on the data in the RNZ, offline and deterministically. The rest needs a cloud, other users' data, vehicle sensors the Race Navigator does not record (tyre and brake temperatures, oil pressure), or belongs to RN Loop/RN Line per the portfolio boundaries. |
+| 2026-09-18 | Portfolio positioning (RN Line, RN Cloud spine) and the three bridges (deep link to lap and time, per-lap aggregate export, import from URL) **not adopted for now** | Decision by the owner on 2026-09-18: only the two features above. The bridges remain listed as candidates. |
+
+Open candidates (not decided): deep link to lap and timestamp, per-lap aggregate export (JSON), import from an HTTPS link, file handler for `.rnz` in the native app, samples sheet in the Excel export, pit-lane
 definition and memory-stick export in the control tab, RN software update over SSH, hosting the app on the device (same
 origin), firmware API with CORS for future devices.
 

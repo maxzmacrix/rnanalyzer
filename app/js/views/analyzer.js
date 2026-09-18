@@ -10,7 +10,7 @@ import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, switchEl,
 import { buildXlsx } from '../xlsx.js';
 import { shareFiles } from '../share.js';
 import { LineChart, ScatterChart } from '../chart.js';
-import { coachCompare, cornerAt } from '../coach.js';
+import { coachCompare, cornerAt, whatIfApex } from '../coach.js';
 import { aiStatus, aiNarrate } from '../ai.js';
 import { getLanguage } from '../i18n.js';
 import { TrackMap, nearestSample, providerFor } from '../map.js';
@@ -414,11 +414,22 @@ function factText(f) {
   if ('v' in f) return t(f.key, spd(f.v));
   return t(f.key, f);
 }
+/** What-if step: +5 km/h (metric) or +3 mph (imperial) at the apex, as m/s and as a label. */
+function whatIfStep() { return state.settings.units === 'imperial' ? { dv: 3 / 2.2369363, v: 3, u: 'mph' } : { dv: 5 / 3.6, v: 5, u: 'km/h' }; }
+/** "+5 km/h at the apex ≈ −0.12 s" for one corner, or '' when the estimate is below the reporting threshold. */
+function whatIfText(cmp, c) {
+  const st = whatIfStep();
+  const s = whatIfApex(cmp.samples, c, st.dv);
+  return Number.isFinite(s) && s >= 0.01 ? t('coach_whatif', { v: st.v, u: st.u, s: s.toFixed(2) }) : '';
+}
 /** The coach facts as plain lines – shown as template text and handed to the on-device model. */
 function coachLines(cc) {
   const { result, cmp } = cc, ref = data[0];
   const lines = [t('coach_vs', { lap: lapLabel(cmp.lap), ref: lapLabel(ref.lap), gap: fmtGap(result.total) })];
-  for (const c of result.ranked.slice(0, 6)) lines.push(`${cornerLabel(c)}: ${fmtGap(c.lost)}${c.facts.length ? ' – ' + c.facts.map(factText).join(', ') : ''}`);
+  for (const c of result.ranked.slice(0, 6)) {
+    const wi = whatIfText(cmp, c);
+    lines.push(`${cornerLabel(c)}: ${fmtGap(c.lost)}${c.facts.length ? ' – ' + c.facts.map(factText).join(', ') : ''}${wi ? ' – ' + wi : ''}`);
+  }
   for (const p of result.patterns) lines.push(t(p.key, { n: p.n, total: p.total }));
   return lines;
 }
@@ -458,6 +469,8 @@ function renderCoach(p) {
     } } },
       h('div.row.between', h('b', cornerLabel(c)), h('span.mono', { class: c.lost > 0 ? 'lost' : 'gained' }, fmtGap(c.lost))),
       h('div.small.muted', c.facts.length ? c.facts.map(factText).join(' · ') : t('coach_no_diff')));
+    const wi = whatIfText(cmp, c);
+    if (wi) row.appendChild(h('div.small.whatif', wi));
     list.appendChild(row);
   }
   wrap.appendChild(list);

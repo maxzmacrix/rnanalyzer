@@ -8,7 +8,8 @@ import { importFiles } from '../import.js';
 import { db } from '../db.js';
 import { shareFiles } from '../share.js';
 import { startTour } from '../tour.js';
-import { getSessionWeather } from '../weather.js';
+import { getSessionWeather, isWet } from '../weather.js';
+import { pickReference } from '../reference.js';
 import { healthAvailable, loadHeartRate, healthName } from '../health.js';
 import { isNative as isNativeShell } from '../deviceNative.js';
 
@@ -60,30 +61,41 @@ function render() {
 
 function renderSelection() {
   clear(selEl);
+  const oldHint = selEl.nextElementSibling; if (oldHint && oldHint.classList.contains('sel-hint')) oldHint.remove();
   const n = state.selected.length;
   if (!n) { selEl.appendChild(h('span', t('select_hint', { n: MAX_LAPS }))); return; }
   const dots = h('div.dots', state.selected.map((id) => h('i', { style: { background: lapColor(id) } })));
   const go = () => { location.hash = '#/analyze'; };
-  let action = null;
+  let action = null, hint = null;
   if (n >= 2) action = h('button.btn.accent.compare', { on: { click: go } }, t('compare'));
   else {
     // one lap: offer the natural comparison – the driver's best lap of the same session (or the next best if this is the best)
     const l = state.lapsById.get(state.selected[0]);
-    const partner = l && comparisonPartner(l);
-    if (partner) {
+    const pick = l && comparisonPartner(l);
+    if (pick) {
+      const partner = pick.lap;
       const d = (l.lapTimeMs - partner.lapTimeMs) / 1000;
       const dTxt = `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(3)}`;
       action = h('button.btn.accent.compare', { on: { click: async () => { await setSelection([partner.id, l.id]); go(); } } },
         partner.lapTimeMs < l.lapTimeMs ? t('compare_with_best', { d: dTxt }) : t('compare_with', { lap: `L${partner.lapNumber}`, d: dTxt }));
+      // the partner comes from another session: say so, and why it was chosen
+      if (!pick.sameSession) {
+        const why = pick.reasons.map((r) => t(`ref_${r}`)).join(' · ');
+        hint = h('div.sel-hint.small', `${t('ref_from', { lap: `L${partner.lapNumber}`, date: fmtDate(partner.startMs) })}${why ? ' · ' + why : ''}`);
+      }
     }
   }
   selEl.append(dots, h('span.grow.count', t('selected', { n })), action, h('button.tbtn', { html: icons.close, title: t('deselect_all'), 'aria-label': t('deselect_all'), on: { click: () => clearSelection() } }));
+  if (hint) selEl.after(hint);
 }
-/** Best complete lap of the same session and driver (excluding the lap itself). */
+/**
+ * The most useful comparison partner: best complete lap of the same session and driver; when the session has none,
+ * the closest match from another session on the same track (same driver, same car, similar weather preferred).
+ * Returns { lap, reasons, sameSession } or null.
+ */
 function comparisonPartner(l) {
-  const k = groupKey(l), drv = displayDriver(l);
-  const cands = state.laps.filter((o) => o.id !== l.id && groupKey(o) === k && displayDriver(o) === drv && o.complete && o.lapTimeMs > 0).sort((a, b) => a.lapTimeMs - b.lapTimeMs);
-  return cands[0] || null;
+  const wet = (o) => { const k = groupKey(o); return weatherCache.has(k) ? isWet(weatherCache.get(k)) : null; };
+  return pickReference(l, state.laps, { wet });
 }
 
 function groupKey(l) { return `${l.event.id}|${l.track.id}|${l.source.device}`; }

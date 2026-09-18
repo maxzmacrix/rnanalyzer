@@ -155,6 +155,59 @@ test('coach: detects the corner, the earlier braking and the slower apex', async
   assert.ok(Math.abs(same.total) < 1e-6);
 });
 
+test('coach: what-if apex estimate is positive, grows with the speed step and is bounded by the corner time', async () => {
+  globalThis.window ??= globalThis;
+  const { coachCompare, whatIfApex } = await import('../../app/js/coach.js');
+  const ref = syntheticLap(340, 22), cmp = syntheticLap(300, 19);
+  const c = coachCompare(ref, cmp).corners[0];
+  const s1 = whatIfApex(cmp.samples, c, 5 / 3.6), s2 = whatIfApex(cmp.samples, c, 10 / 3.6);
+  assert.ok(s1 > 0.05 && s1 < 1.5, `saving for +5 km/h: ${s1}`);
+  assert.ok(s2 > s1, 'a bigger step saves more');
+  // the corner (braking to throttle) takes a few seconds; the estimate can never exceed that time
+  const tCorner = cmp.samples.t[cmp.samples.n - 1] - 0; assert.ok(s2 < tCorner);
+  assert.ok(Number.isNaN(whatIfApex(cmp.samples, c, 0)), 'no step → NaN');
+  assert.ok(Number.isNaN(whatIfApex(cmp.samples, { ...c, cmp: null }, 1)), 'no metrics → NaN');
+});
+
+// ------------------------------------------------------------------ reference choice
+test('reference: same session and driver first, otherwise same track with same car and similar weather', async () => {
+  const { pickReference } = await import('../../app/js/reference.js');
+  const mk = (id, o = {}) => ({
+    id, complete: true, lapTimeMs: 100000, startMs: 0,
+    event: { id: 'E1' }, track: { id: 'T', variantId: 'V1' }, source: { device: 'RN1' },
+    driver: { name: 'Anna' }, vehicle: { model: 'GT4', number: '7' }, ...o,
+  });
+  const me = mk('me', { lapTimeMs: 101000 });
+  const sameSession = mk('s', { lapTimeMs: 100500 });
+  const otherSessionSameCar = mk('o1', { event: { id: 'E2' }, lapTimeMs: 99000 });
+  const otherSessionOtherCar = mk('o2', { event: { id: 'E2' }, vehicle: { model: 'Cup', number: '1' }, lapTimeMs: 98000 });
+  const otherTrack = mk('t', { track: { id: 'X', variantId: 'V1' }, lapTimeMs: 90000 });
+  const incomplete = mk('i', { complete: false, lapTimeMs: 90000 });
+  // same session wins even against faster laps elsewhere
+  let r = pickReference(me, [me, sameSession, otherSessionSameCar, otherSessionOtherCar, otherTrack, incomplete]);
+  assert.equal(r.lap.id, 's'); assert.equal(r.sameSession, true); assert.deepEqual(r.reasons, ['same_driver', 'same_car']);
+  // no lap in the session: same car beats a faster lap in another car
+  r = pickReference(me, [me, otherSessionSameCar, otherSessionOtherCar, otherTrack, incomplete]);
+  assert.equal(r.lap.id, 'o1'); assert.equal(r.sameSession, false); assert.ok(r.reasons.includes('same_car'));
+  // weather: a dry reference is preferred for a dry lap over a wet one with the same car
+  const wetLap = mk('w', { event: { id: 'E3' }, lapTimeMs: 98500 });
+  const wet = (l) => (l.id === 'w' ? true : l.id === 'o1' || l.id === 'me' ? false : null);
+  r = pickReference(me, [me, otherSessionSameCar, wetLap], { wet });
+  assert.equal(r.lap.id, 'o1'); assert.ok(r.reasons.includes('same_weather'));
+  // nothing on the same track → null
+  assert.equal(pickReference(me, [me, otherTrack]), null);
+});
+
+test('weather: wet/dry classification of a session summary', async () => {
+  const { isWet } = await import('../../app/js/weather.js');
+  assert.equal(isWet(null), null);
+  assert.equal(isWet({ code: 0, precip: 0 }), false);
+  assert.equal(isWet({ code: 3, precip: 0.2 }), false);
+  assert.equal(isWet({ code: 61, precip: 0 }), true);
+  assert.equal(isWet({ code: 1, precip: 2.4 }), true);
+  assert.equal(isWet({ code: NaN, precip: NaN }), null);
+});
+
 // ------------------------------------------------------------------ zip / xlsx
 test('zip: zipStore → unzip round trip', async () => {
   const data = new TextEncoder().encode('hello rn');

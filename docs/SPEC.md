@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.24 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.25 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -84,8 +84,9 @@ The app has four tabs. The web version has no Race Navigator tab because the bro
 ### 3.2 Analyze (`#/analyze`)
 
 One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap enlarges, speaker toggles sound), two panels
-(three on large screens), play bar at the bottom. Every video cell is exactly 16:9 and centred in its grid area (sized by
-`fitVideoCells()` on every resize), so no letterbox bars appear inside the cell; the cell background is graphite, not
+(three on large screens), play bar at the bottom. Every video cell takes its video's own aspect ratio (from the
+metadata, 16:9 until known; RN recordings are 5:3) and is centred in its grid area (sized by `fitVideoCells()` on every
+resize), so no letterbox bars appear inside the cell; the enlarged video uses the same ratio; the cell background is graphite, not
 black, and only shows while a frame loads.
 
 * **Reference** is always the fastest complete lap of the selection, regardless of tap order.
@@ -464,6 +465,7 @@ material. Whoever shares the software shares this repository plus the store and 
 | 2.1.22 | 2026-09-18 | Samples sorted by measurement time on import and on device download (device rows arrive in storage order; straight lines across the map and spikes in the charts were the symptom); PostgreSQL fallback orders by time; diagnostics log the count of reordered rows |
 | 2.1.23 | 2026-09-18 | Web page description names Android; `tools/make-demo.py` prepared to ship the complete lap videos for the tour (regeneration needs the source videos) |
 | 2.1.24 | 2026-09-18 | Guided tour ships the complete lap videos of both sample laps (86 s each, about 4 MB) instead of 20-second clips |
+| 2.1.25 | 2026-09-18 | Video cells and the enlarged video follow the video's own aspect ratio instead of a fixed 16:9 |
 | 2.1.20 | 2026-09-18 | Android build fix: the share sheet uses the app template's FileProvider instead of declaring a second one (manifest merge conflict in 2.1.19, whose Android build failed) |
 | 2.1.19 | 2026-09-18 | Android: native share sheet for diagnostics, lap data and videos through the plugin (the WebView has no Web Share API, the mail fallback cut the log at 1800 characters); device timeouts are logged as such |
 | 2.1.18 | 2026-09-18 | Satellite imagery is the default map style; existing installs on the old default follow (settings migration 4) |

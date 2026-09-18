@@ -229,3 +229,37 @@ test('workflows: versions and identifiers are consistent', () => {
   assert.match(ios, /runs-on: macos-26/);
   assert.match(ios, /MIN_IOS: '16\.4'/);
 });
+
+// ------------------------------------------------------------------ specification
+// docs/SPEC.md is the shareable description of the software (vision, scope, architecture). It must be updated in the
+// same commit as the code; this test catches the cheap-to-detect omissions.
+test('spec: documentation is current (modules, plugin methods, tabs, version, date)', () => {
+  const spec = rd('docs/SPEC.md');
+  const missing = [];
+  // every JS module of the app is described
+  const walk = (dir, rel = '') => {
+    for (const f of readdirSync(dir, { withFileTypes: true })) {
+      if (f.isDirectory()) walk(join(dir, f.name), `${rel}${f.name}/`);
+      else if (f.name.endsWith('.js') && !spec.includes(`app/js/${rel}${f.name}`)) missing.push(`module app/js/${rel}${f.name}`);
+    }
+  };
+  walk(join(APP, 'js'));
+  if (!spec.includes('app/sw.js')) missing.push('app/sw.js');
+  // every native plugin method (iOS is the reference list)
+  const swift = rd('native/rn-device/ios/Plugin/RnDevicePlugin.swift');
+  for (const m of swift.matchAll(/CAPPluginMethod\(name: "([a-zA-Z]+)"/g)) if (!spec.includes(`\`${m[1]}\``)) missing.push(`plugin method ${m[1]}`);
+  // every tab / route
+  for (const m of rd('app/index.html').matchAll(/data-view="([a-z]+)"/g)) if (!spec.includes(`#/${m[1]}`)) missing.push(`route #/${m[1]}`);
+  // every workflow
+  for (const f of readdirSync(join(ROOT, '.github/workflows'))) if (!spec.includes(f)) missing.push(`workflow ${f}`);
+  assert.deepEqual(missing, [], 'docs/SPEC.md does not mention');
+  // header: version matches the app, date is a valid ISO date and not in the future
+  const version = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
+  assert.match(spec, new RegExp(`\\*\\*App-Version:\\*\\* ${version.replace(/\./g, '\\.')}\\b`), 'spec header version differs from APP_VERSION');
+  const date = spec.match(/\*\*Stand:\*\* (\d{4}-\d{2}-\d{2})/);
+  assert.ok(date, 'spec header has no ISO date');
+  assert.ok(!Number.isNaN(Date.parse(date[1])) && Date.parse(date[1]) <= Date.now() + 86400000, 'spec date invalid');
+  // the maintenance rule and the decision log exist
+  assert.match(spec, /## 12\. Pflege dieser Spezifikation/);
+  assert.match(spec, /## 11\. Entscheidungen/);
+});

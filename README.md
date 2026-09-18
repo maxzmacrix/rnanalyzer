@@ -3,6 +3,9 @@
 Neuimplementierung des Race Navigator **RN Analyzer** (bisher iPad‑only, Objective‑C, 2013–2020) als
 installierbare, offline‑fähige Web‑App für iPhone, iPad, Android und Desktop.
 
+> **Spezifikation:** Vision, Produktumfang, Architektur, Datenmodell, Schnittstellen und Entscheidungen stehen in
+> [`docs/SPEC.md`](docs/SPEC.md). Dieses README ist die Anleitung zum Einrichten, Bauen und Veröffentlichen.
+
 * **Keine Abhängigkeiten, kein Build‑Schritt** – reines HTML/CSS/ES‑Modul‑JavaScript im Ordner `app/`.
 * **Offline** – Service Worker cached die App‑Shell; alle Runden, Videos und Einstellungen liegen lokal in IndexedDB.
 * **RNZ + MP4 aus dem lokalen Speicher** – Import über den Dateidialog (iOS „Dateien“‑App, USB‑Stick, iCloud Drive).

@@ -255,11 +255,11 @@ test('spec: documentation is current (modules, plugin methods, tabs, version, da
   assert.deepEqual(missing, [], 'docs/SPEC.md does not mention');
   // header: version matches the app, date is a valid ISO date and not in the future
   const version = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.match(spec, new RegExp(`\\*\\*App-Version:\\*\\* ${version.replace(/\./g, '\\.')}\\b`), 'spec header version differs from APP_VERSION');
-  const date = spec.match(/\*\*Stand:\*\* (\d{4}-\d{2}-\d{2})/);
+  assert.match(spec, new RegExp(`\\*\\*App version:\\*\\* ${version.replace(/\./g, '\\.')}\\b`), 'spec header version differs from APP_VERSION');
+  const date = spec.match(/\*\*As of:\*\* (\d{4}-\d{2}-\d{2})/);
   assert.ok(date, 'spec header has no ISO date');
   assert.ok(!Number.isNaN(Date.parse(date[1])) && Date.parse(date[1]) <= Date.now() + 86400000, 'spec date invalid');
   // the maintenance rule and the decision log exist
-  assert.match(spec, /## 12\. Pflege dieser Spezifikation/);
-  assert.match(spec, /## 11\. Entscheidungen/);
+  assert.match(spec, /## 12\. Maintaining this specification/);
+  assert.match(spec, /## 11\. Decisions/);
 });

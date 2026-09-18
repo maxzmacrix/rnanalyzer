@@ -1,10 +1,12 @@
-# Arbeitsregeln für dieses Repository
+# Working rules for this repository
 
-* `docs/SPEC.md` ist die gültige Spezifikation (Vision, Umfang, Architektur, Datenmodell, Schnittstellen, Build, QS,
-  Entscheidungen). Jede Änderung an Funktionsumfang, Architektur, Datenmodell, Schnittstellen, Build oder Nicht-Zielen
-  aktualisiert sie **im selben Commit**: Datum in der Kopfzeile, betroffener Abschnitt, bei Richtungsentscheidungen ein
-  Eintrag in Abschnitt 11. Neue Module, Plugin-Methoden, Tabs und Workflows müssen dort vorkommen (`npm test` prüft das).
-* `README.md` ist die Anleitung (Einrichten, Bauen, Signieren, Veröffentlichen, Formatdetails). Kein Duplikat der Spezifikation.
-* Vor jedem Push: `npm test`. Bei Änderungen an Dateien unter `app/` die Cache-Version in `app/sw.js` erhöhen.
-* Keine Abhängigkeiten zur Laufzeit, kein Build-Schritt für `app/`. Daten bleiben auf dem Gerät (siehe Leitprinzipien in der Spezifikation).
-* Sprache der Dokumentation: Deutsch, mit englischer Kurzfassung am Anfang der Spezifikation.
+* **Project language is English**: documentation, code comments, commit messages, pull request titles and bodies.
+  The app's user-facing texts are localised (DE/EN dictionaries in `app/js/i18n.js`).
+* `docs/SPEC.md` is the authoritative specification (vision, scope, architecture, data model, interfaces, build, QA,
+  decisions). Every change to scope, architecture, data model, interfaces, build or non-goals updates it **in the same
+  commit**: date in the header, the affected section, and for directional decisions an entry in section 11. New modules,
+  plugin methods, tabs and workflows must appear there (`npm test` checks this).
+* `README.md` is the how-to (setup, build, signing, publishing, format details). It does not duplicate the specification.
+* Before every push: `npm test`. When files under `app/` change, bump the cache version in `app/sw.js`.
+* No runtime dependencies, no build step for `app/`. Data stays on the device (see the guiding principles in the
+  specification).

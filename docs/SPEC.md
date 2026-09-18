@@ -1,432 +1,431 @@
-# RN Analyzer 2.0 – Spezifikation
+# RN Analyzer 2.0 – Specification
 
-**Stand:** 2026-09-18 · **App-Version:** 2.0.0 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.0.0 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
-Dieses Dokument ist die gültige Beschreibung der Software: Vision, Umfang, Architektur, Datenmodell, Schnittstellen,
-Build und Qualitätssicherung. Es ist so geschrieben, dass eine Person ohne Zugang zum Code oder zu internen Gesprächen die
-Software versteht und bewerten kann. Es wird mit jeder fachlichen oder architektonischen Änderung im selben Commit
-aktualisiert (siehe Abschnitt 12). Die Anleitung zum Bauen, Signieren und Veröffentlichen steht im `README.md`; dieses
-Dokument wiederholt sie nicht.
-
-*English summary:* RN Analyzer 2.0 is the successor of the Race Navigator iPad app: a dependency-free, offline-first web app
-(HTML/CSS/ES modules) for importing, comparing and explaining motorsport laps recorded by Race Navigator devices. It runs in
-the browser, as an installable PWA and, wrapped in Capacitor shells, as native iOS and Android apps that talk to the
-unmodified device over its local Wi-Fi. All data stays on the user's device. This document is the living specification.
+This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
+build and quality assurance. It is written so that a person without access to the code or to internal conversations can
+understand and evaluate the software. It is updated in the same commit as every functional or architectural change
+(section 12). Instructions for building, signing and publishing live in `README.md`; this document does not repeat them.
 
 ---
 
 ## 1. Vision
 
-**Ein Fahrer soll nach der Session in unter einer Minute wissen, wo er Zeit verliert und warum.**
+**After a session, a driver should know within a minute where they lose time and why.**
 
-Der RN Analyzer 2.0 ersetzt die 2013 bis 2020 gepflegte iPad-App (Objective-C) durch eine Software, die
+RN Analyzer 2.0 replaces the iPad app maintained from 2013 to 2020 (Objective-C) with software that
 
-1. auf jedem Gerät des Kunden läuft (iPhone, iPad, Android, Desktop-Browser), ohne dass Macrix pro Plattform eine eigene
-   Codebasis pflegt;
-2. ohne Server, Konto und Cloud funktioniert, auch in der Boxengasse ohne Netz;
-3. die Antwort zuerst zeigt (Abstand zur schnellsten Runde, wo auf der Strecke, warum in der Kurve) statt den Nutzer mit
-   Telemetrie-Kanälen allein zu lassen;
-4. den unveränderten Race Navigator im Feld weiter bedient (Import und Steuerung über sein WLAN), weil die Geräte beim Kunden
-   stehen und keine Firmware-Änderung vorausgesetzt werden darf.
+1. runs on every device the customer owns (iPhone, iPad, Android, desktop browser) without Macrix maintaining one
+   codebase per platform;
+2. works without a server, an account or a cloud, including in the pit lane without network coverage;
+3. shows the answer first (gap to the fastest lap, where on the track, why in the corner) instead of leaving the user
+   alone with telemetry channels;
+4. keeps serving the unmodified Race Navigator in the field (import and control over its Wi-Fi), because the devices are
+   at the customer's and a firmware change must not be a prerequisite.
 
-### Leitprinzipien (Entscheidungsgrundlage bei Zielkonflikten)
+### Guiding principles (the basis for resolving conflicting goals)
 
-| Prinzip | Bedeutung in der Praxis |
+| Principle | What it means in practice |
 |---|---|
-| **Daten bleiben auf dem Gerät** | Keine Konten, kein Backend, keine Telemetrie an Macrix. Externe Aufrufe nur für Kartenkacheln, Wetter und die Android-Update-Prüfung, alle abschaltbar oder ohne Personenbezug. KI-Texte entstehen auf dem Gerät. |
-| **Null Abhängigkeiten, kein Build-Schritt** | `app/` ist direkt auslieferbar. Keine Frameworks, kein Bundler, kein npm-Paket zur Laufzeit. Capacitor wird nur für die nativen Hüllen gebraucht. |
-| **Antwort zuerst** | Jede Ansicht beginnt mit dem Ergebnis (Abstand, Zeitverlust, Tipp), Details sind einen Tipp entfernt. Klartext statt Fachbegriffe. |
-| **Ein Weg, nicht drei** | Ein Analyse-Bildschirm, eine Vergleichsgeste, ein Verbindungszustand zum Gerät. Optionen werden entfernt, wenn sie eine Voreinstellung ersetzen kann. |
-| **Bedienbar mit Handschuhen** | Tippziele mindestens 40 px, Play-Leiste in der Daumenzone, Querformat mit Seitenleiste, Systemthema (hell am Tag). |
-| **Deterministisch vor generativ** | Der Coach rechnet nachvollziehbar aus Messdaten. Ein Sprachmodell formuliert höchstens die berechneten Fakten um und erfindet keine. |
+| **Data stays on the device** | No accounts, no backend, no telemetry to Macrix. External calls only for map tiles, weather and the Android update check, all switchable or free of personal data. AI texts are generated on the device. |
+| **Zero dependencies, no build step** | `app/` can be served as is. No frameworks, no bundler, no npm package at runtime. Capacitor is needed only for the native shells. |
+| **Answer first** | Every view starts with the result (gap, time lost, tip); details are one tap away. Plain words instead of jargon. |
+| **One way, not three** | One analysis screen, one comparison gesture, one connection state to the device. Options are removed when a default can replace them. |
+| **Usable with gloves on** | Tap targets at least 40 px, play bar in the thumb zone, landscape with a side rail, system theme (light by day). |
+| **Deterministic before generative** | The coach computes traceably from measured data. A language model at most rephrases the computed facts and invents none. |
 
-### Nicht-Ziele
+### Non-goals
 
-Bewusst nicht Teil dieses Produkts (Begründungen in Abschnitt 11): Cloud-Speicher, Nutzerkonten, Community-Funktionen
-(Chat, Teams, Ranglisten, Event-Marktplatz), Abo-Modell, Facebook/YouTube-Upload mit Login, E-Mail-Versand aus der App,
-VNC-Fernsteuerung, Synchronisation von Messungen über verschiedene Streckenvarianten.
+Deliberately not part of this product (reasons in section 11): cloud storage, user accounts, community features (chat,
+teams, leaderboards, event marketplace), subscription model, Facebook/YouTube upload with login, e-mail from the app,
+VNC remote control, synchronisation of measurements across track variants.
 
 ---
 
-## 2. Zielgruppen und Nutzungssituationen
+## 2. Target users and situations
 
-| Nutzer | Situation | Was die App liefern muss |
+| User | Situation | What the app must deliver |
 |---|---|---|
-| Fahrer (Trackday, Tourenfahrt, Rennen) | In der Box zwischen zwei Turns, Handy in der Hand, oft ohne Netz | Runden vom Gerät holen, „Mit Bestzeit vergleichen“, Karte rot/grün, Coach-Tipp, Video mit Overlay |
-| Fahrer zu Hause | Tablet oder PC, Zeit für Details | Bis zu 10 Runden, 4 Videos, Kanalwahl, Sektorzeiten, G-Diagramm, Excel-Export |
-| Coach / Instruktor | Kundendaten, fremde Geräte | Import aus Dateien (USB, AirDrop, WhatsApp), Vergleich fremder Runden, Teilen als `.rnz` |
-| Werkstatt / Support | Gerät prüfen, Runden aufräumen, Software-Stand | Tab Race Navigator: Status, Aufnahme, Fahrer/Fahrzeug/Strecke, Kameravorschau, Aktionen |
-| Interessent ohne Gerät | Store oder Web-Link | Geführte Tour mit Beispieldaten, Hinweis auf die native App |
+| Driver (track day, tourist drive, race) | In the pits between two turns, phone in hand, often offline | Fetch laps from the device, "Compare with best lap", map painted red/green, coach tip, video with overlay |
+| Driver at home | Tablet or PC, time for details | Up to 10 laps, 4 videos, channel choice, sector times, g-force plot, Excel export |
+| Coach / instructor | Customer data, other people's devices | Import from files (USB, AirDrop, WhatsApp), compare other drivers' laps, share as `.rnz` |
+| Workshop / support | Check the device, clean up laps, software state | Race Navigator tab: status, recording, driver/vehicle/track, camera preview, actions |
+| Prospect without a device | Store or web link | Guided tour with sample data, hint to the native app |
 
 ---
 
-## 3. Produktumfang
+## 3. Product scope
 
-Die App hat vier Tabs. In der Web-Version fehlt der Tab Race Navigator, weil der Browser das Gerät nicht erreichen kann
-(Abschnitt 7.1); der Hinweis auf die native App steht dann in der leeren Rundenliste und unter Einstellungen.
+The app has four tabs. The web version has no Race Navigator tab because the browser cannot reach the device
+(section 7.1); the hint to the native app then lives in the empty lap list and in Settings.
 
-### 3.1 Runden (`#/laps`)
+### 3.1 Laps (`#/laps`)
 
-* Liste aller importierten Runden, gruppiert nach Event, Strecke und Gerät. Farbcodes: weiß = vollständig, grau =
-  unvollständig, gelb = beste Runde je Fahrer im Event. Badges für Video, Puls, Demodaten.
-* Session-Kopf mit Wetter der Fahrstunden (Open-Meteo, gecacht, abschaltbar).
-* Filter (vollständig, mit Video, Ausreißer), Sortierung nach Zeit, Suche über Fahrer, Fahrzeug, Strecke, Event, Rundenzeit.
-* Auswahl von bis zu 10 Runden. Roter Knopf „Mit Bestzeit vergleichen (+0,391)“ öffnet die Analyse; „Vergleich vorschlagen“
-  wählt eine typische Runde gegen die Bestzeit.
-* Rundenmenü: Bearbeiten (Fahrer, Fahrzeug, Notiz, überschreibt die Gerätedaten nur zur Anzeige), Teilen (Rundendaten `.rnz`,
-  Video `.mp4`, beides), Puls aus Apple Health / Health Connect laden (native App), Löschen (Runde, Video).
-* Import über den Dateidialog: `.rnz`, `.rn`, `.xml`, `.mp4`/`.mov`/`.m4v`, sowie `.zip`-Ordner, die entpackt werden.
-  Umbenannte Videos werden über die Dateigröße der Runde zugeordnet. Fehler werden in einem Satz gemeldet.
+* List of all imported laps, grouped by event, track and device. Colour codes: white = complete, grey = incomplete,
+  yellow = best lap per driver in the event. Badges for video, heart rate, demo data.
+* Session header with the weather of the driving hours (Open-Meteo, cached, switchable).
+* Filters (complete, with video, outliers), sort by time, search across driver, vehicle, track, event, lap time.
+* Selection of up to 10 laps. The red "Compare with best lap (+0.391)" button opens the analysis; "Suggest comparison"
+  picks a typical lap against the best.
+* Lap menu: Edit (driver, vehicle, note; overrides device data for display only), Share (lap data `.rnz`, video `.mp4`,
+  both), load heart rate from Apple Health / Health Connect (native app), Delete (lap, video).
+* Import via the file dialog: `.rnz`, `.rn`, `.xml`, `.mp4`/`.mov`/`.m4v`, and `.zip` folders, which are unpacked.
+  Renamed videos are matched to their lap by file size. Errors are reported in one sentence.
 
-### 3.2 Analyse (`#/analyze`)
+### 3.2 Analyze (`#/analyze`)
 
-Ein Bildschirm, kein Modus-Umschalter. Aufbau von oben nach unten: Videos (bis zu 4, nebeneinander, Tipp vergrößert,
-Lautsprecher schaltet Ton), zwei Panels (drei auf großen Bildschirmen), Play-Leiste unten.
+One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap enlarges, speaker toggles sound), two panels
+(three on large screens), play bar at the bottom.
 
-* **Referenz** ist immer die schnellste vollständige Runde der Auswahl, unabhängig von der Tipp-Reihenfolge.
-* **Panel-Komponenten** (frei belegbar, Standard Panel A = Abstand mit Geschwindigkeit als zweiter Kurve, Panel B = Karte,
-  Panel C = Coach): Abstand zur schnellsten Runde (Zeitmodus: Distanzabstand), Kanal-Linienchart, Karte (schnellste Runde
-  rot/grün nach Zeitverlust der verglichenen Runde eingefärbt, OSM oder Esri-Satellit, Start- und Sektorlinien,
-  Kurvennummern, optional „Karte folgt dem Cursor“), G-Kraft (Streudiagramm Quer gegen Längs), Werte am Cursor,
-  Rundenübersicht (Min/Max, Bestwerte markiert), Sektorzeiten (Gerätesektoren, geometrischer Fallback, eigene Sektoren;
-  bestmögliche und zusammenhängend schnellste Runde), Kurven-Coach (Abschnitt 3.5).
-* **Kanäle**: Geschwindigkeit, Längs-/Quer-/Vertikal-/kombinierte Beschleunigung, GPS-Abweichung, Höhe, Kurs, Gyroskop
-  (Gier/Nick/Roll), OBD/CAN (Drehzahl, Gas, Wasser- und Öltemperatur, OBD-Geschwindigkeit, nur wenn im File vorhanden),
-  Herzfrequenz, Custom-CAN-Kanäle aus `.cdrn`. Fünf Hauptzeilen sichtbar, Rest unter „Mehr Kanäle“.
-* **Cursor** rot, synchron über Charts, Karte, Videos und Werte. X-Achse Distanz oder Zeit. Pinch = Zoom (horizontal X,
-  vertikal Y), zwei Finger ziehen = Pan, Doppeltipp = Reset, Zoom-Synchronisation über Panels.
-* **Play-Leiste**: Play/Pause, 5 s zurück, Tempo 0,25 bis 2× (Videos bis 2×, darüber taktgesteuert), laufende Abstände je Runde.
-* **Optionen-Blatt**: Sektoren (Gerät, eigene, keine), Achse, Diagramm-Panels, Layout-Profile, Excel-Export (Kanäle,
-  Distanzschritt, `.xlsx` ohne Bibliothek).
-* Eigene Sektoren: langes Drücken im Chart oder Optionen → Eigene Sektoren, je Strecke gespeichert.
+* **Reference** is always the fastest complete lap of the selection, regardless of tap order.
+* **Panel components** (freely assignable; defaults Panel A = gap with speed as second curve, Panel B = map, Panel C =
+  coach): gap to the fastest lap (time mode: distance gap), channel line chart, map (fastest lap painted red/green by the
+  compared lap's time lost, OSM or Esri satellite, start and sector lines, corner numbers, optional "map follows the
+  cursor"), g-force (scatter lateral vs. longitudinal), values at the cursor, lap overview (min/max, best values
+  marked), sector times (device sectors, geometric fallback, custom sectors; best possible and fastest contiguous lap),
+  corner coach (section 3.5).
+* **Channels**: speed, longitudinal / lateral / vertical / combined acceleration, GPS deviation, altitude, heading,
+  gyroscope (yaw/pitch/roll), OBD/CAN (RPM, throttle, water and oil temperature, OBD speed, only when present in the
+  file), heart rate, custom CAN channels from `.cdrn`. Five main rows visible, the rest under "More channels".
+* **Cursor** in red, synchronous across charts, map, videos and values. X axis distance or time. Pinch = zoom
+  (horizontal X, vertical Y), two-finger drag = pan, double tap = reset, zoom synchronised across panels.
+* **Play bar**: play/pause, 5 s back, speed 0.25 to 2× (videos up to 2×, above that clock-driven), live gaps per lap.
+* **Options sheet**: sectors (device, custom, none), axis, chart panels, layout profiles, Excel export (channels,
+  distance step, `.xlsx` without a library).
+* Custom sectors: long press in the chart or Options → Custom sectors, stored per track.
 
-### 3.3 Race Navigator (`#/device`, nur native App)
+### 3.3 Race Navigator (`#/device`, native app only)
 
-Ein Verbindungszustand: Gerät erreichbar → Verbindungskarte, Steuerung und Import auf einer Seite; nicht erreichbar → ruhige
-Karte mit „Erneut suchen“ (Bonjour `_racenav._tcp`) und „Adresse eingeben“.
+One connection state: device reachable → connection card, control and import on one page; not reachable → one calm
+card with "Search again" (Bonjour `_racenav._tcp`) and "Enter address".
 
-* **Import**: Rundenliste vom Gerät mit Sortierung, Daten/Video-Auswahl, Download-Queue mit Fortschritt und Geschwindigkeit,
-  Sprung in den Vergleich nach dem Download.
-* **Steuerung** (ehemals RN Connect): Aufnahme an/aus und Modus (manuell, Auto 20/40 km/h, stehender Start, Auto-Drehzahl),
-  Fahrer und Fahrzeug (wählen, anlegen, umbenennen), Strecke wechseln (Suche, Namen gecacht), Event-Typ und neues Event,
-  Videoqualität und -layout, Statuskarte alle 4 s (GPS, Akku, Speicher, Restzeit, Zeit setzen, Warnungen), Kameravorschau
-  (MJPEG, Kamera wechseln, drehen), Aktionen (Runden aufräumen, AP-Passwort, Ausschalten).
-* Noch nicht umgesetzt: Pit-Lane-Definition, Export auf Memory-Stick (Requests im Client vorbereitet), RN-Software-Update
-  (braucht SSH-Plugin).
+* **Import**: lap list from the device with sorting, data/video selection, download queue with progress and speed,
+  jump into the comparison after the download.
+* **Control** (formerly RN Connect): recording on/off and mode (manual, auto 20/40 km/h, standing start, auto RPM),
+  driver and vehicle (select, create, rename), change track (search, names cached), event type and new event, video
+  quality and layout, status card every 4 s (GPS, battery, storage, remaining time, set time, warnings), camera preview
+  (MJPEG, switch camera, rotate), actions (clean up laps, AP password, power off).
+* Not implemented yet: pit-lane definition, export to memory stick (requests prepared in the client), RN software
+  update (needs an SSH plugin).
 
-### 3.4 Einstellungen (`#/settings`)
+### 3.4 Settings (`#/settings`)
 
-Sprache (Gerät, DE, EN), Einheiten km/h oder mph, Darstellung (System, hell, dunkel), farbenblind-freundliche Palette,
-Kartenkacheln laden, Kartenstil (Straße, Satellit), schwebende Tab-Leiste, Wetter der Session, KI-Erklärung auf dem Gerät,
-Speicher (Belegung, dauerhaften Speicher anfordern, alle Videos löschen, alles löschen), Update prüfen (Android-APK),
-geführte Tour starten und Demodaten entfernen, Version und Hinweise.
+Language (device, DE, EN), units km/h or mph, appearance (system, light, dark), colour-blind-friendly palette, load map
+tiles, map style (streets, satellite), floating tab bar, session weather, on-device AI explanation, storage (usage,
+request persistent storage, delete all videos, delete everything), check for update (Android APK), start the guided
+tour and remove demo data, version and notices.
 
-### 3.5 Kurven-Coach und KI-Erklärung
+### 3.5 Corner coach and AI explanation
 
-`coach.js` erklärt deterministisch, wo und warum eine Runde gegen die Referenz verliert:
+`coach.js` explains deterministically where and why a lap loses against the reference:
 
-* Kurven aus der Streckendefinition, Fallback: Spitzen der Querbeschleunigung.
-* Je Kurve: Bremspunkt (Längs-g < −0,25 g), Scheitel (Minimalgeschwindigkeit), Gaspunkt (Längs-g > 0,12 g), Ausgangstempo,
-  seitlicher Linienversatz zur Referenz, Zeitverlust aus der Abstandskurve, aufgeteilt in Anbremsen und Ausgang.
-* Toleranzen unterhalb der Sensorgenauigkeit werden nicht genannt: 8 m Bremspunkt, 1 m/s Scheitel, 1,5 m Linie, 0,05 s.
-* Muster über mehrere Kurven („in 5 von 16 Kurven bremst du früher“).
-* Darstellung als Panel: Zusammenfassung, Kurvenliste nach Zeitverlust, Tipp springt mit dem Cursor, aktuelle Kurve hervorgehoben.
+* Corners from the track definition; fallback: peaks of lateral acceleration.
+* Per corner: braking point (longitudinal g < −0.25 g), apex (minimum speed), throttle point (longitudinal g > 0.12 g),
+  exit speed, lateral line offset to the reference, time lost from the gap curve, split into braking and exit.
+* Differences below sensor tolerance are not mentioned: 8 m braking point, 1 m/s apex, 1.5 m line, 0.05 s.
+* Patterns across corners ("you brake earlier in 5 of 16 corners").
+* Shown as a panel: summary, corner list by time lost, the tip follows the cursor, the current corner is highlighted.
 
-`ai.js` formt die Fakten optional mit einem Sprachmodell auf dem Gerät zu drei bis vier Sätzen: iOS 26 über Apple Foundation
-Models, Android über Gemini Nano (ML Kit GenAI Prompt API, nur unterstützte Geräte). Ohne Modell bleibt der Vorlagentext.
-Es verlassen keine Daten das Telefon.
+`ai.js` optionally turns the facts into three to four sentences with a language model **on the device**: iOS 26 via
+Apple Foundation Models, Android via Gemini Nano (ML Kit GenAI Prompt API, supported devices only). Without a model the
+template text remains. Nothing leaves the phone.
 
-### 3.6 Geführte Tour
+### 3.6 Guided tour
 
-Beim ersten Start (leere Liste) und aus den Einstellungen: drei anonymisierte Guadix-Beispielrunden und zwei 20-Sekunden-Clips
-werden importiert, dann fährt die App selbst durch Rundenliste, Vergleich, Analyse mit laufendem Cursor, G-Kraft, Video,
-Race-Navigator-Tab und Einstellungen. Am Ende Demodaten behalten oder entfernen.
+On first start (empty list) and from Settings: three anonymised Guadix sample laps and two 20-second clips are imported,
+then the app drives itself through the lap list, the comparison, the analysis with a running cursor, g-force, video, the
+Race Navigator tab and Settings. At the end the demo data can be kept or removed.
 
-### 3.7 Querschnitt
+### 3.7 Cross-cutting
 
-* **Sprachen**: Deutsch und Englisch, Schlüsselparität wird getestet. Web: Gerätesprache, sonst Englisch. Neue Sprache =
-  ein weiteres Wörterbuch in `i18n.js`.
-* **Offline**: App-Shell im Service-Worker-Precache, Kartenkacheln cache-first mit begrenzter Größe, alle Daten in IndexedDB.
-* **Update**: Web/PWA über Service-Worker-Banner; iOS über App Store/TestFlight; Android-APK vergleicht `build.json` mit
-  `latest.json` des neuesten GitHub-Releases (beim Start, beim Fortsetzen, alle 20 Minuten, manuell).
-* **Teilen**: Web Share API mit Dateien (iOS/Android Share-Sheet: Dateien, AirDrop, WhatsApp, YouTube, Instagram), sonst Download.
+* **Languages**: German and English; key parity is tested. Web: device language, otherwise English. A new language is
+  one more dictionary in `i18n.js`.
+* **Offline**: app shell in the service worker precache, map tiles cache-first with a bounded cache, all data in IndexedDB.
+* **Updates**: web/PWA via the service worker banner; iOS via App Store/TestFlight; the Android APK compares `build.json`
+  with `latest.json` of the newest GitHub release (on start, on resume, every 20 minutes, manually).
+* **Sharing**: Web Share API with files (iOS/Android share sheet: Files, AirDrop, WhatsApp, YouTube, Instagram),
+  otherwise download.
 
 ---
 
-## 4. Architektur
+## 4. Architecture
 
-### 4.1 Überblick
+### 4.1 Overview
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  app/  (reine Web-App, kein Build)                                           │
+│  app/  (plain web app, no build)                                             │
 │                                                                              │
-│  index.html ── main.js (Routing, Tabs, SW, Theme) ── views/                  │
+│  index.html ── main.js (routing, tabs, SW, theme) ── views/                  │
 │                                                       laps · analyzer ·      │
-│                    state.js (Zustand, Auswahl,        device(devices,control)│
-│                    Einstellungen, Event-Bus)          · settings             │
+│                    state.js (state, selection,        device(devices,control)│
+│                    settings, event bus)               · settings             │
 │                        │                                                     │
-│   Fachlogik: rnparser · analysis · coach · sync · chart · map · xlsx · zip   │
-│   Dienste:   import · db (IndexedDB) · i18n · ui · share · tour · update     │
-│   Extern:    weather (Open-Meteo) · device (HTTP-API) · deviceNative ·       │
+│   Domain:    rnparser · analysis · coach · sync · chart · map · xlsx · zip   │
+│   Services:  import · db (IndexedDB) · i18n · ui · share · tour · update     │
+│   External:  weather (Open-Meteo) · device (HTTP API) · deviceNative ·       │
 │              deviceControl · health · ai  ──► window.Capacitor.RnDevice      │
 │                                                                              │
-│  sw.js (Precache + Kachel-Cache)     demo/ (Tour-Daten)     css/app.css      │
+│  sw.js (precache + tile cache)       demo/ (tour data)      css/app.css      │
 └──────────────────────────────────────────────────────────────────────────────┘
-        │ identischer webDir                              │ Plugin-Aufrufe
+        │ identical webDir                                │ plugin calls
 ┌───────┴───────────────────┐                ┌────────────┴───────────────────┐
-│ Capacitor-Hülle iOS       │                │ native/rn-device (Plugin)      │
-│ Capacitor-Hülle Android   │                │ Swift · Java · Kotlin          │
-│ (in CI erzeugt, nicht     │                │ Bonjour/NSD · FTP · PostgreSQL │
-│  eingecheckt)             │                │ MJPEG · HealthKit/Health Conn. │
+│ Capacitor shell iOS       │                │ native/rn-device (plugin)      │
+│ Capacitor shell Android   │                │ Swift · Java · Kotlin          │
+│ (generated in CI, not     │                │ Bonjour/NSD · FTP · PostgreSQL │
+│  committed)               │                │ MJPEG · HealthKit/Health Conn. │
 └───────────────────────────┘                │ Foundation Models / Gemini Nano│
                                              └────────────────────────────────┘
 ```
 
-Schichten: Ansichten (`views/`) rendern DOM aus dem Zustand und reagieren auf Bus-Ereignisse; Fachlogik ist reine Funktion
-über typisierte Arrays und im Node-Test ohne Browser lauffähig; Dienste kapseln Browser-APIs; native Fähigkeiten laufen
-über ein einziges Capacitor-Plugin `RnDevice`, das die App zur Laufzeit registriert.
+Layers: views (`views/`) render DOM from the state and react to bus events; domain logic consists of pure functions over
+typed arrays and runs in the Node tests without a browser; services wrap browser APIs; native capabilities go through a
+single Capacitor plugin `RnDevice` that the app registers at runtime.
 
-### 4.2 Module
+### 4.2 Modules
 
-| Datei | Verantwortung |
+| File | Responsibility |
 |---|---|
-| `app/js/main.js` | Bootstrap, Hash-Routing (`#/laps`, `#/analyze`, `#/device`, `#/settings`, Aliase alter Routen), Thema, Sprache, Service-Worker-Registrierung, `APP_VERSION` |
-| `app/js/state.js` | Zentraler Zustand (Runden, Auswahl, Cursor, Einstellungen, Sample-Cache mit Verdrängung), Event-Bus `on`/`emit`, Referenzrunde `refLapId()`, Paletten, Einheiten, Migration `settingsVersion` |
-| `app/js/db.js` | IndexedDB-Zugriff (Abschnitt 5.3), Speicherabschätzung, dauerhafter Speicher |
-| `app/js/zip.js` | ZIP lesen (`DecompressionStream`) und schreiben (Store), ohne Bibliothek |
-| `app/js/rnparser.js` | `.rnz`/`.rn`/`.cdrn` → Rundendatensatz und Sample-Arrays (Abschnitt 5) |
-| `app/js/import.js` | Import-Pipeline: Reihenfolge Runden vor Videos, Zip-Ordner entpacken, Dubletten behalten Notiz und Overrides |
-| `app/js/analysis.js` | Interpolation, Kanaldefinitionen `CHANNELS`, Abstand (Time Slip / Distanzabstand), Sektorzeiten, geometrische Sektoren, Achsenschritte |
-| `app/js/coach.js` | Kurvenerkennung, Kurvenkennzahlen, Vergleich, Toleranzen `T`, Muster |
-| `app/js/ai.js` | Verfügbarkeit und Aufruf des Sprachmodells auf dem Gerät über das Plugin |
-| `app/js/sync.js` | Wiedergabe-Engine `player`: Cursor aus Referenzvideo oder Uhr, Videos nach Distanz/Zeit synchron, Drift-Toleranz 0,35 s |
-| `app/js/chart.js` | Canvas-Linienchart und Streudiagramm, Zoom/Pan, Cursor, Sektorlinien |
-| `app/js/map.js` | Canvas-Karte in Web Mercator, Kachelanbieter (OSM, Esri, eigener), Spuren, Einfärbung nach Zeitverlust, nächster Messpunkt |
-| `app/js/xlsx.js` | OOXML-Arbeitsmappe ohne Bibliothek |
-| `app/js/share.js` | Web Share API mit Dateien, Fallback Download |
-| `app/js/i18n.js` | Wörterbücher DE/EN, `t()`, Spracherkennung, Datums-/Byte-Formatierung |
-| `app/js/ui.js` | DOM-Helfer `h()`, Icons, Kopfzeile, Toast, Blatt, Bestätigungs- und Eingabedialog, Schalter, Segmentwahl |
-| `app/js/tabbar.js` | Tab-Leiste mit Drücken-und-Ziehen und Hervorhebungs-Pill |
-| `app/js/tour.js` | Demodaten laden/entfernen, geführte Tour |
-| `app/js/update.js` | Android-Update-Prüfung gegen das neueste GitHub-Release |
-| `app/js/weather.js` | Session-Wetter von Open-Meteo, WMO-Codes, Windrichtung, Cache |
-| `app/js/health.js` | Herzfrequenz aus Apple Health / Health Connect auf die Zeitbasis der Runde, Kanal `hr` |
-| `app/js/device.js` | HTTP-Client zur einfachen Geräte-API (`/api/info`, `/api/laps`, `/files/<name>`), Mixed-Content-Erkennung |
-| `app/js/deviceNative.js` | Geräteclient der nativen App: HTTP-XML-API des Race Navigator (Port 8080), setzt `.rn`-XML zusammen, Videos per FTP über das Plugin, Bonjour-Suche |
-| `app/js/deviceControl.js` | RN-Connect-Protokoll: `currentstatus`, `rarequest`-Aktionen, Konstanten (Aufnahmemodi, Videoqualität, Event-Typen, Statusflags) |
-| `app/js/views/laps.js` | Rundenliste, Filter, Auswahl, Rundenmenü, Import, Teilen |
-| `app/js/views/analyzer.js` | Analyse-Bildschirm, Panels, Komponentenwahl, Optionen, Excel-Export, eigene Sektoren |
-| `app/js/views/device.js` | Race-Navigator-Seite (Verbindungszustand), bindet `devices.js` und `control.js` ein |
-| `app/js/views/devices.js` | Rundenliste vom Gerät, Auswahl, Download-Queue |
-| `app/js/views/control.js` | Gerätesteuerung (Status, Aufnahme, Fahrer, Fahrzeug, Strecke, Event, Video, Kamera, Aktionen) |
-| `app/js/views/settings.js` | Einstellungen, Speicher, Tour, Update, Über |
-| `app/js/selftest.js` | Selbsttest in der laufenden App (`?selftest`), nicht im Precache |
-| `app/sw.js` | Service Worker: Precache-Liste `ASSETS`, Cache-Version, stale-while-revalidate für die Shell, cache-first für Kacheln (max. 1500) |
+| `app/js/main.js` | Bootstrap, hash routing (`#/laps`, `#/analyze`, `#/device`, `#/settings`, aliases for old routes), theme, language, service worker registration, `APP_VERSION` |
+| `app/js/state.js` | Central state (laps, selection, cursor, settings, sample cache with eviction), event bus `on`/`emit`, reference lap `refLapId()`, palettes, units, `settingsVersion` migration |
+| `app/js/db.js` | IndexedDB access (section 5.4), storage estimate, persistent storage |
+| `app/js/zip.js` | Read ZIP (`DecompressionStream`) and write ZIP (store), no library |
+| `app/js/rnparser.js` | `.rnz`/`.rn`/`.cdrn` → lap record and sample arrays (section 5) |
+| `app/js/import.js` | Import pipeline: laps before videos, unpack zipped folders, duplicates keep note and overrides |
+| `app/js/analysis.js` | Interpolation, channel definitions `CHANNELS`, gap (time slip / distance gap), sector times, geometric sectors, axis steps |
+| `app/js/coach.js` | Corner detection, corner metrics, comparison, tolerances `T`, patterns |
+| `app/js/ai.js` | Availability and invocation of the on-device language model via the plugin |
+| `app/js/sync.js` | Playback engine `player`: cursor from the reference video or a clock, videos synchronised by distance/time, drift tolerance 0.35 s |
+| `app/js/chart.js` | Canvas line chart and scatter plot, zoom/pan, cursor, sector lines |
+| `app/js/map.js` | Canvas map in Web Mercator, tile providers (OSM, Esri, custom), traces, painting by time lost, nearest sample |
+| `app/js/xlsx.js` | OOXML workbook without a library |
+| `app/js/share.js` | Web Share API with files, download fallback |
+| `app/js/i18n.js` | Dictionaries DE/EN, `t()`, language detection, date/byte formatting |
+| `app/js/ui.js` | DOM helper `h()`, icons, header, toast, sheet, confirm and prompt dialogs, switch, segmented control |
+| `app/js/tabbar.js` | Tab bar with press-and-slide and highlight pill |
+| `app/js/tour.js` | Load/remove demo data, guided tour |
+| `app/js/update.js` | Android update check against the newest GitHub release |
+| `app/js/weather.js` | Session weather from Open-Meteo, WMO codes, wind direction, cache |
+| `app/js/health.js` | Heart rate from Apple Health / Health Connect resampled to the lap's time base, channel `hr` |
+| `app/js/device.js` | HTTP client for the simple device API (`/api/info`, `/api/laps`, `/files/<name>`), mixed-content detection |
+| `app/js/deviceNative.js` | Device client of the native app: Race Navigator HTTP-XML API (port 8080), assembles `.rn` XML, videos via FTP through the plugin, Bonjour discovery |
+| `app/js/deviceControl.js` | RN Connect protocol: `currentstatus`, `rarequest` actions, constants (recording modes, video quality, event types, status flags) |
+| `app/js/views/laps.js` | Lap list, filters, selection, lap menu, import, sharing |
+| `app/js/views/analyzer.js` | Analysis screen, panels, component picker, options, Excel export, custom sectors |
+| `app/js/views/device.js` | Race Navigator page (connection state), embeds `devices.js` and `control.js` |
+| `app/js/views/devices.js` | Lap list from the device, selection, download queue |
+| `app/js/views/control.js` | Device control (status, recording, driver, vehicle, track, event, video, camera, actions) |
+| `app/js/views/settings.js` | Settings, storage, tour, update, about |
+| `app/js/selftest.js` | Self-test inside the running app (`?selftest`), not precached |
+| `app/sw.js` | Service worker: precache list `ASSETS`, cache version, stale-while-revalidate for the shell, cache-first for tiles (max. 1500) |
 
-### 4.3 Zustands- und Datenfluss
+### 4.3 State and data flow
 
-1. `initState()` lädt Einstellungen (mit Migration), alle Runden-Metadaten und die gespeicherte Auswahl aus IndexedDB.
-2. Ansichten abonnieren Bus-Ereignisse: `laps`, `selection`, `cursor`, `settings`, `sectors`, `theme`, `resize`, `online`.
-3. Sample-Arrays werden erst bei Bedarf geladen (`ensureSamples`) und in einem Cache mit höchstens 24 Einträgen gehalten;
-   nicht ausgewählte Runden werden verdrängt.
-4. Der Cursor ist eine Zahl in X-Einheiten (m oder s). `setCursor(x, source)` sendet `cursor`; die Wiedergabe-Engine ignoriert
-   ihre eigenen Ereignisse und zieht bei fremden Cursorbewegungen die Videos nach.
-5. Alle Änderungen an Runden laufen über `db` und danach `reloadLaps()`, das `laps` sendet.
+1. `initState()` loads settings (with migration), all lap metadata and the stored selection from IndexedDB.
+2. Views subscribe to bus events: `laps`, `selection`, `cursor`, `settings`, `sectors`, `theme`, `resize`, `online`.
+3. Sample arrays are loaded on demand (`ensureSamples`) and kept in a cache of at most 24 entries; laps that are not
+   selected are evicted first.
+4. The cursor is a number in X units (m or s). `setCursor(x, source)` emits `cursor`; the playback engine ignores its
+   own events and re-seeks the videos on external cursor moves.
+5. All changes to laps go through `db` followed by `reloadLaps()`, which emits `laps`.
 
-### 4.4 Native Hülle und Plugin
+### 4.4 Native shell and plugin
 
-Die nativen Projekte (`ios/`, `android/`) werden in der CI mit `npx cap add` erzeugt und sind nicht eingecheckt; eingecheckt
-sind `capacitor.config.json`, Icons und Splash unter `native/ios-assets/` und `native/android-res/` sowie das Plugin
-`native/rn-device/`. Die App erkennt die native Umgebung über `Capacitor.isNativePlatform()`; `fetch` läuft dort über
-`CapacitorHttp` nativ, deshalb gibt es weder CORS- noch Mixed-Content-Probleme gegenüber dem Gerät.
+The native projects (`ios/`, `android/`) are generated in CI with `npx cap add` and are not committed; committed are
+`capacitor.config.json`, icons and splash under `native/ios-assets/` and `native/android-res/`, and the plugin
+`native/rn-device/`. The app detects the native environment via `Capacitor.isNativePlatform()`; `fetch` runs natively
+through `CapacitorHttp` there, so there are no CORS or mixed-content problems towards the device.
 
-Plugin `RnDevice`, Methoden identisch auf iOS (Swift) und Android (Java, Kotlin für Health und KI):
+Plugin `RnDevice`, identical methods on iOS (Swift) and Android (Java, Kotlin for health and AI):
 
-| Methode | Zweck |
+| Method | Purpose |
 |---|---|
-| `discover` | Bonjour/NSD-Suche nach `_racenav._tcp` |
-| `ftpDownload` | Video vom Gerät (FTP, Zugang aus der alten App) in den App-Cache, mit Fortschritt |
-| `pgQuery` | PostgreSQL-Abfrage auf dem Gerät als Fallback für Messdaten |
-| `deleteFile` | Datei aus dem App-Cache entfernen |
-| `cameraStart` / `cameraStop` | MJPEG-Strom der Gerätekamera über TCP |
-| `healthAvailable` / `healthHeartRate` | HealthKit bzw. Health Connect: Herzfrequenz für ein Zeitfenster |
-| `aiAvailable` / `aiGenerate` | Sprachmodell auf dem Gerät (Apple Foundation Models, Gemini Nano) |
+| `discover` | Bonjour/NSD search for `_racenav._tcp` |
+| `ftpDownload` | Video from the device (FTP, credentials from the old app) into the app cache, with progress |
+| `pgQuery` | PostgreSQL query on the device as a fallback for measurement data |
+| `deleteFile` | Remove a file from the app cache |
+| `cameraStart` / `cameraStop` | MJPEG stream of the device camera over TCP |
+| `healthAvailable` / `healthHeartRate` | HealthKit or Health Connect: heart rate for a time window |
+| `aiAvailable` / `aiGenerate` | On-device language model (Apple Foundation Models, Gemini Nano) |
 
-Mindestversionen: iOS 16.4 (wegen `DecompressionStream`), Android 8 (API 26). Berechtigungen und Nutzungstexte
-(lokales Netz, Bonjour, HealthKit, Cleartext-HTTP zum Gerät) setzt der jeweilige Workflow.
+Minimum versions: iOS 16.4 (because of `DecompressionStream`), Android 8 (API 26). Permissions and usage strings (local
+network, Bonjour, HealthKit, cleartext HTTP to the device) are set by the respective workflow.
 
-### 4.5 Externe Dienste
+### 4.5 External services
 
-| Dienst | Zweck | Personenbezug | Abschaltbar |
+| Service | Purpose | Personal data | Switchable |
 |---|---|---|---|
-| tile.openstreetmap.org, Esri World Imagery | Kartenkacheln | Nur Kachelkoordinaten | Ja (Kartenkacheln laden) |
-| api.open-meteo.com, archive-api.open-meteo.com | Wetter je Session, Position aus der Streckendefinition | Nein | Ja |
-| github.com/…/releases/latest | Android-Update-Prüfung (`latest.json`) | Nein | Nur Android-APK, manuell auslösbar |
-| Race Navigator im lokalen WLAN | Import und Steuerung | Lokal | Nur native App |
+| tile.openstreetmap.org, Esri World Imagery | Map tiles | Tile coordinates only | Yes (load map tiles) |
+| api.open-meteo.com, archive-api.open-meteo.com | Weather per session, position from the track definition | No | Yes |
+| github.com/…/releases/latest | Android update check (`latest.json`) | No | Android APK only, can be triggered manually |
+| Race Navigator in the local Wi-Fi | Import and control | Local | Native app only |
 
-Es gibt keinen Macrix-Server, kein Analytics, kein Crash-Reporting.
+There is no Macrix server, no analytics, no crash reporting.
 
 ---
 
-## 5. Datenmodell
+## 5. Data model
 
-### 5.1 Eingabeformat RNZ
+### 5.1 Input format RNZ
 
-Nach *Race Navigator Files Format Specification rev 1.1*: `.rnz` ist ein ZIP-Archiv, dessen Kommentar `key=value`-Metadaten
-trägt; darin `*.rn` (XML, Namensraum `http://macrix.eu/racenavigator/LapDataSchema`) und optional `*.cdrn`
-(CSV `id;measurementtime;lapid;name;unit;value` mit Zusatzkanälen). Messpunkte `<sm …/>` mit 10 Hz. Attribut-Mapping und
-Einheiten stehen tabellarisch im `README.md` (Abschnitt „Dateiformat“); physikalisch verifiziert: `la` = Längs-, `lo` =
-Querbeschleunigung (positiv = links). Video-Synchronisation: `videos/video/startTime` ist Video-Sekunde 0.
+Per *Race Navigator Files Format Specification rev 1.1*: `.rnz` is a ZIP archive whose comment carries `key=value`
+metadata; inside, `*.rn` (XML, namespace `http://macrix.eu/racenavigator/LapDataSchema`) and optionally `*.cdrn`
+(CSV `id;measurementtime;lapid;name;unit;value` with additional channels). Sample points `<sm …/>` at 10 Hz. The
+attribute mapping and units are tabulated in `README.md` (section "File format"); physically verified: `la` =
+longitudinal, `lo` = lateral acceleration (positive = left). Video synchronisation: `videos/video/startTime` is video
+second 0.
 
-### 5.2 Runde (Metadaten, Store `laps`)
+### 5.2 Lap (metadata, store `laps`)
 
 ```
-id            "<Gerät>_<lapId>_<startMs>"      eindeutig über Geräte hinweg
+id            "<device>_<lapId>_<startMs>"     unique across devices
 lapNumber, type, startMs, endMs, lapTimeMs, complete
 driver   { id, name, surname, photo }          vehicle { number, model }
 event    { id, name, startMs, endMs }          track   { id, name, distance, width, timeZone, variantId, variantName }
 trackDef { startLine[], endLine[], sectors[{name, points[]}], curves[{name, points[]}], picture{sw, ne} }
-sectors  [ { n, timeMs } ]                     Gerätesektoren
-video    { fileName, offsetS, sizeKB }, videos[]   Zuordnung zum MP4 (erstes Video nach locationType)
-channels { rpm, throttle, waterTemp, oilTemp, obdSpeed, obd, custom[], hr }   Verfügbarkeit je Kanal
+sectors  [ { n, timeMs } ]                     device sectors
+video    { fileName, offsetS, sizeKB }, videos[]   link to the MP4 (first video by locationType)
+channels { rpm, throttle, waterTemp, oilTemp, obdSpeed, obd, custom[], hr }   availability per channel
 source   { fileName, device, exportDevice, exportVersion, dataVersion, exportTime }
 note, driverOverride, vehicleOverride, vehicleNumberOverride, importedAt, demo
 ```
 
-### 5.3 Messdaten (Store `samples`)
+### 5.3 Samples (store `samples`)
 
-Ein Objekt je Runde mit `n` und typisierten Arrays gleicher Länge: `t` (s seit Rundenstart), `d` (m), `v` (m/s), `lat`/`lng`
-(Float64), `gLat`, `gLon`, `gVert` (g), `alt` (m), `hdg` (°), `dev` (m), `rpm`, `thr`, `wt`, `ot`, `os`, `gyrP`, `gyrR`, `gyrY`,
-`gpsOk`, `obdOk` (Uint8), optional `hr` (bpm) und benannte Custom-Kanäle. Alle Analysen (Interpolation, Abstand, Sektoren,
-Coach) arbeiten auf diesen Arrays und sind ohne DOM testbar.
+One object per lap with `n` and typed arrays of equal length: `t` (s since lap start), `d` (m), `v` (m/s), `lat`/`lng`
+(Float64), `gLat`, `gLon`, `gVert` (g), `alt` (m), `hdg` (°), `dev` (m), `rpm`, `thr`, `wt`, `ot`, `os`, `gyrP`, `gyrR`,
+`gyrY`, `gpsOk`, `obdOk` (Uint8), optionally `hr` (bpm) and named custom channels. All analyses (interpolation, gap,
+sectors, coach) operate on these arrays and are testable without a DOM.
 
-### 5.4 Persistenz (IndexedDB `rn-analyzer`, Version 1)
+### 5.4 Persistence (IndexedDB `rn-analyzer`, version 1)
 
-| Store | Schlüssel | Inhalt |
+| Store | Key | Content |
 |---|---|---|
-| `laps` | `id` (Indizes `startMs`, `track.id`) | Rundenmetadaten |
-| `samples` | `id` | Messdaten-Arrays |
-| `raw` | `id` | Original-`.rnz` als Bytes (für Teilen/Export) |
-| `videos` | `fileName` | MP4 als Blob, Größe, Typ, Zeitpunkt |
-| `settings` | `key` | `settings` (Objekt mit `settingsVersion`), `selected` (Rundenauswahl), Wetter-Cache |
-| `sectors` | `trackId` | eigene Sektor-Splits in m |
+| `laps` | `id` (indexes `startMs`, `track.id`) | Lap metadata |
+| `samples` | `id` | Sample arrays |
+| `raw` | `id` | Original `.rnz` bytes (for sharing/export) |
+| `videos` | `fileName` | MP4 as Blob, size, type, timestamp |
+| `settings` | `key` | `settings` (object with `settingsVersion`), `selected` (lap selection), weather cache |
+| `sectors` | `trackId` | Custom sector splits in m |
 
-Videos von 70 bis 80 MB sind vorgesehen; die App fordert dauerhaften Speicher an, damit das System nichts verdrängt.
-
----
-
-## 6. Analysefunktionen (fachliche Definitionen)
-
-* **Abstand (Time Slip)**: Δt = t_cmp(d) − t_ref(d) über die Distanz in 5-m-Schritten; im Zeitmodus Δs = d_cmp(t) − d_ref(t).
-* **Referenz**: schnellste vollständige Runde der Auswahl; ohne vollständige Runde die erste gewählte.
-* **Sektoren**: Gerätesektoren aus dem RNZ; sonst geometrisch aus den Sektorlinien der Streckendefinition (nächster Messpunkt an
-  der Linie); eigene Splits überschreiben beides. Bestmögliche Runde = Summe der besten Sektoren; zusammenhängend schnellste
-  Runde = beste Folge realer Sektoren.
-* **Beste Runde je Fahrer** je Event und Strecke für die gelbe Markierung.
-* **Kurven-Coach**: Abschnitt 3.5. Kurve = Bereich der Referenz mit |Quer-g| über Schwelle, begrenzt aus der Streckendefinition.
-* **Video-Sync**: Referenzvideo liefert die Zeit; andere Videos werden auf die Zeit gesetzt, zu der ihre Runde dieselbe
-  Distanz (oder Zeit) erreicht hat; Nachziehen ab 0,35 s Drift.
+Videos of 70 to 80 MB are expected; the app requests persistent storage so the system does not evict anything.
 
 ---
 
-## 7. Schnittstellen zum Race Navigator
+## 6. Analysis functions (domain definitions)
 
-### 7.1 Was das unveränderte Gerät anbietet
-
-WLAN „Analyzer Mode“ (Netz `<Gerät>_AP`), Bonjour `_racenav._tcp`:
-
-* **HTTP-REST/XML** `http://<ip>:8080/resources/<uri>` (`deviceinfo`, `drivers`, `vehicles`, `events`, `laps/…`,
-  `lapsectors`, `videoinfos`, `lapstovideos`, `sensormeasurements/<von>/<bis>`, `tracks`, `trackvariants`, `rarequest/…`).
-  Datumsformat `yyyyMMddHHmmssSSS`.
-* **FTP** mit `.mp4`/`.idx` im Wurzelverzeichnis. **PostgreSQL** Datenbank `rtts`. Zugangsdaten stehen im `README.md`.
-* **Steuerung** (RN Connect): `GET …/resources/currentstatus` (JSON) und Aktionen als
-  `rarequest/{typ}/{uuid}/{dt1}/{dt2}/{int1}/{int2}/{int3}/{str1}/{str2}/{str3}/0`, Abfrage `rarequest/{uuid}/{typ}` mit Status
-  0 empfangen, 1 in Arbeit, 2 fertig, 3 fehlgeschlagen. Kameravorschau: `rarequest/19/{uuid}/1` liefert Kameraanzahl und
-  TCP-Port des MJPEG-Stroms.
-
-Der Browser kann das nicht direkt nutzen (Mixed Content aus HTTPS, keine CORS-Header, kein FTP/PostgreSQL). Deshalb:
-native App als Kundenweg, Datei-Import als universeller Weg.
-
-### 7.2 Einfache Geräte-API (Web-Version, Referenz für künftige Firmware)
-
-`GET /api/info`, `GET /api/laps`, `GET /files/<name>` mit CORS-Headern und Range-Unterstützung. Referenzimplementierung
-`tools/mock-device-server.mjs` (serviert einen Ordner mit `.rnz`/`.mp4`), produktive Brücke `tools/rn-bridge/` (Node auf
-Laptop oder Raspberry im Geräte-WLAN, erzeugt `.rnz` aus der Gerätedatenbank, streamt Videos per FTP, liefert die App aus).
-Die Brücke ist fertig, aber nicht gegen ein echtes Gerät getestet.
+* **Gap (time slip)**: Δt = t_cmp(d) − t_ref(d) over distance in 5 m steps; in time mode Δs = d_cmp(t) − d_ref(t).
+* **Reference**: the fastest complete lap of the selection; without a complete lap, the first selected one.
+* **Sectors**: device sectors from the RNZ; otherwise geometric from the sector lines of the track definition (nearest
+  sample to the line); custom splits override both. Best possible lap = sum of the best sectors; fastest contiguous lap
+  = best sequence of real sectors.
+* **Best lap per driver** per event and track for the yellow marker.
+* **Corner coach**: section 3.5. A corner is a region of the reference with |lateral g| above threshold, bounded by the
+  track definition.
+* **Video sync**: the reference video provides the time; other videos are seeked to the time at which their lap reached
+  the same distance (or time); re-seek from 0.35 s drift.
 
 ---
 
-## 8. Plattformen, Build und Release
+## 7. Interfaces to the Race Navigator
 
-| Ziel | Quelle | Mechanik | Auslöser |
+### 7.1 What the unmodified device offers
+
+Wi-Fi "Analyzer Mode" (network `<device>_AP`), Bonjour `_racenav._tcp`:
+
+* **HTTP REST/XML** `http://<ip>:8080/resources/<uri>` (`deviceinfo`, `drivers`, `vehicles`, `events`, `laps/…`,
+  `lapsectors`, `videoinfos`, `lapstovideos`, `sensormeasurements/<from>/<to>`, `tracks`, `trackvariants`,
+  `rarequest/…`). Date format `yyyyMMddHHmmssSSS`.
+* **FTP** with `.mp4`/`.idx` in the root directory. **PostgreSQL** database `rtts`. Credentials are in `README.md`.
+* **Control** (RN Connect): `GET …/resources/currentstatus` (JSON) and actions as
+  `rarequest/{type}/{uuid}/{dt1}/{dt2}/{int1}/{int2}/{int3}/{str1}/{str2}/{str3}/0`, polled via `rarequest/{uuid}/{type}`
+  with status 0 received, 1 in progress, 2 done, 3 failed. Camera preview: `rarequest/19/{uuid}/1` returns the number of
+  cameras and the TCP port of the MJPEG stream.
+
+The browser cannot use this directly (mixed content from HTTPS, no CORS headers, no FTP/PostgreSQL). Hence: the native
+app as the customer path, file import as the universal path.
+
+### 7.2 Simple device API (web version, reference for future firmware)
+
+`GET /api/info`, `GET /api/laps`, `GET /files/<name>` with CORS headers and Range support. Reference implementation
+`tools/mock-device-server.mjs` (serves a folder of `.rnz`/`.mp4`), production bridge `tools/rn-bridge/` (Node on a laptop
+or Raspberry Pi in the device Wi-Fi; generates `.rnz` from the device database, streams videos via FTP, serves the app).
+The bridge is complete but not tested against a real device.
+
+---
+
+## 8. Platforms, build and release
+
+| Target | Source | Mechanism | Trigger |
 |---|---|---|---|
-| Web/PWA | `app/` | GitHub Pages (`pages.yml`), statisch, HTTPS | Push auf `main` |
-| iOS (iPhone, iPad) | Capacitor + `native/rn-device` | `ios.yml` auf macOS-Runner: Projekt erzeugen, Info.plist, Signatur aus Secrets, Archiv, TestFlight-Upload | Tag `ios-v*`, Push auf `main` (Kompilier-Check), manuell |
-| Android | Capacitor + `native/rn-device` | `android.yml`: Projekt erzeugen, minSdk 26, Keystore aus Secrets, APK + AAB, GitHub-Release mit `latest.json` | Tag `android-v*`, Push auf `main` |
+| Web/PWA | `app/` | GitHub Pages (`pages.yml`), static, HTTPS | Push to `main` |
+| iOS (iPhone, iPad) | Capacitor + `native/rn-device` | `ios.yml` on a macOS runner: generate project, Info.plist, signing from secrets, archive, TestFlight upload | Tag `ios-v*`, push to `main` (compile check), manual |
+| Android | Capacitor + `native/rn-device` | `android.yml`: generate project, minSdk 26, keystore from secrets, APK + AAB, GitHub release with `latest.json` | Tag `android-v*`, push to `main` |
 
-Versionen: `APP_VERSION` in `main.js`, `version` in `package.json` und `MARKETING_VERSION` in beiden Workflows müssen
-gleich sein (Test). Build-Nummer = GitHub-Run-Nummer. Die Service-Worker-Cache-Version `rn-analyzer-vX.Y.Z` in `sw.js` wird
-bei jeder Änderung an App-Dateien erhöht, sonst sehen installierte PWAs die Änderung nicht. Bundle-ID iOS
-`com.macrix.RN-Analyzer` (bestehender Store-Eintrag), Android-Paket `com.macrix.rnanalyzer`.
+Versions: `APP_VERSION` in `main.js`, `version` in `package.json` and `MARKETING_VERSION` in both workflows must be
+equal (tested). Build number = GitHub run number. The service worker cache version `rn-analyzer-vX.Y.Z` in `sw.js` is
+bumped with every change to app files, otherwise installed PWAs do not see the change. iOS bundle ID
+`com.macrix.RN-Analyzer` (existing store entry), Android package `com.macrix.rnanalyzer`.
 
-Nicht eingecheckt (`.gitignore`): Beispieldateien, alter Quellcode, Spezifikations-PDFs, erzeugte native Projekte,
-Signaturmaterial. Wer die Software teilt, teilt dieses Repository plus die Store- bzw. Pages-Links.
-
----
-
-## 9. Qualitätssicherung
-
-* **`npm test`** (`tools/test/unit.test.mjs`, Node ≥ 22): Sprachdateien (Schlüsselparität, Platzhalter, alle benutzten
-  Schlüssel), Analysefunktionen, Coach an synthetischen Runden, Wetter-Codes, ZIP- und XLSX-Roundtrip, Precache-Liste
-  vollständig, Cache-Version vorhanden, Tabs ↔ Routen ↔ Manifest-Icons, Demodaten anonymisiert, Versionen konsistent,
-  **Spezifikation aktuell** (Abschnitt 12).
-* **Selbsttest in der App** (`?selftest`): fährt die laufende App durch alle Ansichten, Knöpfe, Blätter und Dialoge und meldet
-  Ergebnis in Panel, Konsole und `window.__selftest`.
-* **CI-Kompilier-Check** der nativen Hüllen bei jedem Push, der `native/**` oder die Capacitor-Konfiguration ändert.
-* Vor jedem Release: `npm test`, Selbsttest in der Web-Version, TestFlight- bzw. APK-Build auf einem echten Gerät.
+Not committed (`.gitignore`): example files, old source code, specification PDFs, generated native projects, signing
+material. Whoever shares the software shares this repository plus the store and Pages links.
 
 ---
 
-## 10. Bekannte Grenzen
+## 9. Quality assurance
 
-* iOS öffnet `.rnz`-Anhänge aus Mail nicht direkt in einer Web-App; in „Dateien“ sichern und importieren. Die native App kann
-  als Datei-Handler registriert werden (noch nicht umgesetzt).
-* Videos laufen höchstens mit 2×; darüber springt das Bild dem taktgesteuerten Cursor nach.
-* Kartenkacheln offline nur, soweit sie online schon einmal geladen wurden.
-* KI-Erklärung nur auf Geräten mit Apple Intelligence (iOS 26) bzw. Gemini Nano; sonst Vorlagentext.
-* rn-bridge und PostgreSQL-Fallback sind gegen kein echtes Gerät verifiziert.
-* Messpunkte-Blatt im Excel-Export fehlt (Windows-App hatte es).
+* **`npm test`** (`tools/test/unit.test.mjs`, Node ≥ 22): language files (key parity, placeholders, all used keys),
+  analysis functions, coach on synthetic laps, weather codes, ZIP and XLSX round trips, precache list complete, cache
+  version present, tabs ↔ routes ↔ manifest icons, demo data anonymised, versions consistent, **specification current**
+  (section 12).
+* **Self-test in the app** (`?selftest`): drives the running app through all views, buttons, sheets and dialogs and
+  reports the result in a panel, the console and `window.__selftest`.
+* **CI compile check** of the native shells on every push that changes `native/**` or the Capacitor configuration.
+* Before every release: `npm test`, self-test in the web version, TestFlight or APK build on a real device.
 
 ---
 
-## 11. Entscheidungen und bewertete Ideen
+## 10. Known limitations
 
-Kurzform der Architekturentscheidungen. Neue Entscheidungen werden hier angehängt, nicht überschrieben.
+* iOS does not open `.rnz` attachments from Mail directly in a web app; save to Files and import. The native app could be
+  registered as a file handler (not implemented yet).
+* Videos play at 2× at most; above that the picture jumps after the clock-driven cursor.
+* Map tiles offline only as far as they were loaded online before.
+* AI explanation only on devices with Apple Intelligence (iOS 26) or Gemini Nano; otherwise template text.
+* rn-bridge and the PostgreSQL fallback are not verified against a real device.
+* Samples sheet in the Excel export is missing (the Windows app had it).
 
-| Datum | Entscheidung | Begründung |
+---
+
+## 11. Decisions and evaluated ideas
+
+Short form of the architecture decisions. New decisions are appended here, never overwritten.
+
+| Date | Decision | Reasoning |
 |---|---|---|
-| 2026-09 | Web-App ohne Framework und Build statt nativer Neuentwicklung je Plattform | Eine Codebasis für vier Plattformen; kein Werkzeug, das in fünf Jahren veraltet ist; Auslieferung als statische Dateien |
-| 2026-09 | Capacitor-Hüllen nur für Gerätezugriff und Store-Präsenz | Browser kann FTP/PostgreSQL/Bonjour nicht; Store-Eintrag der alten App wird weitergeführt |
-| 2026-09 | IndexedDB statt Dateisystem | Einzige plattformübergreifende, große Speicherung im Browser; Blobs für Videos |
-| 2026-09 | Cloud Storage, Facebook/YouTube-Upload, E-Mail aus der alten App nicht übernommen | System-Share-Sheet deckt Teilen ab; kein Backend; Login-Pflege entfällt |
-| 2026-09 | Bedienkonzept „Antwort zuerst“, ein Analyse-Bildschirm | Nutzer sind Fahrer in der Box, keine Datenanalysten |
-| 2026-09 | Coach deterministisch, Sprachmodell nur auf dem Gerät und nur zur Formulierung | Nachvollziehbarkeit, keine Halluzinationen, Datenschutzversprechen bleibt |
-| 2026-09 | Wetter von Open-Meteo, Bestzeit-Referenz automatisch, Puls aus Health-Apps | Kontext ohne Personenbezug; Referenzwahl war Fehlerquelle; Uhren sind bei Fahrern verbreitet |
-| 2026-09 | **„RN Plattform“** (Anforderungsdokument vom März 2023: Konten, Abo, Chat, Events, Coach-Marktplatz, Teams, Ranglisten, Live) **nicht als Erweiterung dieses Produkts** | Es ist ein zweites Produkt mit Backend, laufenden Kosten, Moderations- und DSGVO-Pflichten und kehrt das Prinzip „Daten bleiben auf dem Gerät“ um. Netzwerkeffekt bei der RN-Gerätebasis unklar; Marktbehauptung von 2023 nicht geprüft. Stattdessen ohne Backend: Vergleich fremder Runden per Datei, Streckenverzeichnis mit „In Karten öffnen“, Coaching-Paket als Export. Ein Rangliste-Experiment nur als eigenes, kleines Vorhaben. |
+| 2026-09 | Web app without framework or build instead of a native rewrite per platform | One codebase for four platforms; no tooling that is obsolete in five years; delivery as static files |
+| 2026-09 | Capacitor shells only for device access and store presence | The browser cannot do FTP/PostgreSQL/Bonjour; the old app's store entry is continued |
+| 2026-09 | IndexedDB instead of a file system | The only cross-platform large storage in the browser; Blobs for videos |
+| 2026-09 | Cloud storage, Facebook/YouTube upload and e-mail from the old app not carried over | The system share sheet covers sharing; no backend; no login maintenance |
+| 2026-09 | "Answer first" interaction concept, one analysis screen | Users are drivers in the pits, not data analysts |
+| 2026-09 | Coach deterministic, language model only on the device and only for wording | Traceability, no hallucinations, the privacy promise holds |
+| 2026-09 | Weather from Open-Meteo, automatic best-lap reference, heart rate from health apps | Context without personal data; reference choice was a source of errors; watches are common among drivers |
+| 2026-09 | **"RN Plattform"** (requirements document from March 2023: accounts, subscription, chat, events, coach marketplace, teams, leaderboards, live) **not as an extension of this product** | It is a second product with a backend, running costs, moderation and GDPR duties, and it reverses the principle "data stays on the device". Network effect across the RN device base unclear; the 2023 market claim unverified. Instead, without a backend: compare other drivers' laps via file, track directory with "open in Maps", coaching package as an export. A leaderboard experiment only as a separate, small undertaking. |
 
-Offene Kandidaten (nicht beschlossen): Datei-Handler für `.rnz` in der nativen App, Messpunkte-Blatt im Excel-Export,
-Pit-Lane-Definition und Memory-Stick-Export in der Steuerung, RN-Software-Update über SSH, App auf dem Gerät hosten
-(gleicher Origin), Firmware-API mit CORS für künftige Geräte.
+Open candidates (not decided): file handler for `.rnz` in the native app, samples sheet in the Excel export, pit-lane
+definition and memory-stick export in the control tab, RN software update over SSH, hosting the app on the device (same
+origin), firmware API with CORS for future devices.
 
 ---
 
-## 12. Pflege dieser Spezifikation
+## 12. Maintaining this specification
 
-* Jede Änderung, die Funktionsumfang, Architektur, Datenmodell, Schnittstellen, Build oder Nicht-Ziele berührt, aktualisiert
-  dieses Dokument **im selben Commit**. Datum in der Kopfzeile anpassen, Entscheidung in Abschnitt 11 eintragen.
-* `README.md` bleibt die Anleitung (Einrichten, Bauen, Signieren, Veröffentlichen); `docs/SPEC.md` ist das Was und Warum.
-* Der Test „spec: documentation is current“ in `tools/test/unit.test.mjs` schlägt fehl, wenn ein Modul unter `app/js`, eine
-  Plugin-Methode, ein Tab oder die App-Version hier nicht vorkommt oder die Kopfzeile nicht zur Version passt.
-  Er ersetzt nicht das Lesen: Wer eine Funktion ändert, prüft den zugehörigen Abschnitt.
-* Zum Teilen genügt dieses Dokument plus `README.md`; PDFs und Beispieldateien liegen bewusst außerhalb des Repositories.
+* Every change that touches scope, architecture, data model, interfaces, build or non-goals updates this document
+  **in the same commit**. Adjust the date in the header, record the decision in section 11.
+* `README.md` remains the how-to (setup, build, signing, publishing); `docs/SPEC.md` is the what and why.
+* The test "spec: documentation is current" in `tools/test/unit.test.mjs` fails when a module under `app/js`, a plugin
+  method, a tab, a workflow or the app version is missing here or the header does not match the version. It does not
+  replace reading: whoever changes a feature checks the corresponding section.
+* The project language is English: this document, the README, code comments, commit messages and pull requests.
+* To share the software, this document plus `README.md` is enough; PDFs and example files deliberately live outside the
+  repository.

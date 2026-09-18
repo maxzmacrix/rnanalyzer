@@ -90,6 +90,7 @@ async function load() {
   if (!root) return; // view was left while samples were loading
   const refId = refLapId();
   data = [...d].sort((a, b) => (a.lap.id === refId ? -1 : b.lap.id === refId ? 1 : 0));
+  if (hlLapId && !data.some((x) => x.lap.id === hlLapId)) hlLapId = null;
   scaledCache.clear();
   refreshSlips();
   updateRefLabel();
@@ -181,6 +182,12 @@ async function updateVideos() {
     videoObjs.set(d.lap.id, { el, url, cell, key, hud, sound });
     player.registerVideo(d.lap.id, el, d.lap.video ? d.lap.video.offsetS : 0);
     el.addEventListener('loadedmetadata', () => player.seekVideo(d.lap.id, true));
+  }
+  // the enlarged video's lap left the selection: back to the grid, otherwise every remaining cell stays hidden
+  if (bigVideo && ![...videoObjs.values()].some((v) => v.cell === bigVideo)) {
+    bigVideo = null;
+    videoGrid.classList.remove('max'); root.classList.remove('video-max');
+    sizeBigVideo();
   }
   // order cells like selection
   for (const d of withVideo) { const v = videoObjs.get(d.lap.id); if (v) videoGrid.appendChild(v.cell); }
@@ -450,6 +457,7 @@ function renderCoach(p) {
   const { result, cmp } = cc, ref = data[0];
   const wrap = h('div.coach');
   wrap.appendChild(h('div.coach-head', h('span', { style: { color: cmp.color, fontWeight: 800 } }, lapLabel(cmp.lap)), ` ${t('coach_vs_short')} `, h('span', { style: { color: ref.color, fontWeight: 800 } }, lapLabel(ref.lap)), h('b.mono.gap', { class: result.total > 0 ? 'lost' : 'gained' }, fmtGap(result.total))));
+  wrap.appendChild(h('div.small.muted', t('coach_subject', { lap: lapLabel(cmp.lap), ref: lapLabel(ref.lap) })));
   const narr = h('div.coach-narrative', cc.aiText || templateNarrative(cc));
   const note = h('div.coach-note.small.muted', cc.aiText ? t('coach_ai_on_device') : '');
   wrap.append(narr, note);
@@ -481,8 +489,12 @@ function renderCoach(p) {
 }
 // ------------------------------------------------------------------ highlights (moments worth jumping to)
 let hlCache = { key: '', events: [], target: null };
-/** The lap whose highlights are shown: the compared (slowest) lap, or the only lap. */
-function highlightTarget() { return data.length < 2 ? data[0] || null : coachTarget(); }
+let hlLapId = null; // lap chosen by the user in the panel head; null = default (the slowest lap of the selection)
+/** The lap whose highlights are shown: the user's choice, otherwise the compared (slowest) lap, or the only lap. */
+function highlightTarget() {
+  if (hlLapId) { const d = data.find((x) => x.lap.id === hlLapId); if (d) return d; hlLapId = null; }
+  return data.length < 2 ? data[0] || null : coachTarget();
+}
 function highlightEvents() {
   const tgt = highlightTarget();
   if (!tgt) return hlCache = { key: '', events: [], target: null };
@@ -500,8 +512,8 @@ function hlValueText(e) {
 }
 function hlShort(e) {
   if (e.kind === 'gpeak') return `${e.value.toFixed(1)}g`;
-  if (e.kind === 'loss') return `−${e.value.toFixed(1)}`;
-  if (e.kind === 'gain') return `+${Math.abs(e.value).toFixed(1)}`;
+  if (e.kind === 'loss') return `+${e.value.toFixed(1)}`; // same convention as the coach: + = time lost
+  if (e.kind === 'gain') return `−${Math.abs(e.value).toFixed(1)}`;
   return '⇢';
 }
 /** Chart markers for the highlights, in the current x units of the target lap. */
@@ -514,7 +526,14 @@ function renderHighlights(p) {
   const { events, target } = highlightEvents();
   if (!target) { p.table.appendChild(h('div.empty', t('coach_select_two'))); return; }
   const wrap = h('div.coach');
-  wrap.appendChild(h('div.coach-head', h('span', { style: { color: target.color, fontWeight: 800 } }, lapLabel(target.lap)), h('span.small.muted', data.length < 2 ? t('hl_single_hint') : '')));
+  wrap.appendChild(h('div.coach-head', h('span', { style: { color: target.color, fontWeight: 800 } }, lapLabel(target.lap))));
+  // why this lap, and a chip per selected lap to look at another one
+  const ref = data[0];
+  const why = data.length < 2 ? t('hl_single_hint') : target === ref ? t('hl_why_ref') : hlLapId ? t('hl_why_chosen', { ref: lapLabel(ref.lap) }) : t('hl_why_slowest', { ref: lapLabel(ref.lap) });
+  wrap.appendChild(h('div.small.muted', why));
+  if (data.length >= 2) {
+    wrap.appendChild(h('div.chips', data.map((d) => h('button.chip', { class: d === target ? 'on' : '', style: d === target ? {} : { color: d.color }, on: { click: () => { hlLapId = d.lap.id; renderHighlights(p); refreshPanels(); } } }, lapLabel(d.lap)))));
+  }
   if (!events.length) { wrap.appendChild(h('div.empty', t('hl_none'))); p.table.appendChild(wrap); return; }
   const cc = data.length >= 2 ? coachResult() : null;
   const list = h('div.coach-list');
@@ -732,6 +751,10 @@ function updatePos() {
 
 // ------------------------------------------------------------------ component sheet
 function openComponentSheet(key) {
+  const container = h('div');
+  let moreOpen = false, s = null;
+  const build = () => {
+  clear(container);
   const cur = panelSetting(key);
   const items = [];
   const numRow = (id) => {
@@ -744,7 +767,7 @@ function openComponentSheet(key) {
       e.stopPropagation();
       if (isPrimary) return;
       await updateSettings({ [`panel${key}2`]: isSecondary ? null : id });
-      s.close();
+      build(); // the sheet stays open: a checkbox is a quick toggle, not a decision that ends the dialog
     });
     return h('div.item', { class: isPrimary ? 'selected' : '', on: { click: async () => { await updateSettings({ [`panel${key}`]: id, [`panel${key}2`]: cur.comp2 === id ? null : cur.comp2 }); s.close(); } } },
       h('span.lbl', `${info.label}${info.unit ? ' [' + info.unit + ']' : ''}`), cb);
@@ -761,7 +784,7 @@ function openComponentSheet(key) {
   const health = ['hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
   for (const id of health) items.push(numRow(id));
   // everything else behind one row
-  const more = h('div.more-wrap.hidden');
+  const more = h('div.more-wrap', { class: moreOpen ? '' : 'hidden' });
   more.appendChild(h('div.small.muted', { style: { padding: '6px 16px' } }, t('secondary_hint')));
   more.appendChild(h('div.group', t('group_views')));
   for (const id of ['sections', 'detail', 'overview']) more.appendChild(viewRow(id));
@@ -773,9 +796,12 @@ function openComponentSheet(key) {
   if (obd.length) { more.appendChild(h('div.group', t('group_obd'))); for (const id of obd) more.appendChild(numRow(id)); }
   const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add(c.name);
   if (custom.size) { more.appendChild(h('div.group', 'CAN')); for (const name of custom) more.appendChild(numRow('custom:' + name)); }
-  const moreRow = h('div.item.more-row', { on: { click: () => { const open = more.classList.toggle('hidden'); moreRow.querySelector('.lbl').textContent = open ? t('more_channels') : t('fewer_channels'); } } }, h('span.lbl', t('more_channels')), h('span', { html: icons.chev, style: { display: 'inline-flex' } }));
+  const moreRow = h('div.item.more-row', { on: { click: () => { const hidden = more.classList.toggle('hidden'); moreOpen = !hidden; moreRow.querySelector('.lbl').textContent = hidden ? t('more_channels') : t('fewer_channels'); } } }, h('span.lbl', moreOpen ? t('fewer_channels') : t('more_channels')), h('span', { html: icons.chev, style: { display: 'inline-flex' } }));
   items.push(moreRow, more);
-  const s = sheet(t('select_component'), items);
+  container.append(...items);
+  };
+  build();
+  s = sheet(t('select_component'), [container]);
 }
 
 // ------------------------------------------------------------------ options sheet

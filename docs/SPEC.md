@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.0 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.1 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -64,9 +64,12 @@ The app has four tabs. The web version has no Race Navigator tab because the bro
 * List of all imported laps, grouped by event, track and device. Colour codes: white = complete, grey = incomplete,
   yellow = best lap per driver in the event. Badges for video, heart rate, demo data.
 * Session header with the weather of the driving hours (Open-Meteo, cached, switchable).
-* Filters (complete, with video, outliers), sort by time, search across driver, vehicle, track, event, lap time.
-* Selection of up to 10 laps. The red "Compare with best lap (+0.391)" button opens the analysis; "Suggest comparison"
-  picks a typical lap against the best.
+* Filters (complete, with video, outliers, driver, vehicle), sort by time, search across driver, vehicle, track, event, lap time.
+  The chip bar scrolls horizontally on touch devices and wraps into rows on mouse devices.
+* Selection of up to 10 laps. The red "Compare with best lap (+0.391)" button opens the analysis. "Suggest comparison"
+  picks exactly two laps of the session, the fastest clean lap and the typical lap (median time of the other clean laps,
+  laps with video preferred so both videos run side by side), explains the choice in a sheet and opens the analysis
+  only after confirmation.
 * **Context-aware comparison partner** (`reference.js`): for a single selected lap the partner is the best complete lap of
   the same session and driver. When the session has none, the closest match from another session on the same track is
   taken, ranked by same driver, same car, similar weather (dry/wet from the cached session weather), same track variant
@@ -133,8 +136,8 @@ tour and remove demo data, version and notices.
   the compared lap's own samples: the extra speed is applied as a triangle peaking at the apex and fading to zero at the
   braking and throttle points, same line assumed. Marked as an estimate; shown per corner and handed to the narration.
   It is not a simulation: no tyre, fuel or weather modelling.
-* Shown as a panel: summary, corner list by time lost with the what-if line, the tip follows the cursor, the current
-  corner is highlighted.
+* Shown as a panel: head with both laps and the sentence "The facts describe what L13 does differently from L62",
+  summary, corner list by time lost with the what-if line, the tip follows the cursor, the current corner is highlighted.
 
 `ai.js` optionally turns the facts into three to four sentences with a language model **on the device**: iOS 26 via
 Apple Foundation Models, Android via Gemini Nano (ML Kit GenAI Prompt API, supported devices only). Without a model the
@@ -152,7 +155,9 @@ shows them as a panel list and as labelled markers on the charts. A tap moves th
 * **off line**: the lap runs more than half the track width plus 2 m away from the fastest lap's line for at least one
   second (default half width 5 m when the track definition has none). One event per excursion, at its widest point.
 
-Rows are labelled with the corner from the coach when the moment lies in one. Video clips are not cut or exported.
+Rows are labelled with the corner from the coach when the moment lies in one. The panel head says why this lap is shown
+(by default the slowest lap of the selection, measured against the fastest) and offers a chip per selected lap to look at
+another one. Sign convention as in the coach: plus and red = time lost. Video clips are not cut or exported.
 
 ### 3.6 Guided tour
 
@@ -407,6 +412,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.1 | 2026-09-18 | Highlights panel explains the lap choice and lets the user switch laps; sign convention aligned with the coach. Coach panel names whose behaviour the facts describe. Component sheet stays open while checkboxes are toggled. "Suggest comparison" picks two laps (fastest and typical, video preferred) and explains the choice before opening the analysis. Fix: after enlarging a video and changing the laps, the video grid stayed in the enlarged mode with every cell hidden. Filter chips in the lap list wrap on mouse devices instead of scrolling with a hidden scrollbar. Android release from a manual workflow run |
 | 2.1.0 | 2026-09-18 | Context-aware comparison partner, what-if per corner, highlights panel and chart markers, interior apex detection; specification in the repository; documentation in English |
 | 2.0.x | 2026-09-17 | Rewrite as offline web app with native shells: answer-first analysis, corner coach with on-device AI, session weather, heart rate, guided tour, RN Connect control, Android and iOS builds |
 

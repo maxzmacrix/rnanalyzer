@@ -128,9 +128,13 @@ export async function run() {
     assert($$('.lap-row').length >= 3, 'search cleared');
   });
 
-  await step('suggest comparison selects laps and opens the comparison', async () => {
-    click($('.event-head .suggest'), 'suggest button'); await wait(900);
-    assert(state.selected.length >= 2, `selected ${state.selected.length}`);
+  await step('suggest comparison explains two laps, then opens the comparison', async () => {
+    click($('.event-head .suggest'), 'suggest button'); await wait(500);
+    const sheetEl = $('.sheet'); assert(sheetEl, 'explanation sheet');
+    assert(sheetEl.textContent.includes(t('suggest_best')) && sheetEl.textContent.includes(t('suggest_two')), 'reasons shown');
+    eq(location.hash, '#/laps', 'view not switched before confirmation');
+    click([...sheetEl.querySelectorAll('button.btn')].find((b) => !b.classList.contains('ghost')), 'compare button in sheet'); await wait(900);
+    eq(state.selected.length, 2, `two laps selected (${state.selected.length})`);
     eq(location.hash, '#/analyze', 'opened analyze');
     await go('#/laps', 600);
     assert($$('.lap-row.selected .selmark').length === state.selected.length, 'selection marks');
@@ -268,6 +272,21 @@ export async function run() {
     assert($$('.vcell').filter((c) => c !== cell).every((c) => getComputedStyle(c).display === 'none'), 'other cells hidden');
     click(cell); await wait(400); assert(!$('.videos').classList.contains('max'), 'grid restored');
     const snd = $('.vcell .vsound'); const h0 = snd.innerHTML; click(snd); await wait(100); assert(snd.innerHTML !== h0, 'sound toggled'); click(snd); await wait(100);
+  });
+
+  await step('video cells: enlarged video whose lap leaves the selection → grid back to normal, remaining cells visible', async () => {
+    const vidLaps = demoLaps().filter((l) => l.video && [...state.videoNames].includes(l.video.fileName)).map((l) => l.id);
+    await setSelection(vidLaps); await go('#/analyze', 1200);
+    await waitFor(() => $$('.vcell').length >= 2, 6000, 'two video cells');
+    const cell = $('.vcell'); click(cell, 'cell'); await wait(400);
+    assert($('.videos').classList.contains('max'), 'cell enlarged');
+    const { toggleSelect } = await import('./state.js');
+    for (const id of vidLaps) { await toggleSelect(id); await wait(900); if (!cell.isConnected) break; }
+    assert(!cell.isConnected, 'enlarged cell removed with its lap');
+    assert(!$('.videos').classList.contains('max'), 'grid left the enlarged mode');
+    assert($$('.vcell').length >= 1 && $$('.vcell').every((c) => getComputedStyle(c).display !== 'none'), 'remaining video visible');
+    await setSelection(vidLaps); await wait(900);
+    assert($$('.vcell').length >= 2 && $$('.vcell').every((c) => getComputedStyle(c).display !== 'none'), 'all videos visible again');
   });
 
   await step('web: no device tab, store hint in Settings', async () => {

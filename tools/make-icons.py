@@ -18,6 +18,9 @@ PDF = sys.argv[1] if len(sys.argv) > 1 else r"C:\Users\MaxZuchowski\OneDrive - M
 BG_TOP, BG_BOTTOM = (0x16, 0x18, 0x1e), (0x07, 0x08, 0x0a)   # splash: matches the app's dark theme
 ICON_BG = (0xff, 0xff, 0xff)                                 # app icon: brand logo on white
 RED = (0xed, 0x1c, 0x24)
+# optical centring: the R's thin tip vanishes at small sizes and the N is heavy, so the geometric centre looks
+# right-heavy; every icon shifts the mark left by this fraction of its size
+OPTICAL_DX = -0.012
 
 doc = fitz.open(PDF)
 page = doc[0]
@@ -71,7 +74,7 @@ logo_svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.2f} {H:.2
 S = 512
 scale = S * 0.74 / W
 lw, lh = W * scale, H * scale
-tx, ty = (S - lw) / 2, (S - lh) / 2
+tx, ty = (S - lw) / 2 + S * OPTICAL_DX, (S - lh) / 2
 icon_svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {S} {S}">'
             f'<defs>{mask_svg}</defs>'
             f'<rect width="{S}" height="{S}" fill="#%02x%02x%02x"/>'
@@ -105,7 +108,7 @@ def compose(size, logo_frac, alpha=False, mark_cache={}):
     big = size * 2
     bg = gradient(big, ICON_BG, ICON_BG).convert('RGBA')
     mark = render_mark(int(big * logo_frac))
-    bg.alpha_composite(mark, ((big - mark.width) // 2, (big - mark.height) // 2))
+    bg.alpha_composite(mark, ((big - mark.width) // 2 + int(round(big * OPTICAL_DX)), (big - mark.height) // 2))
     out = bg.resize((size, size), Image.LANCZOS)
     return out if alpha else out.convert('RGB')
 
@@ -148,7 +151,7 @@ for name, f in DENS.items():
     s108 = int(108 * f)
     fg = Image.new('RGBA', (s108, s108), (0, 0, 0, 0))
     mark = render_mark(int(s108 * 0.52))
-    fg.alpha_composite(mark, ((s108 - mark.width) // 2, (s108 - mark.height) // 2))
+    fg.alpha_composite(mark, ((s108 - mark.width) // 2 + int(round(s108 * OPTICAL_DX)), (s108 - mark.height) // 2))
     fg.save(os.path.join(d, 'ic_launcher_foreground.png'), optimize=True)
 os.makedirs(os.path.join(ares, 'mipmap-anydpi-v26'), exist_ok=True)
 adaptive = ('<?xml version="1.0" encoding="utf-8"?>\n<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'

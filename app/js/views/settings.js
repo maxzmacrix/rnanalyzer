@@ -72,7 +72,6 @@ export function mount(main) {
   root.append(...[
     h('h3', t('about')),
     h('div.item', h('div.lbl', h('div', t('protocol_log')), h('div.small.muted', t('protocol_log_sub'))), h('button.btn.ghost.diagnostics', { on: { click: () => showDiagnostics([]) } }, t('show'))),
-    h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${isNativeApp ? 'App' : standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
     h('div.item', h('div.lbl', h('div', t('tour_start')), h('div.sub', t('tour_start_hint'))), h('button.btn.ghost', { on: { click: () => startTour() } }, t('tour_start_btn'))),
     hasDemoData() ? h('div.item', h('div.lbl', h('div', t('tour_remove')), h('div.sub', t('demo_data_hint'))), h('button.btn.danger', { on: { click: async () => { await removeDemoData(); toast(t('tour_removed')); main.innerHTML = ''; mount(main); } } }, t('delete'))) : null,
     isIOS && !standalone && !isNativeApp ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
@@ -81,7 +80,7 @@ export function mount(main) {
       const btn = e.currentTarget; btn.disabled = true; const r = await checkForAppUpdate({ manual: true }); btn.disabled = false;
       toast(r === 'available' ? t('update_found') : r === 'current' ? t('update_none') : t('update_error'), 4000);
     } } }, t('check_update_btn'))) : null,
-    h('div.item', h('div.lbl', h('div.sub', 'Race Navigator · RN Vision GmbH · race-navigator.com'))),
+    h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${isNativeApp ? 'App' : standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`), h('div.sub', 'Race Navigator · RN Vision GmbH · race-navigator.com'))),
   ].filter(Boolean));
   main.appendChild(root);
 

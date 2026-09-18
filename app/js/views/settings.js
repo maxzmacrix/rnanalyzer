@@ -25,7 +25,6 @@ export function mount(main) {
     item(t('map_tiles'), switchEl(s.mapTiles, (v) => updateSettings({ mapTiles: v }))),
     item(t('weather_setting'), switchEl(s.weather !== false, (v) => updateSettings({ weather: v })), t('weather_hint')),
     item(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }], s.mapStyle === 'satellite' ? 'satellite' : 'osm', (v) => updateSettings({ mapStyle: v })), t('satellite_hint')),
-    item(t('opt_autoplay'), segmented([0.5, 1, 2, 4].map((x) => ({ value: x, label: x + '×' })), Number(s.autoplaySpeed), (v) => updateSettings({ autoplaySpeed: v }))),
     item(t('opt_all_tracks'), switchEl(s.allTracks, (v) => updateSettings({ allTracks: v }))),
   );
 
@@ -67,6 +66,7 @@ export function mount(main) {
     h('div.item', h('div.lbl', h('div', t('tour_start')), h('div.sub', t('tour_start_hint'))), h('button.btn.ghost', { on: { click: () => startTour() } }, t('tour_start_btn'))),
     hasDemoData() ? h('div.item', h('div.lbl', h('div', t('tour_remove')), h('div.sub', t('demo_data_hint'))), h('button.btn.danger', { on: { click: async () => { await removeDemoData(); toast(t('tour_removed')); main.innerHTML = ''; mount(main); } } }, t('delete'))) : null,
     isIOS && !standalone ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
+    isNativeApp ? null : h('div.item', h('div.lbl', h('div', t('native_required_title')), h('div.sub', t('native_required_text')))),
     updateCheckAvailable() ? h('div.item', h('div.lbl', h('div', t('check_update')), h('div.sub', t('check_update_hint'))), h('button.btn.ghost', { on: { click: async (e) => {
       const btn = e.currentTarget; btn.disabled = true; const r = await checkForAppUpdate({ manual: true }); btn.disabled = false;
       toast(r === 'available' ? t('update_found') : r === 'current' ? t('update_none') : t('update_error'), 4000);

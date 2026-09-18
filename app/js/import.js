@@ -1,5 +1,6 @@
 // File import pipeline: .rnz/.rn lap files and .mp4 videos → IndexedDB.
 
+import { unzip } from './zip.js';
 import { parseRnzBuffer } from './rnparser.js';
 import { db } from './db.js';
 import { reloadLaps } from './state.js';
@@ -22,6 +23,17 @@ export async function importFiles(files, onProgress) {
       const ext = (name.split('.').pop() || '').toLowerCase();
       if (ext === 'rnz' || ext === 'rn' || ext === 'zip' || ext === 'xml') {
         const buf = await blob.arrayBuffer();
+        if (ext === 'zip') {
+          // a zipped folder of exports: unpack its .rnz/.mp4 entries into the queue instead of treating it as one lap
+          const entries = await unzip(buf);
+          const inner = entries.filter((f) => /\.(rnz|rn|mp4|mov|m4v)$/i.test(f.name) && !f.name.startsWith('__MACOSX'));
+          const isLapArchive = entries.some((f) => /\.rn$/i.test(f.name) && !f.name.includes('/'));
+          if (inner.length && !isLapArchive) {
+            for (const f of inner) list.push({ blob: new Blob([f.data], { type: /\.(mp4|mov|m4v)$/i.test(f.name) ? 'video/mp4' : 'application/zip' }), name: f.name.split('/').pop() });
+            onProgress && onProgress({ index: i + 1, total: list.length, name, phase: 'done' });
+            continue;
+          }
+        }
         const { lap, samples, raw } = await parseRnzBuffer(buf, name);
         const existing = await db.getLap(lap.id);
         if (existing) { lap.note = existing.note || ''; lap.importedAt = existing.importedAt; if (existing.driverOverride) lap.driverOverride = existing.driverOverride; if (existing.vehicleOverride) lap.vehicleOverride = existing.vehicleOverride; }

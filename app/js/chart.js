@@ -283,8 +283,8 @@ export class LineChart {
       c.setPointerCapture && c.setPointerCapture(e.pointerId);
       this.pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
       if (this.pointers.size === 1) {
+        // the cursor follows on move or on release (tap) – not on touch-down, so the first finger of a pinch does not jump it
         this.gesture = { type: 'cursor', startX: e.offsetX, startY: e.offsetY, moved: false };
-        this._cursorFromPx(e.offsetX);
         this._longPressTimer = setTimeout(() => {
           if (this.gesture && this.gesture.type === 'cursor' && !this.gesture.moved && this.opts.onLongPress) {
             this.opts.onLongPress(this._pxToXClamped(e.offsetX));
@@ -338,6 +338,7 @@ export class LineChart {
       }
     };
     this._onUp = (e) => {
+      if (this.gesture && this.gesture.type === 'cursor' && !this.gesture.moved && this.pointers.size === 1) this._cursorFromPx(e.offsetX); // tap
       this.pointers.delete(e.pointerId);
       clearTimeout(this._longPressTimer);
       if (this.pointers.size === 0) this.gesture = null;

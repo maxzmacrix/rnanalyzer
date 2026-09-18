@@ -57,6 +57,7 @@ export const CHANNELS = {
   hr:      { key: 'hr',   label: 'ch_hr',    unit: 'bpm', decimals: 0, kind: 'number', group: 'health', avail: 'hr' },
   timeslip:{ key: null,   label: 'ch_timeslip', unit: 's', decimals: 2, kind: 'timeslip' },
   map:     { key: null,   label: 'ch_map',      kind: 'map' },
+  gforce:  { key: null,   label: 'ch_gforce',   kind: 'scatter' },
   detail:  { key: null,   label: 'ch_detail',   kind: 'detail' },
   overview:{ key: null,   label: 'ch_overview', kind: 'overview' },
   sections:{ key: null,   label: 'ch_sections', kind: 'sections' },

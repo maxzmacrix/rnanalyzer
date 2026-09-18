@@ -59,7 +59,8 @@ export class TrackMap {
   centerOn(lat, lng) { if (!Number.isFinite(lat) || !Number.isFinite(lng)) return; this.center = { x: lngToWorld(lng), y: latToWorld(lat) }; this.requestDraw(); }
 
   /** tracks: [{lat,lng,n,color}], def: trackDef, cursors: [{lat,lng,color}] */
-  setData({ tracks, def, cursors, showSectors, splitPositions }) {
+  setData({ tracks, def, cursors, showSectors, splitPositions, legend }) {
+    this.legend = legend || '';
     const changed = !this.tracks.length || tracks.length !== this.tracks.length || (this.def !== def);
     this.tracks = tracks || []; this.def = def || null; this.cursors = cursors || [];
     this.showSectors = showSectors !== false; this.splitPositions = splitPositions || [];
@@ -120,8 +121,15 @@ export class TrackMap {
     }
     for (const t of this.tracks) {
       if (!t.n) continue;
+      if (t.colors) { this._traceColored(ctx, t); continue; }
       ctx.strokeStyle = t.color; ctx.lineWidth = 2.5;
       this._tracePath(ctx, t); ctx.stroke();
+    }
+    if (this.legend) {
+      ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+      const tw = ctx.measureText(this.legend).width + 12;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(6, this.h - 24, tw, 18, 5) : ctx.rect(6, this.h - 24, tw, 18); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillText(this.legend, 12, this.h - 9);
     }
     // track definition
     if (this.def) {
@@ -179,6 +187,25 @@ export class TrackMap {
       ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 8, w, 16, 4) : ctx.rect(x - w / 2, y - 8, w, 16); ctx.fill();
     }
     ctx.fillStyle = color; ctx.fillText(text, x, y);
+  }
+  /** Track drawn in runs of equal colour (t.colors[i] per sample) – e.g. red where time is lost, green where gained. */
+  _traceColored(ctx, t) {
+    ctx.lineWidth = 4;
+    let i = 0;
+    while (i < t.n) {
+      const col = t.colors[i];
+      ctx.strokeStyle = col; ctx.beginPath();
+      let started = false, j = i;
+      for (; j < t.n && t.colors[j] === col; j++) {
+        if (!(Math.abs(t.lat[j]) > 0.0001)) { started = false; continue; }
+        const q = this.toPx(t.lat[j], t.lng[j]);
+        if (!started) { ctx.moveTo(q.x, q.y); started = true; } else ctx.lineTo(q.x, q.y);
+      }
+      // overlap one sample into the next run so there are no gaps
+      if (j < t.n && Math.abs(t.lat[j]) > 0.0001 && started) { const q = this.toPx(t.lat[j], t.lng[j]); ctx.lineTo(q.x, q.y); }
+      ctx.stroke();
+      i = j;
+    }
   }
   _tracePath(ctx, t) {
     ctx.beginPath();

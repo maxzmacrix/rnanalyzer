@@ -10,17 +10,18 @@ import { shareFiles } from '../share.js';
 import { startTour } from '../tour.js';
 import { getSessionWeather } from '../weather.js';
 import { healthAvailable, loadHeartRate, healthName } from '../health.js';
+import { isNative as isNativeShell } from '../deviceNative.js';
 
-let root, listEl, selEl, filterEl, unsub = [];
+let root, listEl, selEl, filterEl, fileInput, unsub = [];
 const collapsed = new Set();
 let query = '';
 // session analysis filters (kept while the app runs)
-const filters = { complete: false, outliers: false, video: false, driver: '', vehicle: '', sort: 'session' };
+const filters = { complete: false, outliers: false, video: false, driver: '', vehicle: '', sort: 'session' }; // sort: session | time
 const OUTLIER_PCT = 5; // laps slower than best + 5 % count as outliers (traffic, mistakes, in/out laps)
 
 export function mount(main) {
   setTitle(t('nav_laps'));
-  const fileInput = h('input', {
+  fileInput = h('input', {
     type: 'file', multiple: true,
     // Android's chooser filters by MIME type and hides unknown extensions such as .rnz – no filter there
     accept: /Android/i.test(navigator.userAgent) ? '*/*' : '.rnz,.rn,.cdrn,.mp4,.mov,.m4v,.zip,video/mp4,application/zip,application/octet-stream',
@@ -48,8 +49,8 @@ export async function runImport(files) {
   const res = await importFiles(files, (p) => { if (p.phase === 'start') toast(`${t('importing')} ${p.index + 1}/${p.total}: ${p.name}`, 60000); });
   const msgs = [t('imported', { n: res.laps + res.videos })];
   if (res.skipped.length) msgs.push(t('file_type_unknown', { f: res.skipped.join(', ') }));
-  if (res.errors.length) msgs.push(t('import_error', { e: res.errors.map((e) => `${e.name}: ${e.error}`).join('; ') }));
-  toast(msgs.join(' · '), 5000);
+  for (const e of res.errors) msgs.push(/zip|\.rn|xml|race navigator|archive/i.test(e.error) ? t('import_err_notlap', { f: e.name }) : t('import_err_generic', { f: e.name }));
+  toast(msgs.join(' · '), res.errors.length ? 7000 : 3500);
 }
 
 function render() {
@@ -62,7 +63,27 @@ function renderSelection() {
   const n = state.selected.length;
   if (!n) { selEl.appendChild(h('span', t('select_hint', { n: MAX_LAPS }))); return; }
   const dots = h('div.dots', state.selected.map((id) => h('i', { style: { background: lapColor(id) } })));
-  selEl.append(dots, h('span.grow', t('selected', { n })), h('button.tbtn', { on: { click: () => clearSelection() } }, t('deselect_all')));
+  const go = () => { location.hash = '#/analyze'; };
+  let action = null;
+  if (n >= 2) action = h('button.btn.accent.compare', { on: { click: go } }, t('compare'));
+  else {
+    // one lap: offer the natural comparison – the driver's best lap of the same session (or the next best if this is the best)
+    const l = state.lapsById.get(state.selected[0]);
+    const partner = l && comparisonPartner(l);
+    if (partner) {
+      const d = (l.lapTimeMs - partner.lapTimeMs) / 1000;
+      const dTxt = `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(3)}`;
+      action = h('button.btn.accent.compare', { on: { click: async () => { await setSelection([partner.id, l.id]); go(); } } },
+        partner.lapTimeMs < l.lapTimeMs ? t('compare_with_best', { d: dTxt }) : t('compare_with', { lap: `L${partner.lapNumber}`, d: dTxt }));
+    }
+  }
+  selEl.append(dots, h('span.grow', t('selected', { n })), action, h('button.tbtn.small', { on: { click: () => clearSelection() } }, t('deselect_all')));
+}
+/** Best complete lap of the same session and driver (excluding the lap itself). */
+function comparisonPartner(l) {
+  const k = groupKey(l), drv = displayDriver(l);
+  const cands = state.laps.filter((o) => o.id !== l.id && groupKey(o) === k && displayDriver(o) === drv && o.complete && o.lapTimeMs > 0).sort((a, b) => a.lapTimeMs - b.lapTimeMs);
+  return cands[0] || null;
 }
 
 function groupKey(l) { return `${l.event.id}|${l.track.id}|${l.source.device}`; }
@@ -90,7 +111,9 @@ function renderList() {
   if (!laps.length) {
     if (state.laps.length) listEl.appendChild(h('div.empty', t('search') + ': 0'));
     else listEl.appendChild(h('div.empty.tour-offer', h('div', t('no_laps')),
-      h('button.btn.accent', { on: { click: () => startTour() } }, t('tour_start')), h('div.small.muted', t('tour_start_hint'))));
+      h('button.btn.accent.block', { on: { click: () => fileInput.click() } }, t('import_files')),
+      h('button.btn.ghost.block', { on: { click: () => startTour() } }, t('tour_start')), h('div.small.muted', t('tour_start_hint')),
+      isNativeShell() ? null : h('div.small.muted.store-hint', t('native_required_text'))));
     return;
   }
   const best = bestLapIds(state.laps);
@@ -207,15 +230,12 @@ function analyzeSession(laps) {
 function sessionStatsHtml(an) {
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   const parts = [];
-  if (Number.isFinite(an.theoreticalMs)) parts.push(`${esc(t('theoretical_short'))} <b>${fmtLapTime(an.theoreticalMs)}</b> (−${((an.bestMs - an.theoreticalMs) / 1000).toFixed(3)})`);
-  if (Number.isFinite(an.sigma)) parts.push(`σ <b>${an.sigma.toFixed(3)} s</b>`);
-  parts.push(esc(t('clean_laps', { c: an.clean.size, n: an.total })));
+  if (Number.isFinite(an.bestMs)) parts.push(`${esc(t('best_short'))} <b>${fmtLapTime(an.bestMs)}</b>`);
+  if (Number.isFinite(an.theoreticalMs) && an.bestMs - an.theoreticalMs > 1) parts.push(`${esc(t('theoretical_short'))} <b>${fmtLapTime(an.theoreticalMs)}</b> (−${((an.bestMs - an.theoreticalMs) / 1000).toFixed(3)})`);
   return parts.join(' · ');
 }
 function sortLaps(rows, an) {
-  const sec = /^s(\d+)$/.exec(filters.sort);
   if (filters.sort === 'time') rows.sort((a, b) => ((a.complete && a.lapTimeMs > 0) ? a.lapTimeMs : Infinity) - ((b.complete && b.lapTimeMs > 0) ? b.lapTimeMs : Infinity) || a.startMs - b.startMs);
-  else if (sec) { const j = Number(sec[1]) - 1; rows.sort((a, b) => (sectorTimes(a)[j] ?? Infinity) - (sectorTimes(b)[j] ?? Infinity) || a.startMs - b.startMs); }
   else rows.sort((a, b) => a.startMs - b.startMs);
 }
 async function suggestComparison(an) {
@@ -226,21 +246,19 @@ async function suggestComparison(an) {
   add(an.typicalId);
   if (!ids.length) return;
   await setSelection(ids);
-  toast(t('suggest_done', { n: ids.length }), 4000);
+  toast(t('suggest_done', { n: ids.length }), 2500);
+  location.hash = '#/analyze';
 }
 function renderFilterBar(laps) {
   clear(filterEl);
   if (!state.laps.length) return;
   const chip = (label, on, fn, cls = '') => h('button.chip', { class: `${on ? 'on' : ''} ${cls}`, on: { click: () => { fn(); renderList(); } } }, label);
-  const maxSec = Math.max(0, ...laps.map((l) => sectorTimes(l).length));
   filterEl.append(
     chip(t('filter_complete'), filters.complete, () => { filters.complete = !filters.complete; }),
-    chip(t('filter_outliers'), filters.outliers, () => { filters.outliers = !filters.outliers; }, ''),
+    chip(t('filter_outliers'), filters.outliers, () => { filters.outliers = !filters.outliers; }),
     chip(t('filter_video'), filters.video, () => { filters.video = !filters.video; }),
     h('span.sep'),
-    chip(t('sort_session'), filters.sort === 'session', () => { filters.sort = 'session'; }),
-    chip(t('sort_time'), filters.sort === 'time', () => { filters.sort = 'time'; }),
-    ...Array.from({ length: Math.min(maxSec, 8) }, (_, j) => chip(`S${j + 1}`, filters.sort === `s${j + 1}`, () => { filters.sort = `s${j + 1}`; })),
+    chip(t('sort_time'), filters.sort === 'time', () => { filters.sort = filters.sort === 'time' ? 'session' : 'time'; }),
   );
   const drivers = [...new Set(laps.map(displayDriver))].filter((d) => d && d !== '–');
   const vehicles = [...new Set(laps.map(displayVehicle))].filter((v) => v && v !== '–');

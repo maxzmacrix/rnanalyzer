@@ -167,6 +167,7 @@ async function runQueue() {
   }
   running = false;
   toast(t('done'));
+  location.hash = '#/laps'; // the new laps are what the driver came for
 }
 
 function renderQueue() {

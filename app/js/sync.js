@@ -1,7 +1,7 @@
 // Playback engine: drives the shared cursor from the reference lap's video (or a clock) and keeps
 // all other videos synchronized by distance (or time) with the cursor.
 
-import { state, setCursor, on, emit, ensureSamples } from './state.js';
+import { state, setCursor, on, emit, ensureSamples, refLapId } from './state.js';
 import { timeAtDistance, distanceAtTime } from './analysis.js';
 
 const DRIFT_TOLERANCE = 0.35; // seconds
@@ -19,7 +19,7 @@ class Player {
   }
 
   get speed() { return Number(state.settings.autoplaySpeed) || 1; }
-  get refId() { return state.selected[0] || null; }
+  get refId() { return refLapId(); }
 
   registerVideo(lapId, el, offsetS) {
     this.videos.set(lapId, { el, offsetS: offsetS || 0 });

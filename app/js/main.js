@@ -4,7 +4,7 @@ import { initState, state, on, emit } from './state.js';
 import { t, getLanguage } from './i18n.js';
 import { setTitle, setTopButtons, toast } from './ui.js';
 import * as lapsView from './views/laps.js';
-import * as analyzeView from './views/analyze.js';
+import * as analyzeView from './views/analyzer.js';
 import * as deviceView from './views/device.js';
 import * as settingsView from './views/settings.js';
 import { installUpdateChecks } from './update.js';
@@ -12,8 +12,10 @@ import { installUpdateChecks } from './update.js';
 export const APP_VERSION = '2.0.0';
 
 const views = { laps: lapsView, analyze: analyzeView, device: deviceView, settings: settingsView };
+const nativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 // old routes (bookmarks, home-screen icons from v2.0.0–2.0.6)
-const ALIASES = { analyzer: 'analyze', gforce: 'analyze/gforce', video: 'analyze/video', devices: 'device', control: 'device' };
+const ALIASES = { analyzer: 'analyze', gforce: 'analyze', video: 'analyze', devices: 'device', control: 'device' };
+if (!nativeApp) { ALIASES.device = 'laps'; ALIASES.devices = 'laps'; ALIASES.control = 'laps'; delete views.device; }
 let current = null;
 let currentName = '';
 
@@ -73,6 +75,7 @@ async function boot() {
   await initState();
   applyTheme();
   applyI18n();
+  if (!nativeApp) { const a = document.querySelector('#tabbar a[data-view="device"]'); if (a) a.remove(); }
   on('settings', (patch) => { if (patch && 'theme' in patch) applyTheme(); if (patch && patch.language) { applyI18n(); if (current && current.unmount) current.unmount(); current = null; route(); } });
   window.addEventListener('hashchange', route);
   route();

@@ -8,6 +8,7 @@ import { db } from './db.js';
 import { player } from './sync.js';
 import { t } from './i18n.js';
 import { h, clear, icons, toast } from './ui.js';
+import { isNative } from './deviceNative.js';
 import { unzip } from './zip.js';
 
 const DEMO_BASE = './demo/';
@@ -53,7 +54,7 @@ export async function loadDemoData(onProgress = () => {}) {
 }
 
 // ------------------------------------------------------------------ steps
-const STEPS = [
+const ALL_STEPS = [
   { key: 'tour_welcome', center: true, dur: 0, before: async (setText) => {
     setText(t('tour_loading', { i: 0, n: '…' }));
     await loadDemoData((i, n) => setText(t('tour_loading', { i, n })));
@@ -66,23 +67,26 @@ const STEPS = [
   { key: 'tour_filters', route: '#/laps', target: '.filter-bar', dur: 6500 },
   { key: 'tour_suggest', route: '#/laps', target: '.sel-summary', dur: 7000, before: async () => {
     const b = document.querySelector('.event-head .suggest'); if (b) b.click(); await wait(600);
+    location.hash = '#/laps'; await wait(500); // the suggestion opens the comparison – the tour explains the selection first
     // the video scenes need two laps with clips – add demo laps with video if the suggestion did not include them
     const withVideo = state.laps.filter((l) => l.demo && hasVideo(l)).map((l) => l.id);
     const ids = [...state.selected]; for (const id of withVideo) if (!ids.includes(id) && ids.length < MAX_LAPS) ids.push(id);
     if (ids.length !== state.selected.length) { await setSelection(ids); await wait(300); }
   } },
-  { key: 'tour_play', route: '#/analyze/charts', target: '.play-bar', dur: 8000, before: async () => { await wait(900); await player.play(); } },
-  { key: 'tour_chart', route: '#/analyze/charts', target: () => document.querySelectorAll('.right-col .panel')[0], dur: 8000 },
-  { key: 'tour_map', route: '#/analyze/charts', target: () => { const p = document.querySelectorAll('.right-col .panel'); return p[p.length - 1]; }, dur: 7000 },
-  { key: 'tour_modes', route: '#/analyze/charts', target: '#top-title .seg', dur: 5000 },
-  { key: 'tour_gforce', route: '#/analyze/gforce', target: '#main canvas', dur: 7000, before: async () => { await wait(600); await player.play(); } },
-  { key: 'tour_video', route: '#/analyze/video', target: '.player .stage', dur: 9000, before: async () => {
-    player.pause(); await wait(800); const b = document.querySelector('.player .rbtn.big'); if (b) b.click();
+  { key: 'tour_play', route: '#/analyze', target: '.play-bar', dur: 8000, before: async () => { await wait(900); await player.play(); } },
+  { key: 'tour_chart', route: '#/analyze', target: () => document.querySelectorAll('.right-col .panel')[0], dur: 8000 },
+  { key: 'tour_map', route: '#/analyze', target: () => { const p = document.querySelectorAll('.right-col .panel'); return p[p.length - 1]; }, dur: 7000 },
+  { key: 'tour_video', route: '#/analyze', target: '.videos', dur: 8000, before: async () => {
+    const c = document.querySelector('.vcell'); if (c) { c.click(); await wait(400); }
   } },
-  { key: 'tour_device', route: '#/device', target: '#main .card', dur: 7000, before: async () => { const b = document.querySelector('.player .rbtn.big'); if (b) b.click(); } },
+  { key: 'tour_video_back', route: '#/analyze', target: '.videos', dur: 4000, before: async () => { const c = document.querySelector('.vcell.big'); if (c) { c.click(); await wait(300); } } },
+  { key: 'tour_device', route: '#/device', target: '#main .card', dur: 7000, nativeOnly: true, before: async () => { player.pause(); } },
+  { key: 'native_required_text', center: true, dur: 7000, webOnly: true, before: async () => { player.pause(); } },
   { key: 'tour_settings', route: '#/settings', target: '#main .settings', dur: 6000 },
   { key: 'tour_done', route: '#/laps', center: true, dur: 0, final: true },
 ];
+
+const STEPS = ALL_STEPS.filter((s) => (!s.nativeOnly || isNative()) && (!s.webOnly || !isNative()));
 
 // ------------------------------------------------------------------ engine
 export async function startTour() {

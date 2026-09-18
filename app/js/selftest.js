@@ -26,6 +26,7 @@ function click(el, what = 'element') { if (!el) throw new Error(`${what} not fou
 function assert(c, msg) { if (!c) throw new Error(msg || 'assertion failed'); }
 function eq(a, b, msg = 'values differ') { if (a !== b) throw new Error(`${msg}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); }
 const sheet = () => $('#overlay .sheet');
+const rowFor = (lap) => { const lbl = t('lap_n', { n: lap.lapNumber }); return $$('.lap-row').find((r) => { const k = r.textContent.indexOf(lbl); return k >= 0 && !/[0-9]/.test(r.textContent.charAt(k + lbl.length)); }); };
 async function closeSheet() { const b = $('#overlay .sheet-backdrop'); if (b) { b.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(200); } }
 async function answerConfirm(yes) { const s = await waitFor(sheet, 3000, 'confirm sheet'); const btns = $$('button.btn', s); click(yes ? btns[btns.length - 1] : btns[0], 'confirm button'); await wait(300); }
 
@@ -55,7 +56,7 @@ export async function run() {
   const demoLaps = () => state.laps.filter((l) => l.demo);
 
   await step('routes mount without errors', async () => {
-    for (const r of ['#/laps', '#/analyze/charts', '#/analyze/gforce', '#/analyze/video', '#/device', '#/settings']) {
+    for (const r of ['#/laps', '#/analyze', '#/settings']) {
       const n0 = errors.length; await go(r, 500);
       assert($('#main').children.length > 0, `${r} rendered nothing`);
       assert(errors.length === n0, `${r} raised ${errors.slice(n0).join('; ')}`);
@@ -64,7 +65,7 @@ export async function run() {
   });
 
   await step('old routes redirect', async () => {
-    for (const [from, to] of [['#/analyzer', '#/analyze'], ['#/gforce', '#/analyze/gforce'], ['#/video', '#/analyze/video'], ['#/devices', '#/device'], ['#/control', '#/device']]) {
+    for (const [from, to] of [['#/analyzer', '#/analyze'], ['#/gforce', '#/analyze'], ['#/video', '#/analyze'], ['#/devices', '#/laps'], ['#/control', '#/laps'], ['#/device', '#/laps']]) {
       await go(from, 400); eq(location.hash, to, `${from} redirect`);
     }
   });
@@ -113,13 +114,11 @@ export async function run() {
   });
 
   await step('lap list: sort by lap time and by sector', async () => {
-    click(byText('.filter-bar .chip', t('sort_time')), 'sort_time'); await wait(200);
+    if (!byText('.filter-bar .chip', t('sort_time')).classList.contains('on')) { click(byText('.filter-bar .chip', t('sort_time')), 'sort_time'); await wait(200); }
     const times = $$('.lap-row .time').map((e) => e.textContent);
     const sorted = [...times].sort(); eq(JSON.stringify(times.slice(0, demoLaps().length)), JSON.stringify(sorted.slice(0, demoLaps().length)), 'ascending by time');
-    click(byText('.filter-bar .chip', 'S2'), 'S2'); await wait(200);
-    const s2 = $$('.lap-row').map((r) => $$('.sec', r)[1]).filter(Boolean).map((e) => parseFloat(e.textContent.replace(/^S2/, '')));
-    for (let i = 1; i < s2.length; i++) assert(s2[i] >= s2[i - 1], 'ascending by S2');
-    click(byText('.filter-bar .chip', t('sort_session')), 'sort_session'); await wait(150);
+    click(byText('.filter-bar .chip', t('sort_time')), 'sort_time off'); await wait(200);
+    assert(!byText('.filter-bar .chip', t('sort_time')).classList.contains('on'), 'session order restored');
   });
 
   await step('lap list: search narrows the list', async () => {
@@ -129,16 +128,29 @@ export async function run() {
     assert($$('.lap-row').length >= 3, 'search cleared');
   });
 
-  await step('suggest comparison selects laps; deselect all clears', async () => {
-    click($('.event-head .suggest'), 'suggest button'); await wait(500);
+  await step('suggest comparison selects laps and opens the comparison', async () => {
+    click($('.event-head .suggest'), 'suggest button'); await wait(900);
     assert(state.selected.length >= 2, `selected ${state.selected.length}`);
+    eq(location.hash, '#/analyze', 'opened analyze');
+    await go('#/laps', 600);
     assert($$('.lap-row.selected .selmark').length === state.selected.length, 'selection marks');
     click(byText('.sel-summary button', t('deselect_all')), 'deselect all'); await wait(300);
     eq(state.selected.length, 0, 'cleared');
   });
 
+  await step('one lap selected → “Compare with best lap” button opens the comparison with the fastest lap as reference', async () => {
+    const rows = $$('.lap-row'); const slow = rows.find((r) => !r.classList.contains('best')) || rows[1]; slow.click(); await wait(400);
+    const b = $('.sel-summary .compare'); assert(b, 'compare button'); assert(/\+|−/.test(b.textContent), `delta in label: ${b.textContent}`);
+    b.click(); await wait(1200); eq(location.hash, '#/analyze', 'analyze opened'); eq(state.selected.length, 2, 'two laps');
+    const { refLapId } = await import('./state.js'); const ref = state.lapsById.get(refLapId());
+    assert(state.selected.map((id) => state.lapsById.get(id).lapTimeMs).every((ms) => ms >= ref.lapTimeMs), 'reference is the fastest');
+    assert($('.play-bar .gap'), 'live gap in the play bar');
+    await go('#/laps', 500);
+  });
+
   await step('row tap selects, colours applied', async () => {
-    for (const row of $$('.lap-row').slice(0, 3)) { row.click(); await wait(150); }
+    await clearSelection(); await wait(300);
+    for (let i = 0; i < 3; i++) { $$('.lap-row')[i].click(); await wait(250); }
     eq(state.selected.length, 3, 'three selected');
     const row = $('.lap-row.selected');
     assert(row.style.getPropertyValue('--lap-color'), 'lap colour variable');
@@ -146,20 +158,20 @@ export async function run() {
   });
 
   await step('lap menu opens and closes', async () => {
-    click($('.lap-row .more'), 'more button'); const s = await waitFor(sheet, 2000, 'lap menu');
+    const lap = demoLaps().find((l) => l.video && [...state.videoNames].includes(l.video.fileName)) || demoLaps()[0];
+    click($('.more', rowFor(lap)), 'more button'); const s = await waitFor(sheet, 2000, 'lap menu');
     assert($$('.item', s).length >= 4, 'menu items');
     await closeSheet(); assert(!sheet(), 'closed');
   });
 
   await step('edit lap: prompt saves the note', async () => {
     const lap = demoLaps()[0];
-    const row = $$('.lap-row').find((r) => r.textContent.includes(t('lap_n', { n: lap.lapNumber })));
-    click($('.more', row), 'more'); const s = await waitFor(sheet, 2000, 'menu');
+    click($('.more', rowFor(lap)), 'more'); const s = await waitFor(sheet, 2000, 'menu');
     click(byTextIncl('.item', t('edit_lap'), s), 'edit item');
     const p = await waitFor(() => sheet() && $('textarea.input', sheet()) && sheet(), 3000, 'prompt');
     $('textarea.input', p).value = 'selftest note';
-    click(byText('button.btn', t('save'), p), 'save'); await wait(600);
-    eq(state.lapsById.get(lap.id).note, 'selftest note', 'note saved');
+    click(byText('button.btn', t('save'), p), 'save');
+    await waitFor(() => state.lapsById.get(lap.id) && state.lapsById.get(lap.id).note === 'selftest note', 5000, 'note saved');
     assert($$('.lap-row .l2').some((e) => e.textContent.includes('selftest note')), 'note shown');
   });
 
@@ -178,11 +190,11 @@ export async function run() {
     click(playBtn); await wait(200); assert(!player.playing, 'paused');
   });
 
-  await step('analyzer: speed chip cycles, x-mode toggles', async () => {
+  await step('analyzer: speed chip cycles, rewind moves the cursor back', async () => {
     const chip = $('.play-bar .chip'); const before = chip.textContent; click(chip); await wait(200); assert(chip.textContent !== before, 'speed changed');
     while ($('.play-bar .chip').textContent !== '1×') { click($('.play-bar .chip')); await wait(120); }
-    const x0 = state.settings.xMode; click($$('#top-right button')[0], 'x-mode'); await wait(300); assert(state.settings.xMode !== x0, 'x-mode toggled');
-    click($$('#top-right button')[0]); await wait(300); eq(state.settings.xMode, x0, 'x-mode restored');
+    const { setCursor } = await import('./state.js'); setCursor(1500, 'test'); await wait(200); const c0 = state.cursor;
+    click($('.play-bar .rewind'), 'rewind'); await wait(300); assert(state.cursor < c0, `cursor moved back ${c0} → ${state.cursor}`);
   });
 
   await step('analyzer: options sheet – panel count, sectors, map style', async () => {
@@ -190,22 +202,18 @@ export async function run() {
     const open = async () => { await closeSheet(); click($$('#top-right button').pop(), 'options'); return waitFor(sheet, 2000, 'options sheet'); };
     const ensure = async () => sheet() || open();
     let s = await open();
-    click(byText('.seg button', '3', s), 'panel count 3'); await wait(800); eq($$('.right-col .panel').length, 3, 'three panels');
-    s = await open();
-    click(byText('.seg button', '2', s), 'panel count 2'); await wait(800); eq($$('.right-col .panel').length, 2, 'two panels');
-    s = await open();
+    eq($$('.item', s).length, 4, 'options has four rows');
     click(byText('.seg button', t('sectors_none'), s), 'sectors none'); await wait(250); eq(state.settings.sectors, 'none', 'sectors none');
     s = await ensure(); click(byText('.seg button', t('sectors_default'), s), 'sectors default'); await wait(250); eq(state.settings.sectors, 'default', 'sectors default');
-    s = await ensure(); click(byText('.seg button', t('map_satellite'), s), 'satellite'); await wait(250); eq(state.settings.mapStyle, 'satellite', 'satellite');
-    s = await ensure(); click(byText('.seg button', t('map_osm'), s), 'osm'); await wait(250); eq(state.settings.mapStyle, 'osm', 'osm');
-    s = await ensure(); const follow = $$('.switch', s)[0]; if (follow) { const v = follow.classList.contains('on'); follow.click(); await wait(200); assert(follow.classList.contains('on') !== v, 'follow switch'); follow.click(); await wait(200); }
+    s = await ensure(); const x0 = state.settings.xMode; click(byText('.seg button', x0 === 'time' ? t('distance') : t('time'), s), 'x-mode'); await wait(400); assert(state.settings.xMode !== x0, 'x-mode toggled');
+    s = await ensure(); click(byText('.seg button', x0 === 'time' ? t('time') : t('distance'), s), 'x-mode back'); await wait(400); eq(state.settings.xMode, x0, 'x-mode restored');
     await closeSheet();
   });
 
   await step('analyzer: component sheet changes the panel', async () => {
     const chip = $('.right-col .panel .panel-title .chip'); const before = chip.textContent;
     click(chip, 'panel title'); const s = await waitFor(sheet, 2000, 'component sheet');
-    const items = $$('.item', s).filter((i) => i.textContent.trim() && !i.textContent.includes(before));
+    const items = $$('.item', s).filter((i) => i.offsetParent && i.textContent.trim() && !i.textContent.includes(before) && !i.classList.contains('more-row'));
     click(items[1] || items[0], 'component item'); await wait(500);
     assert($('.right-col .panel .panel-title .chip').textContent !== before, 'panel title changed');
     click($('.right-col .panel .panel-title .chip')); await waitFor(sheet); click(byTextIncl('.item', before, sheet()) || $$('.item', sheet())[0]); await wait(400);
@@ -232,26 +240,32 @@ export async function run() {
     await closeSheet();
   });
 
-  await step('g-force view: canvas and legend', async () => {
-    await go('#/analyze/gforce', 900); assert($('#main canvas'), 'canvas'); eq($$('#main .legend span').length, state.selected.length, 'legend entries');
+  await step('g-force as a panel component', async () => {
+    await go('#/analyze', 900);
+    const chip = $$('.right-col .panel .panel-title .chip').pop(); const before = chip.textContent; click(chip, 'panel title');
+    const s = await waitFor(sheet, 2000, 'component sheet'); click(byText('.item .lbl', t('ch_gforce'), s).closest('.item'), 'g-force item'); await wait(600);
+    assert($$('.right-col .panel .panel-title .chip').pop().textContent === t('ch_gforce'), 'panel shows G-force');
+    click($$('.right-col .panel .panel-title .chip').pop()); await waitFor(sheet); click(byText('.item .lbl', before, sheet()).closest('.item')); await wait(500);
   });
 
-  await step('video view: player, play, rate, mute, choose lap', async () => {
-    await go('#/analyze/video', 900); assert($('.player'), 'player view');
-    await waitFor(() => $('.player video'), 5000, 'video element');
-    click($('.player .rbtn.big'), 'play'); await wait(1500); assert(!$('.player video').paused, 'video playing');
-    click($('.player .rbtn.big')); await wait(200); assert($('.player video').paused, 'video paused');
-    const lbl = $('.player .pos'); const before = lbl.textContent; click($$('.player .rbtn.small')[1], 'rate +'); await wait(150); assert(lbl.textContent !== before, 'rate changed'); click($$('.player .rbtn.small')[0]); await wait(150);
-    const mute = $$('.player .rbtn').find((b) => b.title === t('sound')); const h0 = mute.innerHTML; click(mute); await wait(100); assert(mute.innerHTML !== h0, 'mute toggled'); click(mute);
-    click($$('#top-left button')[0], 'choose lap'); const s = await waitFor(sheet, 2000, 'choose lap sheet'); assert($$('.item', s).length >= 1, 'lap items'); await closeSheet();
+  await step('video cells: HUD, tap to enlarge and back, sound button', async () => {
+    await setSelection(demoLaps().filter((l) => l.video && [...state.videoNames].includes(l.video.fileName)).map((l) => l.id)); await go('#/analyze', 1200);
+    await waitFor(() => $$('.vcell').length >= 2, 6000, 'two video cells');
+    const { setCursor } = await import('./state.js'); setCursor(600, 'test'); await wait(300);
+    assert($$('.vcell .vhud').every((h) => /km\/h|mph/.test(h.textContent)), 'HUD shows speed');
+    const cell = $('.vcell'); click(cell, 'cell'); await wait(400);
+    assert(cell.classList.contains('big') && $('.videos').classList.contains('max'), 'cell enlarged');
+    assert($$('.vcell').filter((c) => c !== cell).every((c) => getComputedStyle(c).display === 'none'), 'other cells hidden');
+    click(cell); await wait(400); assert(!$('.videos').classList.contains('max'), 'grid restored');
+    const snd = $('.vcell .vsound'); const h0 = snd.innerHTML; click(snd); await wait(100); assert(snd.innerHTML !== h0, 'sound toggled'); click(snd); await wait(100);
   });
 
-  await step('race navigator tab (web): notice and import link', async () => {
-    await go('#/device', 500); assert($$('#main .card').length >= 2, 'cards');
-    click(byText('#main button', t('go_import')), 'go import'); await wait(400); eq(location.hash, '#/laps', 'navigated to laps');
+  await step('web: no device tab, store hint in Settings', async () => {
+    assert(!$('#tabbar a[data-view="device"]'), 'device tab hidden on the web');
+    await go('#/settings', 600); assert($$('#main .sub').some((e) => /App Store/.test(e.textContent)), 'store hint');
   });
 
-  await step('settings: theme, language, units, switches, autoplay, map style', async () => {
+  await step('settings: theme, language, units, switches, map style', async () => {
     await go('#/settings', 600);
     click(byText('#main .seg button', t('theme_light')), 'light'); await wait(200); eq(document.documentElement.getAttribute('data-theme'), null, 'light theme');
     click(byText('#main .seg button', t('theme_dark')), 'dark'); await wait(200); eq(document.documentElement.getAttribute('data-theme'), 'dark', 'dark theme');
@@ -259,7 +273,6 @@ export async function run() {
     click(byText('#main .seg button', 'English'), 'en'); await wait(500); eq($('#tabbar a[data-view="laps"] span').textContent, 'Laps', 'English tabs');
     click(byText('#main .seg button', 'mph'), 'mph'); await wait(200); eq(state.settings.units, 'imperial'); click(byText('#main .seg button', 'km/h')); await wait(200); eq(state.settings.units, 'metric');
     const sw = $$('#main .switch'); for (const s of sw) { const v0 = s.classList.contains('on'); s.click(); await wait(150); assert(s.classList.contains('on') !== v0, 'switch toggled'); s.click(); await wait(150); }
-    click(byText('#main .seg button', '2×'), '2x'); await wait(200); eq(Number(state.settings.autoplaySpeed), 2); click(byText('#main .seg button', '1×')); await wait(200); eq(Number(state.settings.autoplaySpeed), 1);
     click(byText('#main .seg button', t('map_satellite'))); await wait(200); eq(state.settings.mapStyle, 'satellite'); click(byText('#main .seg button', t('map_osm'))); await wait(200); eq(state.settings.mapStyle, 'osm');
     assert(!$$('#main .sub').some((e) => e.textContent === '…'), 'storage info loaded');
   });
@@ -273,8 +286,7 @@ export async function run() {
     await go('#/laps', 600); await clearSelection(); await wait(200);
     const lap = demoLaps().find((l) => l.video && [...state.videoNames].includes(l.video.fileName));
     assert(lap, 'a demo lap with video');
-    const row = $$('.lap-row').find((r) => r.textContent.includes(t('lap_n', { n: lap.lapNumber })));
-    click($('.more', row), 'more'); const s = await waitFor(sheet, 2000, 'menu');
+    click($('.more', rowFor(lap)), 'more'); const s = await waitFor(sheet, 2000, 'menu');
     click(byTextIncl('.item', t('delete_video'), s), 'delete video'); await answerConfirm(true); await wait(500);
     assert(![...state.videoNames].includes(lap.video.fileName), 'video removed');
   });

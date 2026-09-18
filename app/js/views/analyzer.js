@@ -2,24 +2,24 @@
 
 import {
   state, on, ensureSelectedSamples, lapColor, displayDriver, displayVehicle, setCursor, updateSettings,
-  speedFactor, speedUnitLabel, distFactor, distUnitLabel, customSplits, setCustomSplits, videoKeyFor, MAX_VIDEOS, lapLabel,
+  speedFactor, speedUnitLabel, distFactor, distUnitLabel, customSplits, setCustomSplits, videoKeyFor, MAX_VIDEOS, lapLabel, refLapId, isDarkTheme,
 } from '../state.js';
 import { t, fmtDate } from '../i18n.js';
 import { fmtLapTime } from '../rnparser.js';
 import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, switchEl, segmented, confirmDialog, promptDialog } from '../ui.js';
 import { buildXlsx } from '../xlsx.js';
 import { shareFiles } from '../share.js';
-import { LineChart } from '../chart.js';
+import { LineChart, ScatterChart } from '../chart.js';
 import { TrackMap, nearestSample, providerFor } from '../map.js';
 import {
   CHANNELS, channelArray, xArray, valueAt, positionAt, timeSlipSeries, distanceGapSeries, deviceSplits, deviceSectorTimes,
-  sectorTimesFromSplits, bestTimes, geometricSplits, timeAtDistance, distanceAtTime,
+  sectorTimesFromSplits, bestTimes, geometricSplits, timeAtDistance, distanceAtTime, interpAt,
 } from '../analysis.js';
 import { db } from '../db.js';
 import { player } from '../sync.js';
 import { openLapPicker } from './laps.js';
 
-let root, rightCol, videoPanel, videoGrid, playBtn, speedChip, posLbl, refLbl, xModeBtn;
+let root, rightCol, videoPanel, videoGrid, playBtn, speedChip, posLbl, refLbl, gapLbl;
 let data = []; // [{lap, samples, color}]
 let panels = {};
 let unsub = [];
@@ -29,28 +29,29 @@ let cursorRaf = 0;
 
 // ------------------------------------------------------------------ mount / unmount
 export function mount(main) {
-  setTitle(t('nav_analyzer'));
-  xModeBtn = tbtn(xModeLabel(), toggleXMode, { title: t('x_axis') });
+  setTitle(t('nav_analyze'));
   setTopButtons(
-    [tbtn(t('laps_btn'), () => openLapPicker(), { icon: 'laps' })],
-    [xModeBtn, tbtn(t('options'), openOptions, { icon: 'options' })],
+    [tbtn(t('change_laps'), () => openLapPicker(), { icon: 'edit' })],
+    [tbtn(t('options'), openOptions, { icon: 'options' })],
   );
 
   playBtn = h('button.tbtn.primary', { html: icons.play, 'aria-label': t('play'), on: { click: () => player.toggle() } });
+  const rewindBtn = h('button.tbtn.rewind', { title: t('rewind_5'), 'aria-label': t('rewind_5'), on: { click: rewind5 } }, h('span.ticon', { html: icons.back }), h('span', '5 s'));
   speedChip = h('button.chip', { on: { click: cycleSpeed } }, `${Number(state.settings.autoplaySpeed) || 1}×`);
-  posLbl = h('span.pos.grow', '');
+  posLbl = h('span.pos', '');
+  gapLbl = h('span.gaps.grow', '');
   refLbl = h('span.small', '');
-  const playBar = h('div.play-bar', playBtn, speedChip, posLbl, refLbl);
+  const playBar = h('div.play-bar', rewindBtn, playBtn, speedChip, posLbl, gapLbl, refLbl);
 
   videoGrid = h('div.videos');
   videoPanel = h('div.panel.video-panel', videoGrid);
   const d0 = divider(0);
-  const keys = Number(state.settings.panelCount) === 3 ? ['A', 'B', 'C'] : ['A', 'B'];
+  const keys = autoPanelCount() === 3 ? ['A', 'B', 'C'] : ['A', 'B'];
   panels = {};
   const colChildren = [];
   keys.forEach((k, i) => { panels[k] = createPanel(k); if (i) colChildren.push(divider(i)); colChildren.push(panels[k].el); });
   rightCol = h('div.right-col', ...colChildren);
-  root = h('div.analyzer', playBar, videoPanel, d0, rightCol);
+  root = h('div.analyzer', videoPanel, d0, rightCol, playBar);
   main.appendChild(root);
   applyRatios();
 
@@ -72,7 +73,7 @@ export function unmount() {
   player.pause();
   player.clearVideos();
   for (const v of videoObjs.values()) { try { v.el.pause(); v.el.removeAttribute('src'); v.el.load(); } catch { /* ignore */ } URL.revokeObjectURL(v.url); }
-  videoObjs.clear();
+  videoObjs.clear(); bigVideo = null;
   scaledCache.clear();
   if (cursorRaf) cancelAnimationFrame(cursorRaf); cursorRaf = 0;
   if (root) { root.remove(); root = null; }
@@ -82,19 +83,30 @@ export function unmount() {
 async function load() {
   const d = await ensureSelectedSamples();
   if (!root) return; // view was left while samples were loading
-  data = d;
+  const refId = refLapId();
+  data = [...d].sort((a, b) => (a.lap.id === refId ? -1 : b.lap.id === refId ? 1 : 0));
   scaledCache.clear();
+  refreshSlips();
   updateRefLabel();
   await updateVideos();
   if (!root) return;
   refreshPanels();
   updatePos();
 }
+/** Gap series of every compared lap vs. the fastest lap (positive = losing time), for the play bar and the map. */
+function refreshSlips() {
+  const ref = data[0];
+  for (const d of data) d.slip = null;
+  if (!ref) return;
+  for (const d of data.slice(1)) d.slip = xMode() === 'time' ? distanceGapSeries(d.samples, ref.samples) : timeSlipSeries(d.samples, ref.samples);
+}
+function autoPanelCount() { return window.innerHeight >= 900 && window.innerWidth >= 700 ? 3 : 2; }
 
 function updateRefLabel() {
   clear(refLbl);
   if (!data.length) { refLbl.textContent = t('select_laps_first'); return; }
   refLbl.append(h('span', { style: { color: data[0].color, fontWeight: 700 } }, `${t('reference')}: ${lapLabel(data[0].lap)}`));
+  refLbl.classList.toggle('hidden', data.length < 2);
 }
 
 function xMode() { return state.settings.xMode === 'time' ? 'time' : 'distance'; }
@@ -104,11 +116,19 @@ async function toggleXMode() {
   const cur = state.cursor;
   const next = xMode() === 'time' ? 'distance' : 'time';
   await updateSettings({ xMode: next });
-  xModeBtn.querySelector('span') ? (xModeBtn.querySelector('span').textContent = xModeLabel()) : (xModeBtn.textContent = xModeLabel());
+  refreshSlips();
   if (ref) setCursor(next === 'time' ? timeAtDistance(ref.samples, cur) : distanceAtTime(ref.samples, cur), 'analyzer');
 }
+function rewind5() {
+  if (!data.length) return;
+  const ref = data[0];
+  const tRef = xMode() === 'time' ? state.cursor : timeAtDistance(ref.samples, state.cursor);
+  const tNew = Math.max(0, tRef - 5);
+  setCursor(xMode() === 'time' ? tNew : distanceAtTime(ref.samples, tNew), 'analyzer');
+  for (const id of videoObjs.keys()) player.seekVideo(id, true);
+}
 function cycleSpeed() {
-  const opts = [0.5, 1, 2, 4];
+  const opts = [0.25, 0.5, 1, 2]; // 4× makes the videos unwatchable; slow motion is what a driver needs in a corner
   const cur = Number(state.settings.autoplaySpeed) || 1;
   const next = opts[(opts.indexOf(cur) + 1) % opts.length];
   updateSettings({ autoplaySpeed: next });
@@ -118,9 +138,8 @@ function onSettings(patch) {
   if ('autoplaySpeed' in patch) { speedChip.textContent = `${patch.autoplaySpeed}×`; player.setSpeed(Number(patch.autoplaySpeed)); }
   if ('mapTiles' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setTiles(patch.mapTiles);
   if ('mapStyle' in patch || 'customTileUrl' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setProvider(providerFor(state.settings));
-  if ('panelCount' in patch) { const main = root.parentElement; unmount(); mount(main); return; }
   const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'xMode', 'sectors', 'units', 'theme', 'language'];
-  if (keys.some((k) => k in patch)) { scaledCache.clear(); data = data.map((d) => ({ ...d, color: lapColor(d.lap.id) })); updateRefLabel(); refreshPanels(); updateVideoColors(); }
+  if (keys.some((k) => k in patch)) { scaledCache.clear(); data = data.map((d) => ({ ...d, color: lapColor(d.lap.id) })); if ('xMode' in patch) refreshSlips(); updateRefLabel(); refreshPanels(); updateVideoColors(); updatePos(); }
 }
 
 // ------------------------------------------------------------------ videos
@@ -143,16 +162,18 @@ async function updateVideos() {
     const el = h('video', { playsinline: true, 'webkit-playsinline': true, preload: 'auto', muted: true, src: url });
     el.muted = true;
     const label = h('div.vlabel', h('b', `L${d.lap.lapNumber}`), ` ${displayDriver(d.lap)}`);
-    const cell = h('div.vcell', { style: { '--lap-color': d.color } }, el, label);
-    cell.addEventListener('click', () => {
-      // tap = toggle sound for this video (only one unmuted)
+    const hud = h('div.vhud.mono');
+    const sound = h('button.vsound', { html: icons.mute, title: t('sound'), on: { click: (e) => {
+      e.stopPropagation();
       const wasMuted = el.muted;
-      for (const o of videoObjs.values()) o.el.muted = true;
-      el.muted = !wasMuted;
-      toast(el.muted ? t('muted') : `${t('sound')}: ${lapLabel(d.lap)}`, 1200);
-    });
+      for (const o of videoObjs.values()) { o.el.muted = true; o.sound.innerHTML = icons.mute; }
+      el.muted = !wasMuted; sound.innerHTML = el.muted ? icons.mute : icons.sound;
+    } } });
+    const cell = h('div.vcell', { style: { '--lap-color': d.color } }, el, label, hud, sound);
+    // tap = this video large (others hidden, video panel grows), tap again = back to the grid
+    cell.addEventListener('click', () => toggleBigVideo(cell));
     videoGrid.appendChild(cell);
-    videoObjs.set(d.lap.id, { el, url, cell, key });
+    videoObjs.set(d.lap.id, { el, url, cell, key, hud, sound });
     player.registerVideo(d.lap.id, el, d.lap.video ? d.lap.video.offsetS : 0);
     el.addEventListener('loadedmetadata', () => player.seekVideo(d.lap.id, true));
   }
@@ -166,22 +187,47 @@ async function updateVideos() {
   if (data.filter((d) => videoKeyFor(d.lap)).length > MAX_VIDEOS) toast(t('videos_limit_hint', { n: MAX_VIDEOS }), 2500);
 }
 function updateVideoColors() { for (const [id, v] of videoObjs) v.cell.style.setProperty('--lap-color', lapColor(id)); }
+let bigVideo = null;
+function toggleBigVideo(cell) {
+  const makeBig = bigVideo !== cell;
+  bigVideo = makeBig ? cell : null;
+  for (const v of videoObjs.values()) v.cell.classList.toggle('big', v.cell === bigVideo);
+  videoGrid.classList.toggle('max', !!bigVideo);
+  root.classList.toggle('video-max', !!bigVideo);
+  if (bigVideo) videoPanel.style.flex = '0 0 72%'; else applyRatios();
+  requestAnimationFrame(() => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); if (p.scatter) p.scatter.draw(); } });
+}
+function updateVideoHud() {
+  for (const [id, v] of videoObjs) {
+    const d = data.find((x) => x.lap.id === id);
+    if (!d || !v.hud) continue;
+    const tLap = xMode() === 'time' ? state.cursor : timeAtDistance(d.samples, state.cursor);
+    const sp = valueAt(d.samples, 'speed', state.cursor, xMode()) * speedFactor();
+    v.hud.textContent = `${Number.isFinite(sp) ? sp.toFixed(0) : '–'} ${speedUnitLabel()} · ${fmtLapTime(tLap * 1000)}`;
+  }
+}
 
 // ------------------------------------------------------------------ panels
 function createPanel(key) {
   const body = h('div.panel-body');
   const titleChip = h('button.chip', { on: { click: () => openComponentSheet(key) } }, '…');
-  const tools = h('div.panel-tools');
-  const el = h('div.panel', body, h('div.panel-title', titleChip), tools);
-  return { key, el, body, titleChip, tools, kind: null, chart: null, map: null, table: null, compId: null, comp2Id: null };
+  const el = h('div.panel', body, h('div.panel-title', titleChip));
+  return { key, el, body, titleChip, kind: null, chart: null, map: null, table: null, compId: null, comp2Id: null };
 }
 function destroyPanelContent(p) {
   if (p.chart) { p.chart.destroy(); p.chart = null; }
+  if (p.scatter) { p.scatter.destroy(); p.scatter = null; }
   if (p.map) { p.map.destroy(); p.map = null; }
   p.table = null; p.kind = null;
-  clear(p.body); clear(p.tools);
+  clear(p.body);
 }
-function panelSetting(key) { return { comp: state.settings[`panel${key}`] || (key === 'A' ? 'speed' : key === 'B' ? 'map' : 'glat'), comp2: state.settings[`panel${key}2`] || null }; }
+function panelSetting(key) {
+  let comp = state.settings[`panel${key}`] || (key === 'A' ? 'timeslip' : key === 'B' ? 'map' : 'glat');
+  let comp2 = state.settings[`panel${key}2`] || null;
+  // the gap needs two laps – with one lap the panel shows speed until a second lap is selected
+  if (comp === 'timeslip' && data.length < 2) { comp = comp2 && kindOf(comp2) === 'number' ? comp2 : 'speed'; comp2 = null; }
+  return { comp, comp2 };
+}
 
 function kindOf(id) {
   if (!id) return null;
@@ -251,14 +297,13 @@ function configurePanel(p) {
       p.body.appendChild(canvas);
       p.chart = new LineChart(canvas, {
         onCursor: (x) => setCursor(x, `panel${p.key}`),
-        onView: (x0, x1) => { if (state.settings.syncZoom) for (const o of Object.values(panels)) if (o !== p && o.chart) o.chart.setView(x0, x1, true); },
+        onView: (x0, x1) => { for (const o of Object.values(panels)) if (o !== p && o.chart) o.chart.setView(x0, x1, true); }, // always in sync
         onLongPress: (x) => addSplitAt(x),
       });
-      p.tools.append(
-        h('button', { html: icons.minus, title: '−', on: { click: () => p.chart.zoomBy(1.6) } }),
-        h('button', { html: icons.plus, title: '+', on: { click: () => p.chart.zoomBy(1 / 1.6, state.cursor) } }),
-        h('button', { html: icons.fit, title: t('reset_zoom'), on: { click: () => p.chart.resetView() } }),
-      );
+    } else if (kind === 'scatter') {
+      const canvas = h('canvas');
+      p.body.appendChild(canvas);
+      p.scatter = new ScatterChart(canvas);
     } else if (kind === 'map') {
       const canvas = h('canvas');
       p.body.appendChild(canvas);
@@ -273,21 +318,16 @@ function configurePanel(p) {
           setCursor(xMode() === 'time' ? ref.samples.t[index] : ref.samples.d[index], 'map');
         },
       });
-      p.tools.append(h('button', { html: icons.fit, title: t('fit'), on: { click: () => p.map.fit() } }));
     } else {
       p.table = h('div.table-wrap');
       p.body.appendChild(p.table);
     }
   }
-  p.compId = comp; p.comp2Id = kind === 'number' ? comp2 : null;
+  p.compId = comp; p.comp2Id = (kind === 'number' || kind === 'timeslip') && kindOf(comp2) === 'number' ? comp2 : null;
   const info = chanInfo(comp) || { label: comp };
   const info2 = p.comp2Id ? chanInfo(p.comp2Id) : null;
   p.titleChip.textContent = info2 ? `${info.label} + ${info2.label}` : info.label;
-  requestAnimationFrame(() => {
-    const tw = p.tools.children.length ? p.tools.offsetWidth + 6 : 0;
-    p.el.style.setProperty('--tools-w', tw + 'px');
-    if (p.chart) p.chart.setReserveRight(p.titleChip.offsetWidth + tw + 20);
-  });
+  requestAnimationFrame(() => { if (p.chart) p.chart.setReserveRight(p.titleChip.offsetWidth + 20); });
   renderPanel(p);
 }
 
@@ -296,6 +336,7 @@ function renderPanel(p) {
   if (p.kind === 'number') renderNumber(p);
   else if (p.kind === 'timeslip') renderTimeSlip(p);
   else if (p.kind === 'map') renderMap(p);
+  else if (p.kind === 'scatter') renderScatter(p);
   else if (p.kind === 'detail') renderDetail(p);
   else if (p.kind === 'overview') renderOverview(p);
   else if (p.kind === 'sections') renderSections(p);
@@ -322,33 +363,57 @@ function renderNumber(p) {
 }
 
 function renderTimeSlip(p) {
-  const series = [];
+  const series = [], series2 = [];
+  const info2 = p.comp2Id ? chanInfo(p.comp2Id) : null;
   if (data.length >= 2) {
-    const ref = data[0];
-    for (const d of data.slice(1)) {
-      const s = xMode() === 'time' ? distanceGapSeries(d.samples, ref.samples) : timeSlipSeries(d.samples, ref.samples);
-      series.push({ ...s, color: d.color, label: lapLabel(d.lap) });
-    }
+    for (const d of data.slice(1)) if (d.slip) series.push({ ...d.slip, color: d.color, label: lapLabel(d.lap) });
   }
+  if (info2) for (const d of data) { const y2 = yArr(d, p.comp2Id); if (y2) series2.push({ x: xArray(d.samples, xMode()), y: y2, n: d.samples.n, color: d.color }); }
   const timeMode = xMode() === 'time';
   p.chart.setData({
-    series, markers: sectorMarkers(), xMax: xMaxAll(), xLabel: xLabelText(),
-    yLabel: timeMode ? `Δ ${t('distance')} [m] ${t('vs_reference')}` : `${t('ch_timeslip')} [s] ${t('vs_reference')}`,
-    fmt: (v) => (Number.isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2) : '–'), fmtX, zeroLine: true,
+    series, series2, markers: sectorMarkers(), xMax: xMaxAll(), xLabel: xLabelText(),
+    yLabel: timeMode ? `Δ ${t('distance')} [m]` : `${t('ch_timeslip')} [s]`,
+    y2Label: info2 ? `${info2.label}${info2.unit ? ' [' + info2.unit + ']' : ''}` : '',
+    fmt: (v) => (Number.isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2) : '–'), fmt2: info2 ? fmtNum(info2.decimals) : null, fmtX, zeroLine: true,
     empty: data.length < 2 ? t('select_two_for_timeslip') : '',
   });
   p.chart.setCursor(state.cursor);
 }
 
+function renderScatter(p) {
+  p.scatter.setData(data.map((d) => ({
+    x: d.samples.gLat, y: d.samples.gLon, n: d.samples.n, color: d.color,
+    highlight: { x: valueAt(d.samples, 'glat', state.cursor, xMode()), y: valueAt(d.samples, 'glon', state.cursor, xMode()) },
+  })), t('lat_g'), t('lon_g'));
+}
 function renderMap(p) {
   const tracks = data.map((d) => ({ lat: d.samples.lat, lng: d.samples.lng, n: d.samples.n, color: d.color }));
+  let legend = '';
+  if (data.length >= 2 && xMode() !== 'time') {
+    // slowest compared lap vs. the fastest: slope of the gap per ~20 m decides the colour of the fastest lap's line
+    const cmp = data.slice(1).reduce((a, b) => (b.lap.lapTimeMs > a.lap.lapTimeMs ? b : a));
+    if (cmp.slip && cmp.slip.n > 2) {
+      const ref = data[0], s = ref.samples, sl = cmp.slip, half = 10;
+      const dark = isDarkTheme();
+      const RED = dark ? '#ff4d4d' : '#c62828', GREEN = dark ? '#3fd162' : '#1b8f3a', GREY = dark ? 'rgba(255,255,255,0.55)' : 'rgba(40,44,52,0.55)';
+      const colors = new Array(s.n);
+      for (let i = 0; i < s.n; i++) {
+        const dd = s.d[i];
+        const a = interpAt(sl.x, sl.y, Math.max(0, dd - half), sl.n), b = interpAt(sl.x, sl.y, dd + half, sl.n);
+        const slope = (b - a); // seconds lost over ~20 m
+        colors[i] = !Number.isFinite(slope) ? GREY : slope > 0.02 ? RED : slope < -0.02 ? GREEN : GREY;
+      }
+      tracks[0] = { ...tracks[0], colors };
+      legend = t('map_legend', { lap: `L${cmp.lap.lapNumber}` });
+    }
+  }
   const def = data.length ? data[0].lap.trackDef : null;
   let splitPositions = [];
   if (state.settings.sectors === 'custom' && data.length) {
     const ref = data[0];
     splitPositions = customSplits(ref.lap.track.id).map((dm, i) => ({ ...positionAt(ref.samples, dm, 'distance'), label: `S${i + 1}` }));
   }
-  p.map.setData({ tracks, def, cursors: cursorPositions(), showSectors: state.settings.sectors === 'default', splitPositions });
+  p.map.setData({ tracks, def, cursors: cursorPositions(), showSectors: state.settings.sectors === 'default', splitPositions, legend });
   if (!data.length) { /* nothing */ }
 }
 function cursorPositions() { return data.map((d) => ({ ...positionAt(d.samples, state.cursor, xMode()), color: d.color })); }
@@ -475,22 +540,32 @@ function onCursor(e) {
     for (const p of Object.values(panels)) {
       if (p.map) {
         p.map.setCursors(cursorPositions());
-        if (state.settings.followCursor && data.length && p.map.zoom > (p.map.fitZoom || 0) + 0.3) {
+        if (data.length && p.map.zoom > (p.map.fitZoom || 0) + 0.3) {
           const pos = positionAt(data[0].samples, state.cursor, xMode());
           p.map.centerOn(pos.lat, pos.lng);
         }
       }
       if (p.kind === 'detail') renderDetail(p);
+      if (p.kind === 'scatter') renderScatter(p);
     }
     updatePos();
   });
 }
 function updatePos() {
-  if (!data.length) { posLbl.textContent = ''; return; }
+  if (!data.length) { posLbl.textContent = ''; clear(gapLbl); return; }
   const ref = data[0];
   const tRef = xMode() === 'time' ? state.cursor : timeAtDistance(ref.samples, state.cursor);
   const dRef = xMode() === 'time' ? distanceAtTime(ref.samples, state.cursor) : state.cursor;
   posLbl.textContent = `${Math.round(dRef * distFactor())} ${distUnitLabel()} · ${fmtLapTime(tRef * 1000)}`;
+  updateVideoHud();
+  clear(gapLbl);
+  for (const d of data.slice(1)) {
+    if (!d.slip) continue;
+    const v = interpAt(d.slip.x, d.slip.y, state.cursor, d.slip.n);
+    if (!Number.isFinite(v)) continue;
+    const txt = xMode() === 'time' ? `${v > 0 ? '+' : ''}${v.toFixed(0)} m` : `${v > 0 ? '+' : ''}${v.toFixed(2)} s`;
+    gapLbl.appendChild(h('span.gap.mono', { style: { color: d.color }, title: `${lapLabel(d.lap)} ${t('vs_reference')}` }, txt));
+  }
 }
 
 // ------------------------------------------------------------------ component sheet
@@ -514,17 +589,28 @@ function openComponentSheet(key) {
   };
   const viewRow = (id) => h('div.item', { class: cur.comp === id ? 'selected' : '', on: { click: async () => { await updateSettings({ [`panel${key}`]: id, [`panel${key}2`]: null }); s.close(); } } }, h('span.lbl', t(CHANNELS[id].label)));
 
-  items.push(h('div.small.muted', { style: { padding: '6px 16px' } }, t('secondary_hint')));
-  items.push(h('div.group', t('group_basic')));
-  for (const id of ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg']) items.push(numRow(id));
-  items.push(h('div.group', t('group_views')));
-  for (const id of ['timeslip', 'map', 'detail', 'overview', 'sections']) items.push(viewRow(id));
-  items.push(h('div.group', t('group_gyro')));
-  for (const id of ['gyrY', 'gyrP', 'gyrR']) items.push(numRow(id));
-  const obd = ['rpm', 'thr', 'wt', 'ot', 'os', 'hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
-  if (obd.length) { items.push(h('div.group', t('group_obd'))); for (const id of obd) items.push(numRow(id)); }
+  // what a driver looks for first
+  items.push(viewRow('timeslip'));
+  for (const id of ['speed', 'glon', 'glat']) items.push(numRow(id));
+  items.push(viewRow('map'));
+  items.push(viewRow('gforce'));
+  const health = ['hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
+  for (const id of health) items.push(numRow(id));
+  // everything else behind one row
+  const more = h('div.more-wrap.hidden');
+  more.appendChild(h('div.small.muted', { style: { padding: '6px 16px' } }, t('secondary_hint')));
+  more.appendChild(h('div.group', t('group_views')));
+  for (const id of ['sections', 'detail', 'overview']) more.appendChild(viewRow(id));
+  more.appendChild(h('div.group', t('group_basic')));
+  for (const id of ['gvert', 'gcomb', 'dev', 'alt', 'hdg']) more.appendChild(numRow(id));
+  more.appendChild(h('div.group', t('group_gyro')));
+  for (const id of ['gyrY', 'gyrP', 'gyrR']) more.appendChild(numRow(id));
+  const obd = ['rpm', 'thr', 'wt', 'ot', 'os'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
+  if (obd.length) { more.appendChild(h('div.group', t('group_obd'))); for (const id of obd) more.appendChild(numRow(id)); }
   const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add(c.name);
-  if (custom.size) { items.push(h('div.group', 'Custom CAN')); for (const name of custom) items.push(numRow('custom:' + name)); }
+  if (custom.size) { more.appendChild(h('div.group', 'CAN')); for (const name of custom) more.appendChild(numRow('custom:' + name)); }
+  const moreRow = h('div.item.more-row', { on: { click: () => { const open = more.classList.toggle('hidden'); moreRow.querySelector('.lbl').textContent = open ? t('more_channels') : t('fewer_channels'); } } }, h('span.lbl', t('more_channels')), h('span', { html: icons.chev, style: { display: 'inline-flex' } }));
+  items.push(moreRow, more);
   const s = sheet(t('select_component'), items);
 }
 
@@ -533,43 +619,11 @@ function openOptions() {
   const s0 = state.settings;
   const row = (label, control, sub) => h('div.item', h('div.lbl', h('div', label), sub ? h('div.small.muted', sub) : null), control);
   const s = sheet(t('options'), [
-    row(t('opt_x_mode'), segmented([{ value: 'distance', label: t('distance') }, { value: 'time', label: t('time') }], xMode(), async (v) => { if (v !== xMode()) await toggleXMode(); })),
-    row(t('opt_sync_zoom'), switchEl(s0.syncZoom, (v) => updateSettings({ syncZoom: v }))),
-    row(t('opt_autoplay'), segmented([0.5, 1, 2, 4].map((x) => ({ value: x, label: x + '×' })), Number(s0.autoplaySpeed) || 1, (v) => updateSettings({ autoplaySpeed: v }))),
     row(t('opt_sectors'), segmented([{ value: 'default', label: t('sectors_default') }, { value: 'custom', label: t('sectors_custom') }, { value: 'none', label: t('sectors_none') }], s0.sectors, (v) => updateSettings({ sectors: v }))),
     h('div.item', { on: { click: () => { s.close(); openCustomSectors(); } } }, h('div.lbl', t('opt_edit_sectors')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),
-    row(t('opt_all_tracks'), switchEl(s0.allTracks, (v) => updateSettings({ allTracks: v }))),
-    row(t('opt_panels'), segmented([{ value: 2, label: '2' }, { value: 3, label: '3' }], Number(s0.panelCount) === 3 ? 3 : 2, (v) => { s.close(); updateSettings({ panelCount: v }); })),
-    row(t('opt_follow'), switchEl(s0.followCursor, (v) => updateSettings({ followCursor: v }))),
-    row(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }], s0.mapStyle === 'satellite' ? 'satellite' : 'osm', (v) => updateSettings({ mapStyle: v }))),
-    row(t('map_tiles'), switchEl(s0.mapTiles, (v) => updateSettings({ mapTiles: v }))),
-    h('div.item', { on: { click: () => { s.close(); openProfiles(); } } }, h('div.lbl', t('profiles')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),
+    row(t('opt_x_mode'), segmented([{ value: 'distance', label: t('distance') }, { value: 'time', label: t('time') }], xMode(), async (v) => { if (v !== xMode()) await toggleXMode(); })),
     h('div.item', { on: { click: () => { s.close(); openExcelExport(); } } }, h('div.lbl', t('export_excel')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })),
   ]);
-}
-
-// ------------------------------------------------------------------ layout profiles (Windows "user profiles")
-const PROFILE_KEYS = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'panelCount', 'panelRatios', 'xMode', 'sectors'];
-function openProfiles() {
-  const body = h('div');
-  const build = () => {
-    clear(body);
-    const list = state.settings.profiles || [];
-    if (!list.length) body.appendChild(h('div.empty', t('no_profiles')));
-    list.forEach((pr, i) => body.appendChild(h('div.item', { on: { click: async () => { s.close(); const patch = {}; for (const k of PROFILE_KEYS) if (k in pr) patch[k] = pr[k]; await updateSettings(patch); toast(t('profile_applied', { n: pr.name })); } } },
-      h('span.lbl', pr.name),
-      h('button.tbtn', { html: icons.trash, on: { click: async (e) => { e.stopPropagation(); await updateSettings({ profiles: list.filter((_, j) => j !== i) }); build(); } } }))));
-    body.appendChild(h('div', { style: { padding: '10px 16px' } }, h('button.btn.block', { on: { click: async () => {
-      const r = await promptDialog(t('save_profile'), [{ key: 'name', label: t('profile_name'), value: '' }]);
-      if (!r || !r.name.trim()) return;
-      const pr = { name: r.name.trim() };
-      for (const k of PROFILE_KEYS) pr[k] = state.settings[k];
-      await updateSettings({ profiles: [...(state.settings.profiles || []).filter((x) => x.name !== pr.name), pr] });
-      build();
-    } } }, t('save_profile'))));
-  };
-  build();
-  const s = sheet(t('profiles'), [h('div.small.muted', { style: { padding: '6px 16px' } }, t('profiles_hint')), body]);
 }
 
 // ------------------------------------------------------------------ Excel export (Windows "Excel Export": lap list + data by distance step)

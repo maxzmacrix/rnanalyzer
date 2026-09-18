@@ -15,7 +15,7 @@ export const PALETTES = {
 // Web version: English by default. Native app (Capacitor): follow the device language.
 const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const DEFAULT_SETTINGS = {
-  language: isNativeApp ? detectLanguage() : 'en',
+  language: detectLanguage(), // device language everywhere (Settings can override)
   units: 'metric', // metric | imperial
   colorblind: false,
   mapTiles: true,
@@ -24,8 +24,8 @@ const DEFAULT_SETTINGS = {
   syncZoom: true,
   allTracks: true,
   xMode: 'distance', // distance | time
-  panelA: 'speed',
-  panelA2: null,
+  panelA: 'timeslip', // the answer first: gap to the fastest lap, speed as second curve
+  panelA2: 'speed',
   panelB: 'map',
   panelB2: null,
   deviceAddresses: [],
@@ -38,8 +38,9 @@ const DEFAULT_SETTINGS = {
   mapStyle: 'osm', // osm | satellite | custom
   customTileUrl: '',
   profiles: [],
-  theme: 'dark', // light | dark | system
+  theme: 'system', // light | dark | system – follows the phone, light by day at the track
   weather: true, // session weather from Open-Meteo
+  settingsVersion: 2,
 };
 
 const listeners = new Map();
@@ -64,12 +65,18 @@ export const state = {
   playing: false,
   settings: { ...DEFAULT_SETTINGS },
   customSectors: new Map(),
+  videoSizes: new Map(),
   online: navigator.onLine,
 };
 
 export async function initState() {
   const saved = await db.getSetting('settings', null);
   state.settings = { ...DEFAULT_SETTINGS, ...(saved || {}) };
+  if (saved && (Number(saved.settingsVersion) || 1) < 2) {
+    // 2.0 redesign: answer-first defaults for existing installs
+    Object.assign(state.settings, { theme: 'system', language: detectLanguage(), panelA: 'timeslip', panelA2: 'speed', panelB: 'map', autoplaySpeed: 1, settingsVersion: 2 });
+    await db.setSetting('settings', state.settings);
+  }
   setLanguage(state.settings.language);
   const sel = await db.getSetting('selected', []);
   await reloadLaps();
@@ -85,6 +92,7 @@ export async function reloadLaps() {
   const names = await db.videoNames();
   state.videoNames = new Set(names);
   state.videoNamesLower = new Map(names.map((n) => [n.toLowerCase(), n]));
+  try { state.videoSizes = new Map((await db.videoInfos()).map((v) => [v.fileName, v.size || 0])); } catch { state.videoSizes = new Map(); }
   state.selected = state.selected.filter((id) => state.lapsById.has(id));
   // preload custom sectors for known tracks
   const trackIds = new Set(laps.map((l) => l.track.id).filter(Boolean));
@@ -106,6 +114,12 @@ export function videoKeyFor(lap) {
     const re = new RegExp(`_Lap_${m[1]}_`, 'i');
     for (const n of state.videoNames) if (re.test(n) && n.toLowerCase().includes((lap.source.device || '').toLowerCase())) return n;
   }
+  // last resort: a stored video whose size matches the device's record (file renamed by AirDrop/WhatsApp/Files)
+  const kb = lap.video.sizeKB;
+  if (Number.isFinite(kb) && kb > 0 && state.videoSizes) {
+    const target = kb * 1024;
+    for (const [n, size] of state.videoSizes) if (size && Math.abs(size - target) / target < 0.0005) return n;
+  }
   return null;
 }
 export function hasVideo(lap) { return !!videoKeyFor(lap); }
@@ -116,6 +130,16 @@ export function lapColor(id) {
   const i = state.selected.indexOf(id);
   const p = palette();
   return i >= 0 ? p[i % p.length] : (isDarkTheme() ? '#9aa4b8' : '#6b7380');
+}
+/** The reference for every comparison: the fastest complete lap of the selection (tap order does not matter). */
+export function refLapId() {
+  let best = null;
+  for (const id of state.selected) {
+    const l = state.lapsById.get(id);
+    if (!l) continue;
+    if (!best || (l.complete && l.lapTimeMs > 0 && (!best.complete || l.lapTimeMs < best.lapTimeMs))) best = l;
+  }
+  return best ? best.id : (state.selected[0] || null);
 }
 export function selectedLaps() {
   return state.selected.map((id) => state.lapsById.get(id)).filter(Boolean);

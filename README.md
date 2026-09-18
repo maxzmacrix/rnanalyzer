@@ -37,6 +37,11 @@ Two ways:
 
 1. **Static hosting** (recommended): put the `app/` folder on any HTTPS static host
    (GitHub Pages, Cloudflare Pages, Netlify, your own nginx/IIS). No server logic needed.
+   The published web version is **https://analyzer.race-navigator.com/** (GitHub Pages with a custom domain:
+   DNS `CNAME analyzer → maxzmacrix.github.io`, domain set under Settings › Pages, HTTPS enforced; the old
+   `maxzmacrix.github.io/rnanalyzer/` address redirects there). All paths in `app/` are relative, so the app runs at a
+   domain root and in a sub-folder alike. Note that the domain is the storage origin: laps imported under the old
+   address are not visible under the new one, and an installed PWA has to be installed again.
 2. **Wi-Fi testing only (without offline)**: start `node tools/serve.mjs 8080` on the PC and open the displayed
    address `http://<PC-IP>:8080` in Safari on the iPhone. The app runs completely, only the service worker
    (offline cache) is not registered without HTTPS.

@@ -294,6 +294,16 @@ export async function run() {
     await go('#/settings', 600); assert($$('#main .sub').some((e) => /App Store/.test(e.textContent)), 'store hint');
   });
 
+  await step('settings: reset to defaults after confirmation', async () => {
+    await go('#/settings', 600);
+    await updateSettings({ units: 'imperial', mapStyle: 'satellite' }); await wait(200);
+    click($('#main .reset-settings'), 'reset button'); await wait(300);
+    const sheetEl = $('.sheet'); assert(sheetEl, 'confirmation sheet');
+    click([...sheetEl.querySelectorAll('button.btn')].find((b) => !b.classList.contains('ghost')), 'confirm reset'); await wait(600);
+    eq(state.settings.units, 'metric', 'units back to metric'); eq(state.settings.mapStyle, 'osm', 'map style back to OSM');
+    assert(!$('.sheet'), 'sheet closed'); assert($('#main .reset-settings'), 'settings view re-rendered');
+  });
+
   await step('settings: theme, language, units, switches, map style', async () => {
     await go('#/settings', 600);
     click(byText('#main .seg button', t('theme_light')), 'light'); await wait(200); eq(document.documentElement.getAttribute('data-theme'), null, 'light theme');

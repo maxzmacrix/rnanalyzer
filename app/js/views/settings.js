@@ -1,6 +1,6 @@
 // Settings view.
 
-import { state, updateSettings, reloadLaps, clearSelection } from '../state.js';
+import { state, updateSettings, reloadLaps, clearSelection, resetSettings } from '../state.js';
 import { t, fmtBytes } from '../i18n.js';
 import { h, setTitle, setTopButtons, switchEl, segmented, confirmDialog, toast } from '../ui.js';
 import { db } from '../db.js';
@@ -55,6 +55,10 @@ export function mount(main) {
       if (!(await confirmDialog(t('confirm_delete_videos'), { danger: true, okLabel: t('delete') }))) return;
       await db.deleteAllVideos(); await reloadLaps(); refreshStorage(); toast(t('done'));
     } } }, t('delete'))),
+    h('div.item', h('div.lbl', h('div', t('reset_settings')), h('div.small.muted', t('reset_settings_hint'))), h('button.btn.ghost.reset-settings', { on: { click: async () => {
+      if (!(await confirmDialog(t('confirm_reset_settings'), { title: t('reset_settings'), okLabel: t('reset_settings_btn') }))) return;
+      await resetSettings(); toast(t('settings_reset_done'), 3000);
+    } } }, t('reset_settings_btn'))),
     h('div.item', h('div.lbl', h('div', t('clear_all'))), h('button.btn.danger', { on: { click: async () => {
       if (!(await confirmDialog(t('confirm_clear_all'), { danger: true, okLabel: t('delete') }))) return;
       await db.clearAll(); await clearSelection(); await reloadLaps(); refreshStorage(); toast(t('done'));

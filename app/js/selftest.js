@@ -72,9 +72,9 @@ export async function run() {
     }
   });
 
-  await step('demo data import (3 laps, 2 videos)', async () => {
+  await step('demo data import (2 laps, 2 videos)', async () => {
     await loadDemoData(() => {});
-    assert(demoLaps().length >= 3, `demo laps: ${demoLaps().length}`);
+    eq(demoLaps().length, 2, 'demo laps');
     const vids = [...state.videoNames].filter((n) => /^demo-/.test(n));
     eq(vids.length, 2, 'demo videos');
   });
@@ -92,9 +92,9 @@ export async function run() {
 
   await step('lap list: rows, session stats, sector cells, best sector', async () => {
     await go('#/laps'); await clearSelection(); await wait(300);
-    assert($$('.lap-row').length >= 3, 'rows');
+    assert($$('.lap-row').length >= 2, 'rows');
     assert($('.event-head .stats'), 'session stats');
-    assert($$('.lap-row .sec').length >= 9, 'sector cells');
+    assert($$('.lap-row .sec').length >= 6, 'sector cells');
     assert($$('.lap-row .sec.best').length >= 1, 'best sector highlight');
     assert(byText('.badge', t('demo_badge')), 'demo badge');
   });
@@ -124,10 +124,10 @@ export async function run() {
   });
 
   await step('lap list: search narrows the list', async () => {
-    const inp = $('.laps-toolbar input'); inp.value = 'L62'; inp.dispatchEvent(new Event('input', { bubbles: true })); await wait(200);
-    eq($$('.lap-row').length, 1, 'search L62');
+    const inp = $('.laps-toolbar input'); inp.value = 'L13'; inp.dispatchEvent(new Event('input', { bubbles: true })); await wait(200);
+    eq($$('.lap-row').length, 1, 'search L13');
     inp.value = ''; inp.dispatchEvent(new Event('input', { bubbles: true })); await wait(200);
-    assert($$('.lap-row').length >= 3, 'search cleared');
+    assert($$('.lap-row').length >= 2, 'search cleared');
   });
 
   await step('suggest comparison explains two laps, then opens the comparison', async () => {
@@ -157,8 +157,8 @@ export async function run() {
 
   await step('row tap selects, colours applied', async () => {
     await clearSelection(); await wait(300);
-    for (let i = 0; i < 3; i++) { $$('.lap-row')[i].click(); await wait(250); }
-    eq(state.selected.length, 3, 'three selected');
+    for (let i = 0; i < 2; i++) { $$('.lap-row')[i].click(); await wait(250); }
+    eq(state.selected.length, 2, 'two selected');
     const row = $('.lap-row.selected');
     assert(row.style.getPropertyValue('--lap-color'), 'lap colour variable');
     assert(getComputedStyle($('.bar', row)).backgroundColor !== 'rgba(0, 0, 0, 0)', 'colour bar visible');
@@ -400,9 +400,9 @@ export async function run() {
 
   await step('empty state offers the tour; demo re-import and removal work', async () => {
     await go('#/laps', 600); assert($('.tour-offer'), 'tour offer');
-    await loadDemoData(() => {}); eq(demoLaps().length, 3, 're-imported');
+    await loadDemoData(() => {}); eq(demoLaps().length, 2, 're-imported');
     await removeDemoData(); eq(state.laps.length, 0, 'removed');
-    await loadDemoData(() => {}); eq(demoLaps().length, 3, 'imported again for manual testing');
+    await loadDemoData(() => {}); eq(demoLaps().length, 2, 'imported again for manual testing');
   });
 
   await step('no uncaught errors during the run', async () => { assert(errors.length === 0, errors.join(' | ')); });

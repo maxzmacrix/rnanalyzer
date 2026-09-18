@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.15 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.16 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -118,7 +118,9 @@ black, and only shows while a frame loads.
   that band and keep the cursor values in it, marker labels sit at the bottom of the plot.
 * **Cursor** in red, synchronous across charts, map, videos and values. X axis distance or time. Pinch = zoom
   (horizontal X, vertical Y), two-finger drag = pan, double tap = reset, zoom synchronised across panels.
-* **Play bar**: play/pause, 5 s back, speed 0.25 to 2× (videos up to 2×, above that clock-driven), live gaps per lap.
+* **Play bar**: play/pause, 5 s back, speed 0.25 to 2× (videos up to 2×, above that clock-driven), live gaps per lap. The
+  reference video drives the cursor only while the lap time lies inside its clip; before and after (clips can be short
+  cuts of a lap) the clock drives and the videos wait on their first or last frame.
 * **Options sheet**: sectors (device, custom, none), axis, chart panels, layout profiles, Excel export (channels,
   distance step, `.xlsx` without a library).
 * Custom sectors: long press in the chart or Options → Custom sectors, stored per track.
@@ -194,7 +196,7 @@ another one. Sign convention as in the coach: plus and red = time lost. Video cl
 
 ### 3.6 Guided tour
 
-On first start (empty list) and from Settings: three anonymised Guadix sample laps and two 20-second clips are imported,
+On first start (empty list) and from Settings: two anonymised Guadix sample laps, each with a 20-second clip, are imported,
 then the app drives itself through the lap list, the comparison, the analysis with a running cursor, g-force, video, the
 Race Navigator tab and Settings. During the analysis scenes the tour sets the default panels (gap + speed, map, coach) so
 the texts match what is shown, and restores the user's own layout when it ends. At the end the demo data can be kept or
@@ -452,6 +454,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.16 | 2026-09-18 | Playback: the reference video drives the cursor only inside its clip, the clock takes over before and after (short demo clips play from any cursor position); demo data reduced to the two laps with video; landscape side rail keeps its width beside the notch |
 | 2.1.15 | 2026-09-18 | Video cells exactly 16:9 and centred (no letterbox bars), graphite cell background; channel strips scroll by touch |
 | 2.1.14 | 2026-09-18 | Charts start below the title chips, marker labels at the plot bottom (no overlaps); maximised panel remembered across tab switches |
 | 2.1.13 | 2026-09-18 | Component sheet is a flat alphabetical list of views; channels are chosen through a "Channels" chip in the panel title |

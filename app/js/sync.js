@@ -56,7 +56,7 @@ class Player {
     for (const [id, v] of this.videos) {
       v.el.playbackRate = Math.min(2, this.speed);
       this.seekVideo(id, true);
-      v.el.play().catch(() => {});
+      if (this.videoInClip(id)) v.el.play().catch(() => {});
     }
     this.lastTs = performance.now();
     this.loop();
@@ -85,14 +85,16 @@ class Player {
     if (!ref) return;
     const refVideo = this.videos.get(this.refId);
     let tRef;
-    const videoDriven = refVideo && this.speed <= 2 && refVideo.el.readyState >= 2 && !refVideo.el.seeking;
+    // the reference video drives the cursor only while the lap time lies inside its clip (a clip can be a 20 s cut of
+    // the lap); before and after, the clock runs and the video waits on its first or last frame
+    const videoDriven = refVideo && this.speed <= 2 && refVideo.el.readyState >= 2 && !refVideo.el.seeking && this.inClip(refVideo, this.clockT);
     if (videoDriven) {
       tRef = refVideo.el.currentTime + refVideo.offsetS;
       if (refVideo.el.paused && !refVideo.el.ended) refVideo.el.play().catch(() => {});
-      if (refVideo.el.ended) { this.pause(); return; }
     } else {
       this.clockT += dt * this.speed;
       tRef = this.clockT;
+      if (refVideo && !refVideo.el.paused && !this.inClip(refVideo, tRef)) refVideo.el.pause();
     }
     const tEnd = ref.t[ref.n - 1];
     if (tRef >= tEnd) { setCursor(this.cursorFromRefTime(ref, tEnd), 'player'); this.pause(); return; }
@@ -101,13 +103,26 @@ class Player {
     // keep other videos in sync (drift check ~4x per second)
     if (now - this.lastSyncCheck > 250) {
       this.lastSyncCheck = now;
-      for (const [id] of this.videos) {
+      for (const [id, v] of this.videos) {
         if (videoDriven && id === this.refId) continue;
         this.seekVideo(id, false);
-        const v = this.videos.get(id);
-        if (v && v.el.paused && !v.el.ended && v.el.readyState >= 2) v.el.play().catch(() => {});
+        if (!this.videoInClip(id)) { if (!v.el.paused) v.el.pause(); continue; }
+        if (v.el.paused && !v.el.ended && v.el.readyState >= 2) v.el.play().catch(() => {});
       }
     }
+  }
+
+  /** Does lap time tLap lie inside the video's clip? Unknown duration counts as inside. */
+  inClip(v, tLap) {
+    const dur = v.el.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return true;
+    return tLap >= v.offsetS && tLap < v.offsetS + dur - 0.05;
+  }
+  videoInClip(lapId) {
+    const v = this.videos.get(lapId); const s = state.samplesCache.get(lapId);
+    if (!v || !s) return false;
+    const tLap = this.lapTimeAtCursor(s);
+    return Number.isFinite(tLap) && this.inClip(v, tLap);
   }
 
   /** Seek a lap's video to the time corresponding to the current cursor. */

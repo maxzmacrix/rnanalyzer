@@ -15,7 +15,6 @@ LAPS = [
     # (rnz, source video or None, demo base name)
     ('20171219_102903432_RNONE-228_LAP_6_1min26sec.rnz', '20171219_102248243_RNONE-228_Lap_6_1min26sec.mp4', 'demo-lap6'),
     ('20171219_104851020_RNONE-228_LAP_13_1min26sec.rnz', '20171219_104711858_RNONE-228_Lap_13_1min26sec.mp4', 'demo-lap13'),
-    ('20171219_140255806_RNONE-228_LAP_62_1min26sec.rnz', None, 'demo-lap62'),
 ]
 DRIVER = 'DRIVER A'
 

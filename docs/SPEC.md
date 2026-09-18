@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.18 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.19 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -209,8 +209,9 @@ removed.
 * **Offline**: app shell in the service worker precache, map tiles cache-first with a bounded cache, all data in IndexedDB.
 * **Updates**: web/PWA via the service worker banner; iOS via App Store/TestFlight; the Android APK compares `build.json`
   with `latest.json` of the newest GitHub release (on start, on resume, every 20 minutes, manually).
-* **Sharing**: Web Share API with files (iOS/Android share sheet: Files, AirDrop, WhatsApp, YouTube, Instagram),
-  otherwise download.
+* **Sharing**: Web Share API with files (iOS share sheet: Files, AirDrop, WhatsApp, YouTube, Instagram). The Android
+  WebView has no Web Share API: the plugin methods `fileBegin`/`fileAppend` stage the file in the app cache in 4 MB
+  chunks and `share` opens the Android share sheet through a FileProvider content URI. Otherwise download.
 * **Diagnostics**: `diag.js` records device XML requests, control protocol exchanges, FTP downloads, import results and
   unhandled errors (last 200 entries, memory only). Settings → About → Diagnostics shows the log with app version and
   platform; "Send to support" opens the share sheet with the log as a text file, falling back to a prefilled mail to
@@ -271,7 +272,7 @@ single Capacitor plugin `RnDevice` that the app registers at runtime.
 | `app/js/chart.js` | Canvas line chart, stacked channel strips (`StripChart`) and scatter plot, zoom/pan, cursor, sector lines |
 | `app/js/map.js` | Canvas map in Web Mercator, tile providers (OSM, Esri, custom), traces, painting by time lost, nearest sample |
 | `app/js/xlsx.js` | OOXML workbook without a library |
-| `app/js/share.js` | Web Share API with files, download fallback |
+| `app/js/share.js` | Web Share API with files; on Android (WebView without Web Share) files are staged through the plugin (`fileBegin`/`fileAppend`) and handed to the native share sheet (`share`); download fallback |
 | `app/js/i18n.js` | Dictionaries DE/EN, `t()`, language detection, date/byte formatting |
 | `app/js/ui.js` | DOM helper `h()`, icons, header, toast, sheet, confirm and prompt dialogs, switch, segmented control |
 | `app/js/tabbar.js` | Tab bar with press-and-slide and highlight pill; switches the view on pointer release itself (pointer capture keeps the click from reaching the link) |
@@ -454,6 +455,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.19 | 2026-09-18 | Android: native share sheet for diagnostics, lap data and videos through the plugin (the WebView has no Web Share API, the mail fallback cut the log at 1800 characters); device timeouts are logged as such |
 | 2.1.18 | 2026-09-18 | Satellite imagery is the default map style; existing installs on the old default follow (settings migration 4) |
 | 2.1.17 | 2026-09-18 | Italian and French added (full dictionaries, language picker, parity test for all languages) |
 | 2.1.16 | 2026-09-18 | Playback: the reference video drives the cursor only inside its clip, the clock takes over before and after (short demo clips play from any cursor position); demo data reduced to the two laps with video; landscape side rail keeps its width beside the notch |

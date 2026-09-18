@@ -9,6 +9,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 import android.content.Intent;
+import android.net.Uri;
+import androidx.core.content.FileProvider;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.annotation.ActivityCallback;
 
@@ -54,6 +56,8 @@ import java.util.concurrent.Executors;
  *  - pgQuery():      read-only SQL against the device's PostgreSQL (fallback for measurements)
  *  - deleteFile():   remove a downloaded temp file
  *  - cameraStart()/cameraStop(): MJPEG frames over a raw TCP socket (events "cameraFrame", "cameraEnd")
+ *  - fileBegin()/fileAppend()/share(): stage a file from the web app in chunks and hand it to the Android share sheet
+ *    (the Android WebView has no Web Share API; files travel through a FileProvider content URI)
  */
 @CapacitorPlugin(name = "RnDevice")
 public class RnDevicePlugin extends Plugin {
@@ -201,6 +205,68 @@ public class RnDevicePlugin extends Plugin {
     public void deleteFile(PluginCall call) {
         String p = call.getString("path");
         if (p != null) new File(p).delete();
+        call.resolve();
+    }
+
+    // ------------------------------------------------------------------ share sheet (FileProvider)
+
+    private File shareDir() {
+        File dir = new File(getContext().getCacheDir(), "rn-share");
+        if (!dir.exists()) dir.mkdirs();
+        return dir;
+    }
+
+    /** Start a staged file: {name} → {path}. An existing file of that name is replaced. */
+    @PluginMethod
+    public void fileBegin(PluginCall call) {
+        String name = call.getString("name");
+        if (name == null || name.isEmpty()) { call.reject("name is required"); return; }
+        File f = new File(shareDir(), name.replaceAll("[^A-Za-z0-9._ \\-]", "_"));
+        try {
+            if (f.exists()) f.delete();
+            if (!f.createNewFile()) { call.reject("cannot create " + f.getName()); return; }
+        } catch (IOException e) { call.reject(e.getMessage()); return; }
+        JSObject r = new JSObject(); r.put("path", f.getAbsolutePath()); call.resolve(r);
+    }
+
+    /** Append one base64 chunk to a staged file: {path, base64}. */
+    @PluginMethod
+    public void fileAppend(PluginCall call) {
+        String path = call.getString("path"), b64 = call.getString("base64");
+        if (path == null || b64 == null) { call.reject("path and base64 are required"); return; }
+        File f = new File(path);
+        if (!f.getAbsolutePath().startsWith(shareDir().getAbsolutePath())) { call.reject("path outside the share folder"); return; }
+        try (FileOutputStream out = new FileOutputStream(f, true)) {
+            out.write(Base64.decode(b64, Base64.DEFAULT));
+        } catch (IOException | IllegalArgumentException e) { call.reject(e.getMessage()); return; }
+        call.resolve();
+    }
+
+    /** Open the Android share sheet for staged files: {paths: [...], mime, title}. */
+    @PluginMethod
+    public void share(PluginCall call) {
+        JSArray arr = call.getArray("paths");
+        String mime = call.getString("mime", "*/*");
+        String title = call.getString("title", "");
+        if (arr == null || arr.length() == 0) { call.reject("paths are required"); return; }
+        ArrayList<Uri> uris = new ArrayList<>();
+        String authority = getContext().getPackageName() + ".rndevice.share";
+        try {
+            for (int i = 0; i < arr.length(); i++) {
+                File f = new File(arr.getString(i));
+                if (!f.exists()) { call.reject("missing file " + f.getName()); return; }
+                uris.add(FileProvider.getUriForFile(getContext(), authority, f));
+            }
+        } catch (Exception e) { call.reject(e.getMessage()); return; }
+        Intent send = new Intent(uris.size() == 1 ? Intent.ACTION_SEND : Intent.ACTION_SEND_MULTIPLE);
+        send.setType(mime);
+        if (uris.size() == 1) send.putExtra(Intent.EXTRA_STREAM, uris.get(0));
+        else send.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        if (!title.isEmpty()) send.putExtra(Intent.EXTRA_SUBJECT, title);
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        Intent chooser = Intent.createChooser(send, title.isEmpty() ? null : title);
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(chooser);
         call.resolve();
     }
 

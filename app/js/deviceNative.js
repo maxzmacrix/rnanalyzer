@@ -8,6 +8,7 @@
 
 import { record } from './diag.js';
 import { zipStore } from './zip.js';
+import { orderSamples } from './rnparser.js';
 
 export const RN_HTTP_PORT = 8080;
 const FTP_USER = 'rtts';
@@ -154,6 +155,13 @@ export async function nativeLaps(input) {
   return out;
 }
 
+/** The device returns rows in storage order, not necessarily by time; sort by `mt` and log how many moved. */
+function chronological(rows, what) {
+  const { els, unordered } = orderSamples(rows.map((r) => ({ row: r, getAttribute: (k) => r[k] })));
+  if (unordered) record('info', `${what}: ${unordered} of ${rows.length} samples out of time order, sorted`);
+  return els.map((e) => e.row);
+}
+
 /** Measurements via HTTP; PostgreSQL through the plugin as fallback. Returns array of attribute maps using RNZ names. */
 async function measurements(host, base, bundle) {
   const from = fmtServer(bundle.startMs), to = fmtServer(Number.isFinite(bundle.endMs) ? bundle.endMs : bundle.startMs + 3600000);
@@ -163,14 +171,14 @@ async function measurements(host, base, bundle) {
       const a = (k) => e.getAttribute(k);
       return { id: a('id'), mt: a('mt'), la: a('la'), lo: a('lo'), za: a('za'), ds: a('ds'), lt: a('lt'), lg: a('lg'), rp: a('rp') ?? '-1', gs: a('gs'), gd: a('gd') ?? '0', ph: a('ph') ?? '0', rl: a('rl') ?? '0', ya: a('ya') ?? a('yw') ?? '0', al: a('al') ?? '0', dr: a('dr') ?? '0', df: a('df') ?? '0', os: a('os') ?? '0', ot: a('ot') ?? '0', wt: a('wt') ?? '0', tp: a('tp') ?? '-1', ga: a('ga') ?? '100', igpsv: a('igpsv') ?? '1', igyrv: a('igyrv') ?? '1', iobdv: a('iobdv') ?? '0', ipc: a('ipc') ?? '0', ld: a('ld') };
     }).filter((r) => !r.ld || r.ld === bundle.id);
-    if (rows.length) return rows;
+    if (rows.length) return chronological(rows, `sensormeasurements ${bundle.id}`);
   } catch (e) { console.warn('HTTP measurements failed, trying PostgreSQL', e); }
-  const res = await plugin().pgQuery({ host, database: 'rtts', user: 'rtts', password: 'rtts8888', sql: `select * from sensorsmeasurements where lapid = ${Number(bundle.id)} order by id` });
-  return (res.rows || []).map((r) => ({
+  const res = await plugin().pgQuery({ host, database: 'rtts', user: 'rtts', password: 'rtts8888', sql: `select * from sensorsmeasurements where lapid = ${Number(bundle.id)} order by measurementtime, id` });
+  return chronological((res.rows || []).map((r) => ({
     id: r.id, mt: String(r.measurementtime || '').replace('T', ' ').slice(0, 23), la: r.longitudinalaccel, lo: r.lateralaccel, za: r.zaccel, ds: r.distanceinlap, lt: r.latitude, lg: r.longitude,
     rp: r.rpmvalue ?? '-1', gs: r.gpsspeed, gd: r.gpspositiondeviation ?? '0', ph: r.pitch ?? '0', rl: r.roll ?? '0', ya: r.yaw ?? '0', al: r.altitude ?? '0', dr: r.direction ?? '0', df: r.distanceoffset ?? '0',
     os: r.obdspeed ?? '0', ot: r.oiltemp ?? '0', wt: r.watertemp ?? '0', tp: '-1', ga: '100', igpsv: r.isgpsvalid === false || r.isgpsvalid === 'f' || r.isgpsvalid === '0' ? '0' : '1', igyrv: r.isgyroaccelvalid === false || r.isgyroaccelvalid === 'f' ? '0' : '1', iobdv: r.isobdvalid === true || r.isobdvalid === 't' || r.isobdvalid === '1' ? '1' : '0', ipc: '0',
-  }));
+  })), `postgres lap ${bundle.id}`);
 }
 
 /** Build the .rnz for a lap listed by nativeLaps(). */

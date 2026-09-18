@@ -237,7 +237,7 @@ function analyzeSession(laps) {
   const rest = [...cleanLaps].filter((l) => !picked.has(l.id)).sort((a, b) => a.lapTimeMs - b.lapTimeMs);
   const byTime = rest.length ? rest : [...cleanLaps].sort((a, b) => a.lapTimeMs - b.lapTimeMs);
   const typical = byTime[Math.floor(byTime.length / 2)] || null; // median of the remaining laps = "typical" pace
-  return { total: laps.length, bestMs, bestByDriver, bestLapId: bestLap ? bestLap.id : null, clean: new Set(cleanLaps.map((l) => l.id)), outliers, nSec, bestSec, bestSecLap, theoreticalMs, sigma, typicalId: typical ? typical.id : null };
+  return { total: laps.length, bestMs, bestByDriver, bestLapId: bestLap ? bestLap.id : null, clean: new Set(cleanLaps.map((l) => l.id)), cleanLaps, outliers, nSec, bestSec, bestSecLap, theoreticalMs, sigma, typicalId: typical ? typical.id : null };
 }
 function sessionStatsHtml(an) {
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -250,15 +250,35 @@ function sortLaps(rows, an) {
   if (filters.sort === 'time') rows.sort((a, b) => ((a.complete && a.lapTimeMs > 0) ? a.lapTimeMs : Infinity) - ((b.complete && b.lapTimeMs > 0) ? b.lapTimeMs : Infinity) || a.startMs - b.startMs);
   else rows.sort((a, b) => a.startMs - b.startMs);
 }
+/**
+ * Suggested comparison: exactly two laps, so both videos run side by side. Reference = fastest clean lap of the
+ * session; partner = the typical lap (median time of the other clean laps), laps with video preferred.
+ */
+function suggestPair(an) {
+  const best = an.cleanLaps.find((l) => l.id === an.bestLapId);
+  if (!best) return null;
+  const rest = an.cleanLaps.filter((l) => l.id !== best.id);
+  if (!rest.length) return null;
+  const pool = rest.some(hasVideo) ? rest.filter(hasVideo) : rest;
+  const byTime = [...pool].sort((a, b) => a.lapTimeMs - b.lapTimeMs);
+  const partner = byTime[Math.floor(byTime.length / 2)];
+  return { best, partner, videoPreferred: pool !== rest };
+}
 async function suggestComparison(an) {
-  const ids = [];
-  const add = (id) => { if (id && !ids.includes(id) && ids.length < MAX_LAPS) ids.push(id); };
-  add(an.bestLapId);
-  for (const id of an.bestSecLap) add(id);
-  add(an.typicalId);
-  if (!ids.length) return;
-  await setSelection(ids);
-  toast(t('suggest_done', { n: ids.length }), 2500);
+  const pick = suggestPair(an);
+  if (!pick) return;
+  const { best, partner } = pick;
+  const d = (partner.lapTimeMs - best.lapTimeMs) / 1000;
+  const line = (l, why) => h('div', { style: { padding: '4px 0' } },
+    h('b.mono', { style: { color: 'var(--text)' } }, `L${l.lapNumber} · ${fmtLapTime(l.lapTimeMs)}`),
+    h('div.small.muted', [why, hasVideo(l) ? t('suggest_video') : null].filter(Boolean).join(' · ')));
+  const body = h('div',
+    line(best, t('suggest_best')),
+    line(partner, t('suggest_typical', { d: `+${d.toFixed(3)}` })),
+    h('div.small.muted', { style: { marginTop: '8px' } }, t('suggest_two')));
+  const ok = await confirmDialog(body, { title: t('suggest_title'), okLabel: t('compare') });
+  if (!ok) return;
+  await setSelection([best.id, partner.id]);
   location.hash = '#/analyze';
 }
 function renderFilterBar(laps) {

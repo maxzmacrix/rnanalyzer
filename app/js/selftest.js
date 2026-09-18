@@ -128,9 +128,13 @@ export async function run() {
     assert($$('.lap-row').length >= 3, 'search cleared');
   });
 
-  await step('suggest comparison selects laps and opens the comparison', async () => {
-    click($('.event-head .suggest'), 'suggest button'); await wait(900);
-    assert(state.selected.length >= 2, `selected ${state.selected.length}`);
+  await step('suggest comparison explains two laps, then opens the comparison', async () => {
+    click($('.event-head .suggest'), 'suggest button'); await wait(500);
+    const sheetEl = $('.sheet'); assert(sheetEl, 'explanation sheet');
+    assert(sheetEl.textContent.includes(t('suggest_best')) && sheetEl.textContent.includes(t('suggest_two')), 'reasons shown');
+    eq(location.hash, '#/laps', 'view not switched before confirmation');
+    click([...sheetEl.querySelectorAll('button.btn')].find((b) => !b.classList.contains('ghost')), 'compare button in sheet'); await wait(900);
+    eq(state.selected.length, 2, `two laps selected (${state.selected.length})`);
     eq(location.hash, '#/analyze', 'opened analyze');
     await go('#/laps', 600);
     assert($$('.lap-row.selected .selmark').length === state.selected.length, 'selection marks');

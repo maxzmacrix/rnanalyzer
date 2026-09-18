@@ -8,6 +8,7 @@ import * as analyzeView from './views/analyzer.js';
 import * as deviceView from './views/device.js';
 import * as settingsView from './views/settings.js';
 import { installUpdateChecks } from './update.js';
+import { initTabbar } from './tabbar.js';
 
 export const APP_VERSION = '2.0.0';
 
@@ -82,6 +83,7 @@ async function boot() {
   on('settings', (patch) => { if (patch && ('theme' in patch || 'glassBar' in patch)) applyTheme(); if (patch && patch.language) { applyI18n(); if (current && current.unmount) current.unmount(); current = null; route(); } });
   window.addEventListener('hashchange', route);
   route();
+  initTabbar();
   registerSW();
   installUpdateChecks();
   if (/[?&]selftest(=|&|$)/.test(location.search)) import('./selftest.js').then((m) => m.run()).catch((e) => console.error('selftest failed to start', e));

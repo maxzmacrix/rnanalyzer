@@ -67,7 +67,7 @@ export function mount(main) {
     h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${isNativeApp ? 'App' : standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
     h('div.item', h('div.lbl', h('div', t('tour_start')), h('div.sub', t('tour_start_hint'))), h('button.btn.ghost', { on: { click: () => startTour() } }, t('tour_start_btn'))),
     hasDemoData() ? h('div.item', h('div.lbl', h('div', t('tour_remove')), h('div.sub', t('demo_data_hint'))), h('button.btn.danger', { on: { click: async () => { await removeDemoData(); toast(t('tour_removed')); main.innerHTML = ''; mount(main); } } }, t('delete'))) : null,
-    isIOS && !standalone ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
+    isIOS && !standalone && !isNativeApp ? h('div.item', h('div.lbl', h('div.sub', t('install_hint_ios')))) : null,
     isNativeApp ? null : h('div.item', h('div.lbl', h('div', t('native_required_title')), h('div.sub', t('native_required_text')))),
     updateCheckAvailable() ? h('div.item', h('div.lbl', h('div', t('check_update')), h('div.sub', t('check_update_hint'))), h('button.btn.ghost', { on: { click: async (e) => {
       const btn = e.currentTarget; btn.disabled = true; const r = await checkForAppUpdate({ manual: true }); btn.disabled = false;

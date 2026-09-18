@@ -51,7 +51,11 @@ async function getXml(base, uri, timeoutMs = 20000) {
     const doc = new DOMParser().parseFromString(text, 'application/xml');
     if (doc.getElementsByTagName('parsererror')[0]) { record('xml', `invalid XML ${uri}`, text.slice(0, 300)); throw new Error('Invalid XML from ' + uri); }
     return doc;
-  } catch (e) { if (!(e.message || '').startsWith('HTTP ') && !(e.message || '').startsWith('Invalid XML')) record('xml', `ERR ${uri}`, e.message || e); throw e; }
+  } catch (e) {
+    const msg = e && e.name === 'AbortError' ? `timeout after ${Math.round(timeoutMs / 1000)} s` : (e.message || e);
+    if (!(e.message || '').startsWith('HTTP ') && !(e.message || '').startsWith('Invalid XML')) record('xml', `ERR ${uri}`, msg);
+    throw e;
+  }
   finally { clearTimeout(tm); }
 }
 const els = (doc, name) => Array.from(doc.getElementsByTagName(name));

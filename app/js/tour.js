@@ -17,8 +17,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let els = null, idx = 0, timer = 0, tick = 0, paused = false, running = false, currentTarget = null;
 // the tour explains the default panels (gap + speed, map, coach); the user's own layout comes back when the tour ends
-const PANEL_KEYS = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2'];
-const TOUR_PANELS = { panelA: 'timeslip', panelA2: 'speed', panelB: 'map', panelB2: null, panelC: 'coach', panelC2: null };
+// the user's layout, saved before the analysis scenes and restored when the tour ends: the panel contents and a
+// maximised panel (a maximised panel would hide the chart, the map or the coach the tour points at)
+const PANEL_KEYS = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'maxPanel'];
+const TOUR_PANELS = { panelA: 'timeslip', panelA2: 'speed', panelB: 'map', panelB2: null, panelC: 'coach', panelC2: null, maxPanel: null };
 let savedPanels = null;
 
 export function hasDemoData() { return state.laps.some((l) => l.demo); }

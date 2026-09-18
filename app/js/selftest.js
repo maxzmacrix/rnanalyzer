@@ -369,9 +369,17 @@ export async function run() {
     assert(!$$('#main .sub').some((e) => e.textContent === '…'), 'storage info loaded');
   });
 
-  await step('tour starts and can be closed', async () => {
+  await step('tour starts and can be closed; a maximised panel is lifted for the tour and restored afterwards', async () => {
+    await updateSettings({ maxPanel: 'B' }); await wait(100);
     await startTour(); await waitFor(() => $('.tour-root .tour-text') && $('.tour-text').textContent.length > 10, 12000, 'tour text');
-    stopTour(); await wait(200); assert(!$('.tour-root'), 'tour closed');
+    // skip ahead with "Next" until the analysis scene is on screen
+    for (let i = 0; i < 8 && location.hash !== '#/analyze'; i++) { click($('.tour-actions .tbtn.primary'), 'tour next'); await wait(700); }
+    await waitFor(() => location.hash === '#/analyze' && $('.play-bar'), 8000, 'tour reaches the analysis');
+    await waitFor(() => state.settings.maxPanel === null, 5000, 'tour lifts the maximised panel'); await wait(400);
+    assert(!$('.analyzer.panel-max') && $$('.right-col .panel').every((p) => !p.classList.contains('hidden')), 'all panels visible during the tour');
+    stopTour(); await wait(300); assert(!$('.tour-root'), 'tour closed');
+    eq(state.settings.maxPanel, 'B', 'maximised panel restored after the tour');
+    await updateSettings({ maxPanel: null });
   });
 
   await step('delete video of a lap (menu → confirm)', async () => {

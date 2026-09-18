@@ -183,9 +183,14 @@ async function updateVideos() {
     // tap = this video large (others hidden, video panel grows), tap again = back to the grid
     cell.addEventListener('click', () => toggleBigVideo(cell));
     videoGrid.appendChild(cell);
-    videoObjs.set(d.lap.id, { el, url, cell, key, hud, sound });
+    const vo = { el, url, cell, key, hud, sound, ratio: DEFAULT_RATIO };
+    videoObjs.set(d.lap.id, vo);
     player.registerVideo(d.lap.id, el, d.lap.video ? d.lap.video.offsetS : 0);
-    el.addEventListener('loadedmetadata', () => player.seekVideo(d.lap.id, true));
+    el.addEventListener('loadedmetadata', () => {
+      // the cell takes the picture's own shape (RN recordings are 5:3, phone clips 16:9 or portrait)
+      if (el.videoWidth > 0 && el.videoHeight > 0) { vo.ratio = el.videoWidth / el.videoHeight; cell.style.aspectRatio = String(vo.ratio); fitVideoCells(); if (cell === bigVideo) sizeBigVideo(); }
+      player.seekVideo(d.lap.id, true);
+    });
   }
   // the enlarged video's lap left the selection: back to the grid, otherwise every remaining cell stays hidden
   if (bigVideo && ![...videoObjs.values()].some((v) => v.cell === bigVideo)) {
@@ -204,7 +209,8 @@ async function updateVideos() {
   fitVideoCells();
 }
 let videoRo = null;
-/** Every video cell is exactly 16:9 and centred in its grid area: no letterbox bars inside the cell, the app background shows around it instead. */
+const DEFAULT_RATIO = 16 / 9; // until the video's metadata says otherwise
+/** Every video cell has its video's own aspect ratio and is centred in its grid area: no letterbox bars inside the cell, the app background shows around it instead. */
 function fitVideoCells() {
   if (!videoGrid) return;
   if (videoGrid.classList.contains('max')) { for (const v of videoObjs.values()) { v.cell.style.width = ''; v.cell.style.height = ''; } return; }
@@ -214,8 +220,10 @@ function fitVideoCells() {
   const rows = Math.ceil(n / cols);
   const gap = 4, pad = 4;
   const cw = (videoGrid.clientWidth - 2 * pad - gap * (cols - 1)) / cols, ch = (videoGrid.clientHeight - 2 * pad - gap * (rows - 1)) / rows;
-  const w = Math.max(40, Math.min(cw, ch * 16 / 9));
-  for (const v of videoObjs.values()) { v.cell.style.width = `${Math.floor(w)}px`; v.cell.style.height = `${Math.floor(w * 9 / 16)}px`; }
+  for (const v of videoObjs.values()) {
+    const w = Math.max(40, Math.min(cw, ch * v.ratio));
+    v.cell.style.width = `${Math.floor(w)}px`; v.cell.style.height = `${Math.floor(w / v.ratio)}px`;
+  }
 }
 function updateVideoColors() { for (const [id, v] of videoObjs) v.cell.style.setProperty('--lap-color', lapColor(id)); }
 let bigVideo = null;
@@ -229,13 +237,14 @@ function toggleBigVideo(cell) {
   fitVideoCells();
   requestAnimationFrame(() => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); if (p.scatter) p.scatter.draw(); } });
 }
-/** The enlarged video takes the panel width at 16:9, but never more than 60 % of the height – panels and play bar stay visible. */
+/** The enlarged video takes the panel width in its own aspect ratio, but never more than 60 % of the height – panels and play bar stay visible. */
 function sizeBigVideo() {
   if (!root) return;
   if (!bigVideo) { applyRatios(); return; }
   const avail = root.clientHeight || window.innerHeight;
   const w = videoPanel.clientWidth || root.clientWidth;
-  const h = Math.min(avail * 0.6, w * 9 / 16 + 8);
+  const big = [...videoObjs.values()].find((v) => v.cell === bigVideo);
+  const h = Math.min(avail * 0.6, w / (big ? big.ratio : DEFAULT_RATIO) + 8);
   videoPanel.style.flex = `0 0 ${Math.round(h)}px`;
 }
 function updateVideoHud() {

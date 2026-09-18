@@ -308,6 +308,7 @@ export async function run() {
   await step('video cells: HUD, tap to enlarge and back, sound button', async () => {
     await setSelection(demoLaps().filter((l) => l.video && [...state.videoNames].includes(l.video.fileName)).map((l) => l.id)); await go('#/analyze', 1200);
     await waitFor(() => $$('.vcell').length >= 2, 6000, 'two video cells');
+    await wait(300); { const r = $('.vcell').getBoundingClientRect(); assert(Math.abs(r.width / r.height - 16 / 9) < 0.05, `video cell is 16:9 (${Math.round(r.width)}x${Math.round(r.height)})`); }
     const { setCursor } = await import('./state.js'); setCursor(600, 'test'); await wait(300);
     assert($$('.vcell .vhud').every((h) => /km\/h|mph/.test(h.textContent)), 'HUD shows speed');
     const cell = $('.vcell'); click(cell, 'cell'); await wait(400);

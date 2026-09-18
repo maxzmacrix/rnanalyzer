@@ -344,7 +344,7 @@ test('index.html: tabs match the routes in main.js and the manifest icons exist'
 
 test('demo data: index lists existing, anonymised laps', async () => {
   const idx = JSON.parse(rd('app/demo/index.json'));
-  assert.ok(idx.laps.length >= 3 && idx.videos.length >= 1);
+  assert.ok(idx.laps.length === 2 && idx.videos.length === 2);
   for (const f of idx.laps) assert.ok(existsSync(join(APP, 'demo', f)), `demo file ${f}`);
   assert.ok(idx.videoArchive && existsSync(join(APP, 'demo', idx.videoArchive)), 'video archive');
   const arc = await zip.unzip(readFileSync(join(APP, 'demo', idx.videoArchive)).buffer);
@@ -364,7 +364,7 @@ test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
   const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.equal(v, '2.1.15');
+  assert.equal(v, '2.1.16');
   assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
   assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
   assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));

@@ -499,7 +499,7 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .more-wrap.hidden { display: none; }
 .tour-offer .btn.block { max-width: 320px; }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) and (pointer: coarse) {
-  .tabbar { padding-left: var(--sal); }
+  .tabbar { padding-left: var(--sal); width: calc(84px + var(--sal)); } /* the notch's safe area comes on top of the rail, not out of it */
 }
 
 /* ---------- one Analyze screen: video cells ---------- */

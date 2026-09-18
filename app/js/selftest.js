@@ -294,6 +294,15 @@ export async function run() {
     await go('#/settings', 600); assert($$('#main .sub').some((e) => /App Store/.test(e.textContent)), 'store hint');
   });
 
+  await step('settings: diagnostics sheet shows header and log', async () => {
+    await go('#/settings', 600);
+    click($('#main .diagnostics'), 'diagnostics button'); await wait(300);
+    const sheetEl = $('.sheet'); assert(sheetEl, 'diagnostics sheet');
+    assert(/RN Analyzer \d+\.\d+\.\d+ · (web|app)/.test(sheetEl.textContent), 'header with version and platform');
+    assert(/\[import\]/.test(sheetEl.textContent), 'import entries recorded');
+    click(sheetEl.querySelector('header .tbtn'), 'close'); await wait(200); assert(!$('.sheet'), 'sheet closed');
+  });
+
   await step('settings: reset to defaults after confirmation', async () => {
     await go('#/settings', 600);
     await updateSettings({ units: 'imperial', mapStyle: 'satellite' }); await wait(200);

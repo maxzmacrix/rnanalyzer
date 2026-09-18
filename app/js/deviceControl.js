@@ -8,6 +8,7 @@
 //   request status: 0 received, 1 processing, 2 finished OK, 3 failed, 4 unknown
 
 import { deviceHost } from './deviceNative.js';
+import { record } from './diag.js';
 
 export const REQ = {
   VideoSplitting: 1, CableDownload: 2, SetTrackVariant: 3, SetRecordingState: 4, SetTypeOfRecording: 5, ChangeEventType: 6, ManageEvents: 7,
@@ -39,25 +40,16 @@ function serverDate(d = new Date()) {
   const p = (n, l = 2) => String(n).padStart(l, '0');
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}${p(d.getMilliseconds(), 3)}`;
 }
-/** The last requests and device answers, for diagnosing the protocol against a real device (Control → Protocol log). */
-export const protocolLog = [];
-const LOG_MAX = 60;
-function logEntry(url, status, body) {
-  const path = url.replace(/^https?:\/\/[^/]+\/resources\//, '');
-  protocolLog.push({ t: new Date().toISOString().slice(11, 23), path, status, body: String(body ?? '').replace(/\s+/g, ' ').slice(0, 400) });
-  if (protocolLog.length > LOG_MAX) protocolLog.splice(0, protocolLog.length - LOG_MAX);
-}
-export function protocolLogText() { return protocolLog.map((e) => `${e.t} ${e.status} ${e.path}\n    ${e.body}`).join('\n'); }
 async function getJson(url, timeoutMs = 10000) {
   const ctrl = new AbortController();
   const tm = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
     const text = await res.text().catch(() => '');
-    if (!/currentstatus$/.test(url)) logEntry(url, res.status, text);
+    if (!/currentstatus$/.test(url)) record('http', `${res.status} ${url.replace(/^https?:\/\/[^/]+\/resources\//, '')}`, text);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     try { return JSON.parse(text); } catch { return xmlToObj(text); }
-  } catch (e) { if (!/currentstatus$/.test(url) && !(e.message || '').startsWith('HTTP ')) logEntry(url, 'ERR', e.message || e); throw e; }
+  } catch (e) { if (!/currentstatus$/.test(url) && !(e.message || '').startsWith('HTTP ')) record('http', `ERR ${url.replace(/^https?:\/\/[^/]+\/resources\//, '')}`, e.message || e); throw e; }
   finally { clearTimeout(tm); }
 }
 // Fallback when the device answers XML: flatten first-level children to an object (lists → arrays)

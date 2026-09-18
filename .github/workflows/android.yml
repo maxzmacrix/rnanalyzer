@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      MARKETING_VERSION: '2.1.9'
+      MARKETING_VERSION: '2.1.10'
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4

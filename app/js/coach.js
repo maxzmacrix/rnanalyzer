@@ -12,6 +12,9 @@ import { lowerBound, timeSlipSeries, interpAt } from './analysis.js';
 // thresholds above GPS/sensor noise – differences below these are not reported
 export const T = { brakeM: 8, apexMs: 1.0, gasM: 8, lineM: 1.5, lostS: 0.05, exitMs: 1.0 };
 const BRAKE_G = -0.25, GAS_G = 0.12, SUSTAIN = 3, LAT_G = 0.45, APEX_K = 10; // APEX_K samples = 1 s at 10 Hz
+// OBD/CAN refinements (only when both laps carry the channel): throttle in %, engine speed in rpm
+const THR_ON = 15, THR_FULL = 90, LIFT_PCT = 25, RELEASE_G = -0.1, RPM_MIN = 1500, SHIFT_DROP = 0.12, SHIFT_RPM_DIFF = 300, GEAR_GAP = 0.10;
+export const T_OBD = { fullM: 8, coastM: 8 };
 
 const M_PER_DEG = 111320;
 function toXY(lat, lng, lat0) { const k = Math.cos((lat0 * Math.PI) / 180); return { x: lng * M_PER_DEG * k, y: lat * M_PER_DEG }; }
@@ -62,8 +65,12 @@ export function detectCorners(ref) {
 
 function sustained(arr, i, n, pred) { for (let k = 0; k < SUSTAIN; k++) if (i + k >= n || !pred(arr[i + k])) return false; return true; }
 
-/** Braking point, apex, throttle point, entry/exit speed of one lap inside a corner window (distances on that lap). */
-export function cornerMetrics(s, w) {
+/**
+ * Braking point, apex, throttle point, entry/exit speed of one lap inside a corner window (distances on that lap).
+ * caps.thr: use the throttle channel for the throttle point, full-throttle point, coasting distance and lifts;
+ * caps.gears: gear table from gearTable() for the gear at the apex.
+ */
+export function cornerMetrics(s, w, caps = {}) {
   const i0 = Math.max(0, lowerBound(s.d, w.start, s.n)), i1 = Math.min(s.n - 1, lowerBound(s.d, w.end, s.n));
   if (i1 <= i0 + 2) return null;
   // apex = the interior local speed minimum (over ±1 s) nearest to the corner anchor; the global minimum of the window
@@ -79,14 +86,79 @@ export function cornerMetrics(s, w) {
   }
   if (apexI < 0) { apexI = i0; for (let i = i0; i <= i1; i++) if (s.v[i] < s.v[apexI]) apexI = i; }
   let brakeI = -1; for (let i = i0; i <= apexI; i++) if (sustained(s.gLon, i, s.n, (g) => g < BRAKE_G)) { brakeI = i; break; }
-  let gasI = -1; for (let i = apexI; i <= i1; i++) if (sustained(s.gLon, i, s.n, (g) => g > GAS_G)) { gasI = i; break; }
+  let gasI = -1;
+  if (caps.thr && s.thr) { for (let i = apexI; i <= i1; i++) if (sustained(s.thr, i, s.n, (p) => p >= THR_ON)) { gasI = i; break; } }
+  else for (let i = apexI; i <= i1; i++) if (sustained(s.gLon, i, s.n, (g) => g > GAS_G)) { gasI = i; break; }
   let gLatMax = 0; for (let i = i0; i <= i1; i++) gLatMax = Math.max(gLatMax, Math.abs(s.gLat[i] || 0));
-  return {
+  const m = {
     dBrake: brakeI >= 0 ? s.d[brakeI] : NaN, vEntry: brakeI >= 0 ? s.v[brakeI] : s.v[i0],
     dApex: s.d[apexI], vApex: s.v[apexI], apexI,
     dGas: gasI >= 0 ? s.d[gasI] : NaN, vExit: s.v[i1], gLatMax,
     apexLat: s.lat[apexI], apexLng: s.lng[apexI], turnLeft: (s.gLat[apexI] || 0) > 0,
+    dFull: NaN, coastM: NaN, lifts: 0, gear: 0,
   };
+  if (caps.thr && s.thr) {
+    // full throttle after the apex
+    for (let i = apexI; i <= i1; i++) if (sustained(s.thr, i, s.n, (p) => p >= THR_FULL)) { m.dFull = s.d[i]; break; }
+    // coasting: brake released (longitudinal g back above RELEASE_G) until the throttle point
+    if (brakeI >= 0 && gasI >= 0) {
+      let relI = -1; for (let i = brakeI; i <= gasI; i++) if (sustained(s.gLon, i, s.n, (g) => g > RELEASE_G)) { relI = i; break; }
+      if (relI >= 0) m.coastM = Math.max(0, s.d[gasI] - s.d[relI]);
+    }
+    // throttle lifts on the exit: drops of LIFT_PCT points or more between the throttle point and full throttle (or the window end)
+    if (gasI >= 0) {
+      const endI = Number.isFinite(m.dFull) ? lowerBound(s.d, m.dFull, s.n) : i1;
+      let peak = s.thr[gasI], lifts = 0, dropped = false;
+      for (let i = gasI; i <= endI; i++) {
+        const p = s.thr[i];
+        if (p > peak) { peak = p; dropped = false; }
+        else if (!dropped && peak - p >= LIFT_PCT) { lifts++; dropped = true; peak = p; }
+      }
+      m.lifts = lifts;
+    }
+  }
+  if (caps.gears) m.gear = gearAt(s, apexI, caps.gears);
+  return m;
+}
+
+/**
+ * Gear table of a lap from engine speed and GPS speed: the ratio v/rpm clusters per gear. Returns the cluster
+ * centres sorted ascending (index 0 = lowest gear seen), or null when the data does not separate into gears.
+ */
+export function gearTable(s) {
+  if (!s.rpm) return null;
+  const ratios = [];
+  for (let i = 0; i < s.n; i++) if (s.rpm[i] > RPM_MIN && s.v[i] > 5 && (!s.thr || s.thr[i] >= 0)) ratios.push(s.v[i] / s.rpm[i]);
+  if (ratios.length < 50) return null;
+  ratios.sort((a, b) => a - b);
+  const clusters = [];
+  let start = 0;
+  for (let i = 1; i <= ratios.length; i++) {
+    if (i === ratios.length || ratios[i] > ratios[i - 1] * (1 + GEAR_GAP)) { clusters.push(ratios.slice(start, i)); start = i; }
+  }
+  // a gear counts when it was used for at least a second (10 samples) and 1.5 % of the lap – short gears in slow corners stay in
+  const big = clusters.filter((c) => c.length >= Math.max(10, ratios.length * 0.015)).map((c) => c[Math.floor(c.length / 2)]);
+  return big.length >= 2 ? big : null;
+}
+function gearAt(s, i, table) {
+  if (!table || !(s.rpm[i] > RPM_MIN) || !(s.v[i] > 5)) return 0;
+  const r = s.v[i] / s.rpm[i];
+  let best = 0, bd = Infinity;
+  table.forEach((c, k) => { const d = Math.abs(c - r) / c; if (d < bd) { bd = d; best = k + 1; } });
+  return bd <= GEAR_GAP ? best : 0;
+}
+/** Median engine speed at which a lap shifts up: rpm drops of SHIFT_DROP or more within 0.6 s while the car keeps accelerating. */
+export function shiftRpm(s) {
+  if (!s.rpm) return NaN;
+  const out = [];
+  for (let i = 1; i < s.n; i++) {
+    const r0 = s.rpm[i - 1], r1 = s.rpm[i];
+    if (!(r0 > RPM_MIN) || !(r1 > 0) || s.t[i] - s.t[i - 1] > 0.6) continue;
+    if ((r0 - r1) / r0 >= SHIFT_DROP && s.v[i] >= s.v[i - 1] - 0.3) out.push(r0);
+  }
+  if (out.length < 2) return NaN;
+  out.sort((a, b) => a - b);
+  return out[Math.floor(out.length / 2)];
 }
 
 /** Lateral offset (m) of the compared lap's apex from the reference line; positive = wider (outside), negative = tighter. */
@@ -113,9 +185,15 @@ export function coachCompare(ref, cmp) {
   const corners = detectCorners(ref);
   const slip = timeSlipSeries(cmp.samples, ref.samples, 5);
   const at = (d) => interpAt(slip.x, slip.y, d, slip.n);
+  const has = (lap, k) => !!(lap.lap && lap.lap.channels && lap.lap.channels[k]);
+  const thr = has(ref, 'throttle') && has(cmp, 'throttle') && !!ref.samples.thr && !!cmp.samples.thr;
+  const rpm = has(ref, 'rpm') && has(cmp, 'rpm') && !!ref.samples.rpm && !!cmp.samples.rpm;
+  // gear ratios are a property of the car, so one table from the fastest lap serves both laps
+  const refGears = rpm ? gearTable(ref.samples) : null;
+  const gears = !!refGears;
   const out = [];
   for (const w of corners) {
-    const rm = cornerMetrics(ref.samples, w), cm = cornerMetrics(cmp.samples, w);
+    const rm = cornerMetrics(ref.samples, w, { thr, gears: refGears }), cm = cornerMetrics(cmp.samples, w, { thr, gears: refGears });
     if (!rm || !cm) continue;
     const lost = at(w.end) - at(w.start), lostEntry = at(rm.dApex) - at(w.start), lostExit = at(w.end) - at(rm.dApex);
     const facts = [];
@@ -133,6 +211,15 @@ export function coachCompare(ref, cmp) {
     if (Number.isFinite(off)) { if (off >= T.lineM) facts.push({ key: 'coach_line_wider', m: off }); else if (off <= -T.lineM) facts.push({ key: 'coach_line_tighter', m: -off }); }
     const dvx = cm.vExit - rm.vExit;
     if (dvx <= -T.exitMs && !facts.some((f) => f.key === 'coach_apex_slower')) facts.push({ key: 'coach_exit_slower', v: -dvx });
+    if (thr) {
+      if (Number.isFinite(rm.dFull) && Number.isFinite(cm.dFull)) {
+        const df = cm.dFull - rm.dFull;
+        if (df >= T_OBD.fullM) facts.push({ key: 'coach_full_later', m: df }); else if (df <= -T_OBD.fullM) facts.push({ key: 'coach_full_earlier', m: -df });
+      }
+      if (Number.isFinite(rm.coastM) && Number.isFinite(cm.coastM) && cm.coastM - rm.coastM >= T_OBD.coastM) facts.push({ key: 'coach_coast_longer', m: cm.coastM - rm.coastM });
+      if (cm.lifts >= 1 && cm.lifts > rm.lifts) facts.push({ key: 'coach_lifts', n: cm.lifts });
+    }
+    if (gears && rm.gear && cm.gear && cm.gear !== rm.gear) facts.push({ key: cm.gear > rm.gear ? 'coach_gear_higher' : 'coach_gear_lower', n: Math.abs(cm.gear - rm.gear) });
     // no measurable cause but time lost: at least say whether it happens on the way in or on the way out
     if (!facts.length && Number.isFinite(lost) && lost >= T.lostS && Number.isFinite(lostEntry) && Number.isFinite(lostExit)) {
       if (lostEntry >= 0.7 * lost) facts.push({ key: 'coach_lost_entry' }); else if (lostExit >= 0.7 * lost) facts.push({ key: 'coach_lost_exit' });
@@ -143,10 +230,16 @@ export function coachCompare(ref, cmp) {
   const patterns = [];
   const count = (k) => out.filter((c) => c.facts.some((f) => f.key === k)).length;
   const need = Math.max(3, Math.ceil(out.length / 2));
-  for (const [k, pk] of [['coach_brake_earlier', 'coach_pattern_brake'], ['coach_apex_slower', 'coach_pattern_apex'], ['coach_gas_later', 'coach_pattern_gas'], ['coach_line_wider', 'coach_pattern_line']]) {
+  for (const [k, pk] of [['coach_brake_earlier', 'coach_pattern_brake'], ['coach_apex_slower', 'coach_pattern_apex'], ['coach_gas_later', 'coach_pattern_gas'], ['coach_line_wider', 'coach_pattern_line'], ['coach_full_later', 'coach_pattern_full'], ['coach_lifts', 'coach_pattern_lifts']]) {
     const n = count(k); if (n >= need) patterns.push({ key: pk, n, total: out.length });
   }
-  return { corners: out, patterns, total, ranked: [...out].filter((c) => c.lost >= T.lostS).sort((a, b) => b.lost - a.lost) };
+  // shift points: where the compared lap shifts up compared with the fastest lap (needs engine speed on both)
+  let shift = null;
+  if (rpm) {
+    const a = shiftRpm(cmp.samples), b = shiftRpm(ref.samples);
+    if (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) >= SHIFT_RPM_DIFF) { shift = { key: a < b ? 'coach_shift_lower' : 'coach_shift_higher', rpm: Math.round(a / 50) * 50, ref: Math.round(b / 50) * 50 }; patterns.push(shift); }
+  }
+  return { corners: out, patterns, total, ranked: [...out].filter((c) => c.lost >= T.lostS).sort((a, b) => b.lost - a.lost), obd: { thr, rpm, gears }, shift };
 }
 
 /**

@@ -440,7 +440,7 @@ function coachLines(cc) {
     const wi = whatIfText(cmp, c);
     lines.push(`${cornerLabel(c)}: ${fmtGap(c.lost)}${c.facts.length ? ' – ' + c.facts.map(factText).join(', ') : ''}${wi ? ' – ' + wi : ''}`);
   }
-  for (const p of result.patterns) lines.push(t(p.key, { n: p.n, total: p.total }));
+  for (const p of result.patterns) lines.push(t(p.key, p));
   return lines;
 }
 function templateNarrative(cc) {
@@ -448,7 +448,7 @@ function templateNarrative(cc) {
   const parts = [];
   if (result.ranked.length) parts.push(t('coach_summary_top', { list: result.ranked.slice(0, 3).map((c) => `${cornerLabel(c)} (${fmtGap(c.lost)})`).join(', ') }));
   else parts.push(t('coach_summary_none'));
-  for (const p of result.patterns) parts.push(t(p.key, { n: p.n, total: p.total }));
+  for (const p of result.patterns) parts.push(t(p.key, p));
   return parts.join(' ');
 }
 function renderCoach(p) {
@@ -462,7 +462,7 @@ function renderCoach(p) {
     ` ${t('coach_vs_short')} `,
     h('span', { style: { color: ref.color, fontWeight: 800 } }, lapLabel(ref.lap)), h('span.mono.small.muted', fmtLapTime(ref.lap.lapTimeMs)),
     h('b.mono.gap', { class: result.total > 0 ? 'lost' : 'gained' }, fmtGap(result.total))));
-  wrap.appendChild(h('div.small.muted', t('coach_subject', { lap: lapLabel(cmp.lap), ref: lapLabel(ref.lap) })));
+  wrap.appendChild(h('div.small.muted', t('coach_subject', { lap: lapLabel(cmp.lap), ref: lapLabel(ref.lap) }) + (result.obd && (result.obd.thr || result.obd.rpm) ? ' ' + t('coach_obd_note', { ch: [result.obd.thr ? t('ch_thr') : null, result.obd.rpm ? t('ch_rpm') : null].filter(Boolean).join(', ') }) : '')));
   const narr = h('div.coach-narrative', cc.aiText || templateNarrative(cc));
   const note = h('div.coach-note.small.muted', cc.aiText ? t('coach_ai_on_device') : '');
   wrap.append(narr, note);

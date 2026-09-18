@@ -157,7 +157,7 @@ canvas { display: block; touch-action: none; }
 .tabbar a.active { color: var(--accent); }
 
 /* wide screens: sidebar */
-@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
+@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) {
   #app { flex-direction: row; }
   .tabbar { order: 0; flex-direction: column; height: auto; width: 84px; justify-content: flex-start; padding-top: calc(var(--sat) + 8px); border-top: 0; border-right: 1px solid var(--panel-border); }
   .tabbar a { flex: 0 0 64px; }
@@ -319,8 +319,10 @@ table.data td.label { text-align: left; }
 .legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
 
 /* ---------- landscape phone: video left, panels right ---------- */
-@media (orientation: landscape) and (max-height: 500px) {
-  /* phone landscape: play bar on top, videos left (42 %), charts right – a grid so the play bar cannot steal width */
+@media (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) {
+  /* phone landscape (clearly wider than tall – a zoomed, squarish desktop window stays in the stacked layout):
+     videos left (42 %) stacked on top of each other, charts right – a grid so the play bar cannot steal width */
+  .analyzer.has-video .videos:not(.max) { grid-template-columns: 1fr; }
   .analyzer.has-video { display: grid; grid-template-columns: 42% minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .analyzer.has-video .play-bar { grid-column: 1 / -1; grid-row: 2; }
   .analyzer.has-video .video-panel { grid-column: 1; grid-row: 1; flex: none !important; min-height: 0; }
@@ -477,7 +479,7 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .more-row .lbl { color: var(--text-dim); }
 .more-wrap.hidden { display: none; }
 .tour-offer .btn.block { max-width: 320px; }
-@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
+@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) {
   .tabbar { padding-left: var(--sal); }
 }
 
@@ -519,7 +521,7 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 :root[data-glass] .view.scroll, :root[data-glass] .scroll.grow { padding-bottom: var(--tabspace); }
 :root[data-glass] .analyzer { margin-bottom: calc(var(--tab-h) + var(--sab) + 18px); }
 :root[data-glass] .toast { bottom: calc(var(--tabspace) + 6px); }
-:root[data-glass] .tour-card { bottom: calc(var(--tabspace) + 4px); }
+:root[data-glass] .tour-card:not(.top):not(.center) { bottom: calc(var(--tabspace) + 4px); }
 :root[data-glass] .update-banner { position: relative; }
 }
 
@@ -527,6 +529,9 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .coach { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
 .coach-head { font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .coach-head .gap { margin-left: auto; font-size: 15px; }
+.panel .coach-head { padding-right: 120px; }
+.vlabel .vtime { font-weight: 400; opacity: 0.85; } /* the floating panel title chip sits top right */
+.event-head .session-delete { color: var(--text-dim); flex: 0 0 auto; }
 .coach .lost { color: var(--accent); } .coach .gained { color: var(--green); }
 .coach-narrative { font-size: 14px; line-height: 1.45; padding: 10px 12px; border-radius: 12px; background: var(--fg-06); }
 .coach-note { min-height: 14px; }

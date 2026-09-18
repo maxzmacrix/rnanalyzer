@@ -10,7 +10,7 @@ import * as settingsView from './views/settings.js';
 import { installUpdateChecks } from './update.js';
 import { initTabbar } from './tabbar.js';
 
-export const APP_VERSION = '2.1.1';
+export const APP_VERSION = '2.1.2';
 
 const views = { laps: lapsView, analyze: analyzeView, device: deviceView, settings: settingsView };
 const nativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -35,7 +35,7 @@ function route() {
   try { view.mount(main); } catch (e) { console.error('mount failed', e); main.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
 
-function phoneLayout() { return window.innerWidth < 900 && !(window.innerWidth > window.innerHeight && window.innerHeight <= 500); }
+function phoneLayout() { return window.innerWidth < 900 && !(window.innerWidth >= window.innerHeight * 4 / 3 && window.innerHeight <= 500); }
 export function applyGlass() { document.documentElement.toggleAttribute('data-glass', state.settings.glassBar !== false && phoneLayout()); }
 export function applyTheme() {
   const pref = state.settings.theme || 'dark';

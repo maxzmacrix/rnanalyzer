@@ -2,7 +2,7 @@
 // element in question, a short explanation, automatic advance (pausable). Demo laps are flagged `demo: true`
 // so they can be removed again with one tap.
 
-import { state, setSelection, clearSelection, reloadLaps, videoKeyFor, hasVideo, MAX_LAPS } from './state.js';
+import { state, setSelection, clearSelection, reloadLaps, videoKeyFor, hasVideo, updateSettings } from './state.js';
 import { importFiles } from './import.js';
 import { db } from './db.js';
 import { player } from './sync.js';
@@ -16,6 +16,10 @@ const DEMO_DRIVER = 'DRIVER A';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let els = null, idx = 0, timer = 0, tick = 0, paused = false, running = false, currentTarget = null;
+// the tour explains the default panels (gap + speed, map, coach); the user's own layout comes back when the tour ends
+const PANEL_KEYS = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2'];
+const TOUR_PANELS = { panelA: 'timeslip', panelA2: 'speed', panelB: 'map', panelB2: null, panelC: 'coach', panelC2: null };
+let savedPanels = null;
 
 export function hasDemoData() { return state.laps.some((l) => l.demo); }
 
@@ -65,15 +69,18 @@ const ALL_STEPS = [
   { key: 'tour_session', route: '#/laps', target: '.event-head', dur: 8000 },
   { key: 'tour_sectors', route: '#/laps', target: '.lap-row .secs', dur: 8000 },
   { key: 'tour_filters', route: '#/laps', target: '.filter-bar', dur: 6500 },
-  { key: 'tour_suggest', route: '#/laps', target: '.sel-summary', dur: 7000, before: async () => {
-    const b = document.querySelector('.event-head .suggest'); if (b) b.click(); await wait(600);
-    location.hash = '#/laps'; await wait(500); // the suggestion opens the comparison – the tour explains the selection first
-    // the video scenes need two laps with clips – add demo laps with video if the suggestion did not include them
-    const withVideo = state.laps.filter((l) => l.demo && hasVideo(l)).map((l) => l.id);
-    const ids = [...state.selected]; for (const id of withVideo) if (!ids.includes(id) && ids.length < MAX_LAPS) ids.push(id);
-    if (ids.length !== state.selected.length) { await setSelection(ids); await wait(300); }
+  { key: 'tour_suggest', route: '#/laps', target: '.event-head .suggest', dur: 7000, before: async () => {
+    // what "Suggest comparison" would pick: the fastest demo lap and a typical one, both with video for the video scenes
+    const demo = state.laps.filter((l) => l.demo && l.complete && l.lapTimeMs > 0).sort((a, b) => a.lapTimeMs - b.lapTimeMs);
+    const withVideo = demo.filter(hasVideo);
+    const ids = withVideo.length >= 2 ? [withVideo[0].id, withVideo[withVideo.length - 1].id] : demo.slice(0, 2).map((l) => l.id);
+    await setSelection(ids); await wait(300);
   } },
-  { key: 'tour_play', route: '#/analyze', target: '.play-bar', dur: 8000, before: async () => { await wait(900); await player.play(); } },
+  { key: 'tour_play', route: '#/analyze', target: '.play-bar', dur: 8000, before: async () => {
+    if (!savedPanels) savedPanels = Object.fromEntries(PANEL_KEYS.map((k) => [k, state.settings[k]]));
+    if (PANEL_KEYS.some((k) => state.settings[k] !== TOUR_PANELS[k])) { await updateSettings(TOUR_PANELS); await wait(400); }
+    await wait(900); await player.play();
+  } },
   { key: 'tour_chart', route: '#/analyze', target: () => document.querySelectorAll('.right-col .panel')[0], dur: 8000 },
   { key: 'tour_map', route: '#/analyze', target: () => { const p = document.querySelectorAll('.right-col .panel'); return p[p.length - 1]; }, dur: 7000 },
   { key: 'tour_video', route: '#/analyze', target: '.videos', dur: 8000, before: async () => {
@@ -103,6 +110,7 @@ export function stopTour() {
   if (els) { els.root.remove(); els = null; }
   currentTarget = null;
   player.pause();
+  if (savedPanels) { const back = savedPanels; savedPanels = null; if (PANEL_KEYS.some((k) => state.settings[k] !== back[k])) updateSettings(back).catch(() => {}); }
 }
 
 function buildUi() {

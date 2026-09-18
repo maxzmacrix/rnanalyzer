@@ -21,18 +21,20 @@ const xlsx = await import('../../app/js/xlsx.js');
 const i18n = await import('../../app/js/i18n.js');
 
 // ------------------------------------------------------------------ i18n
-test('i18n: EN and DE have the same keys and the same placeholders', () => {
+test('i18n: every language has the same keys and placeholders as EN', () => {
   const d = i18n.dictionaries;
-  const en = Object.keys(d.en), de = Object.keys(d.de);
-  const missingDe = en.filter((k) => !(k in d.de));
-  const missingEn = de.filter((k) => !(k in d.en));
-  assert.deepEqual(missingDe, [], 'keys missing in DE');
-  assert.deepEqual(missingEn, [], 'keys missing in EN');
-  for (const k of en) {
-    assert.ok(typeof d.en[k] === 'string' && d.en[k].length, `empty EN ${k}`);
-    assert.ok(typeof d.de[k] === 'string' && d.de[k].length, `empty DE ${k}`);
-    const ph = (s) => (s.match(/\{[a-z0-9_]+\}/gi) || []).sort().join(',');
-    assert.equal(ph(d.de[k]), ph(d.en[k]), `placeholders differ for ${k}`);
+  const langs = Object.keys(d).filter((l) => l !== 'en');
+  assert.deepEqual(langs.sort(), ['de', 'fr', 'it'], 'languages');
+  const en = Object.keys(d.en);
+  const ph = (s) => (s.match(/\{[a-z0-9_]+\}/gi) || []).sort().join(',');
+  for (const l of langs) {
+    assert.deepEqual(en.filter((k) => !(k in d[l])), [], `keys missing in ${l.toUpperCase()}`);
+    assert.deepEqual(Object.keys(d[l]).filter((k) => !(k in d.en)), [], `keys missing in EN (present in ${l.toUpperCase()})`);
+    for (const k of en) {
+      assert.ok(typeof d.en[k] === 'string' && d.en[k].length, `empty EN ${k}`);
+      assert.ok(typeof d[l][k] === 'string' && d[l][k].length, `empty ${l.toUpperCase()} ${k}`);
+      assert.equal(ph(d[l][k]), ph(d.en[k]), `placeholders differ for ${k} in ${l.toUpperCase()}`);
+    }
   }
   assert.ok(en.length > 200, 'dictionary suspiciously small');
 });
@@ -364,7 +366,7 @@ test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
   const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.equal(v, '2.1.16');
+  assert.equal(v, '2.1.17');
   assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
   assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
   assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));

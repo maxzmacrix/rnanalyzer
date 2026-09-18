@@ -24,7 +24,7 @@ export function mount(main) {
     h('h3', t('settings_title')),
     item(t('theme'), segmented([{ value: 'light', label: t('theme_light') }, { value: 'dark', label: t('theme_dark') }, { value: 'system', label: t('theme_system') }], s.theme || 'dark', (v) => updateSettings({ theme: v }))),
     item(t('glass_bar'), switchEl(s.glassBar !== false, (v) => updateSettings({ glassBar: v })), t('glass_bar_hint')),
-    item(t('language'), segmented([{ value: 'en', label: 'English' }, { value: 'de', label: 'Deutsch' }], s.language, (v) => updateSettings({ language: v }))),
+    item(t('language'), segmented([{ value: 'en', label: 'English' }, { value: 'de', label: 'Deutsch' }, { value: 'it', label: 'Italiano' }, { value: 'fr', label: 'Français' }], s.language, (v) => updateSettings({ language: v }))),
     item(t('speed_units'), segmented([{ value: 'metric', label: 'km/h' }, { value: 'imperial', label: 'mph' }], s.units, (v) => updateSettings({ units: v }))),
     item(t('map_tiles'), switchEl(s.mapTiles, (v) => updateSettings({ mapTiles: v }))),
     item(t('weather_setting'), switchEl(s.weather !== false, (v) => updateSettings({ weather: v })), t('weather_hint')),

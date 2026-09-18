@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.16 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.17 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -204,7 +204,7 @@ removed.
 
 ### 3.7 Cross-cutting
 
-* **Languages**: German and English; key parity is tested. Web: device language, otherwise English. A new language is
+* **Languages**: English, German, Italian and French; key parity is tested. Web: device language, otherwise English. A new language is
   one more dictionary in `i18n.js`.
 * **Offline**: app shell in the service worker precache, map tiles cache-first with a bounded cache, all data in IndexedDB.
 * **Updates**: web/PWA via the service worker banner; iOS via App Store/TestFlight; the Android APK compares `build.json`
@@ -454,6 +454,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.17 | 2026-09-18 | Italian and French added (full dictionaries, language picker, parity test for all languages) |
 | 2.1.16 | 2026-09-18 | Playback: the reference video drives the cursor only inside its clip, the clock takes over before and after (short demo clips play from any cursor position); demo data reduced to the two laps with video; landscape side rail keeps its width beside the notch |
 | 2.1.15 | 2026-09-18 | Video cells exactly 16:9 and centred (no letterbox bars), graphite cell background; channel strips scroll by touch |
 | 2.1.14 | 2026-09-18 | Charts start below the title chips, marker labels at the plot bottom (no overlaps); maximised panel remembered across tab switches |

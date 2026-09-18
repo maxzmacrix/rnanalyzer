@@ -520,3 +520,16 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 :root[data-glass] .tour-card { bottom: calc(var(--tabspace) + 4px); }
 :root[data-glass] .update-banner { position: relative; }
 }
+
+/* ---------- corner coach ---------- */
+.coach { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.coach-head { font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.coach-head .gap { margin-left: auto; font-size: 15px; }
+.coach .lost { color: var(--accent); } .coach .gained { color: var(--green); }
+.coach-narrative { font-size: 14px; line-height: 1.45; padding: 10px 12px; border-radius: 12px; background: var(--fg-06); }
+.coach-note { min-height: 14px; }
+.coach-list { display: flex; flex-direction: column; gap: 4px; }
+.coach-row { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--fg-08); cursor: pointer; }
+.coach-row:active { background: var(--fg-06); }
+.coach-row.current { border-color: var(--accent); background: rgba(229, 32, 43, 0.08); }
+.coach-row .row.between { font-size: 14px; }

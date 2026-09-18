@@ -3,6 +3,9 @@ import Capacitor
 import Network
 import PostgresClientKit
 import HealthKit
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 /// Capacitor plugin giving the RN Analyzer web app access to an unmodified Race Navigator:
 ///  - discover():     Bonjour browse for `_racenav._tcp.` → [{name, host, port}]
@@ -22,6 +25,8 @@ public class RnDevicePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "cameraStop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthAvailable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthHeartRate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "aiAvailable", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "aiGenerate", returnType: CAPPluginReturnPromise),
     ]
 
     private var camera: MJPEGSocketStream?
@@ -144,6 +149,40 @@ public class RnDevicePlugin: CAPPlugin, CAPBridgedPlugin {
             }
             store.execute(q)
         }
+    }
+
+    // MARK: - On-device language model (Apple Foundation Models, iOS 26)
+
+    @objc func aiAvailable(_ call: CAPPluginCall) {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let availability = SystemLanguageModel.default.availability
+            if case .available = availability { call.resolve(["available": true, "provider": "apple"]); return }
+            call.resolve(["available": false, "provider": "apple", "status": "\(availability)"]); return
+        }
+        #endif
+        call.resolve(["available": false, "provider": "none"])
+    }
+
+    /// aiGenerate({prompt, instructions}) → {text}
+    @objc func aiGenerate(_ call: CAPPluginCall) {
+        guard let prompt = call.getString("prompt") else { call.reject("prompt required"); return }
+        let instructions = call.getString("instructions") ?? ""
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            Task {
+                do {
+                    let session = LanguageModelSession(instructions: instructions)
+                    let response = try await session.respond(to: prompt)
+                    call.resolve(["text": response.content])
+                } catch {
+                    call.reject("AI: \(error.localizedDescription)")
+                }
+            }
+            return
+        }
+        #endif
+        call.reject("On-device model not available")
     }
 
     // MARK: - PostgreSQL

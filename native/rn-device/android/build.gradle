@@ -10,7 +10,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.2.1'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21'
     }
 }
 
@@ -61,4 +61,6 @@ dependencies {
     implementation 'androidx.health.connect:connect-client:1.1.0-alpha07' // newer builds need AGP >= 8.6 / compileSdk 35 (Capacitor 6 ships AGP 8.2)
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
     implementation 'androidx.activity:activity:1.8.0'
+    // Gemini Nano (on-device) through the ML Kit GenAI Prompt API – narrative layer of the corner coach
+    implementation 'com.google.mlkit:genai-prompt:1.0.0-alpha1'
 }

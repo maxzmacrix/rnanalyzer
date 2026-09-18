@@ -10,6 +10,9 @@ import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, switchEl,
 import { buildXlsx } from '../xlsx.js';
 import { shareFiles } from '../share.js';
 import { LineChart, ScatterChart } from '../chart.js';
+import { coachCompare, cornerAt } from '../coach.js';
+import { aiStatus, aiNarrate } from '../ai.js';
+import { getLanguage } from '../i18n.js';
 import { TrackMap, nearestSample, providerFor } from '../map.js';
 import {
   CHANNELS, channelArray, xArray, valueAt, positionAt, timeSlipSeries, distanceGapSeries, deviceSplits, deviceSectorTimes,
@@ -347,6 +350,7 @@ function renderPanel(p) {
   else if (p.kind === 'timeslip') renderTimeSlip(p);
   else if (p.kind === 'map') renderMap(p);
   else if (p.kind === 'scatter') renderScatter(p);
+  else if (p.kind === 'coach') renderCoach(p);
   else if (p.kind === 'detail') renderDetail(p);
   else if (p.kind === 'overview') renderOverview(p);
   else if (p.kind === 'sections') renderSections(p);
@@ -388,6 +392,84 @@ function renderTimeSlip(p) {
     empty: data.length < 2 ? t('select_two_for_timeslip') : '',
   });
   p.chart.setCursor(state.cursor);
+}
+
+// ------------------------------------------------------------------ corner coach
+let coachCache = { key: '', result: null, cmp: null, aiText: '', aiPending: false, aiFailed: false };
+function coachTarget() { return data.length < 2 ? null : data.slice(1).reduce((a, b) => (b.lap.lapTimeMs > a.lap.lapTimeMs ? b : a)); }
+function coachResult() {
+  const cmp = coachTarget();
+  if (!cmp) return null;
+  const key = `${data[0].lap.id}|${cmp.lap.id}|${state.settings.units}|${getLanguage()}`;
+  if (coachCache.key !== key) coachCache = { key, result: coachCompare(data[0], cmp), cmp, aiText: '', aiPending: false, aiFailed: false };
+  return coachCache;
+}
+function cornerLabel(c) { const m = /(\d+)/.exec(c.name || ''); return m ? t('corner', { n: m[1] }) : (c.name || t('corner', { n: c.num })); }
+function fmtGap(s) { return `${s > 0 ? '+' : s < 0 ? '−' : ''}${Math.abs(s).toFixed(2)} s`; }
+function factText(f) {
+  const imp = state.settings.units === 'imperial';
+  const dist = (m) => ({ m: Math.round(imp ? m * 3.28084 : m), u: imp ? 'ft' : 'm' });
+  const spd = (v) => ({ v: Math.round(v * speedFactor()), u: speedUnitLabel() });
+  if ('m' in f) return t(f.key, dist(f.m));
+  if ('v' in f) return t(f.key, spd(f.v));
+  return t(f.key, f);
+}
+/** The coach facts as plain lines – shown as template text and handed to the on-device model. */
+function coachLines(cc) {
+  const { result, cmp } = cc, ref = data[0];
+  const lines = [t('coach_vs', { lap: lapLabel(cmp.lap), ref: lapLabel(ref.lap), gap: fmtGap(result.total) })];
+  for (const c of result.ranked.slice(0, 6)) lines.push(`${cornerLabel(c)}: ${fmtGap(c.lost)}${c.facts.length ? ' – ' + c.facts.map(factText).join(', ') : ''}`);
+  for (const p of result.patterns) lines.push(t(p.key, { n: p.n, total: p.total }));
+  return lines;
+}
+function templateNarrative(cc) {
+  const { result } = cc;
+  const parts = [];
+  if (result.ranked.length) parts.push(t('coach_summary_top', { list: result.ranked.slice(0, 3).map((c) => `${cornerLabel(c)} (${fmtGap(c.lost)})`).join(', ') }));
+  else parts.push(t('coach_summary_none'));
+  for (const p of result.patterns) parts.push(t(p.key, { n: p.n, total: p.total }));
+  return parts.join(' ');
+}
+function renderCoach(p) {
+  clear(p.table);
+  if (data.length < 2) { p.table.appendChild(h('div.empty', t('coach_select_two'))); return; }
+  const cc = coachResult();
+  const { result, cmp } = cc, ref = data[0];
+  const wrap = h('div.coach');
+  wrap.appendChild(h('div.coach-head', h('span', { style: { color: cmp.color, fontWeight: 800 } }, lapLabel(cmp.lap)), ` ${t('coach_vs_short')} `, h('span', { style: { color: ref.color, fontWeight: 800 } }, lapLabel(ref.lap)), h('b.mono.gap', { class: result.total > 0 ? 'lost' : 'gained' }, fmtGap(result.total))));
+  const narr = h('div.coach-narrative', cc.aiText || templateNarrative(cc));
+  const note = h('div.coach-note.small.muted', cc.aiText ? t('coach_ai_on_device') : '');
+  wrap.append(narr, note);
+  if (!cc.aiText && !cc.aiPending && !cc.aiFailed) {
+    cc.aiPending = true;
+    aiStatus().then((st) => {
+      if (!st.available) { cc.aiPending = false; return; }
+      note.textContent = t('coach_ai_thinking');
+      return aiNarrate(coachLines(cc)).then((text) => { cc.aiText = text; cc.aiPending = false; if (coachCache === cc) { narr.textContent = text; note.textContent = t('coach_ai_on_device'); } })
+        .catch((e) => { console.warn('ai', e); cc.aiPending = false; cc.aiFailed = true; if (coachCache === cc) note.textContent = ''; });
+    }).catch(() => { cc.aiPending = false; });
+  }
+  const list = h('div.coach-list');
+  const rows = result.ranked.length ? result.ranked : result.corners.slice(0, 1);
+  for (const c of rows) {
+    const row = h('div.coach-row', { 'data-start': c.start, 'data-end': c.end, on: { click: () => {
+      const x = xMode() === 'time' ? timeAtDistance(ref.samples, c.ref.dApex) : c.ref.dApex;
+      setCursor(x, 'coach'); for (const id of videoObjs.keys()) player.seekVideo(id, true);
+    } } },
+      h('div.row.between', h('b', cornerLabel(c)), h('span.mono', { class: c.lost > 0 ? 'lost' : 'gained' }, fmtGap(c.lost))),
+      h('div.small.muted', c.facts.length ? c.facts.map(factText).join(' · ') : t('coach_no_diff')));
+    list.appendChild(row);
+  }
+  wrap.appendChild(list);
+  p.table.appendChild(wrap);
+  highlightCoach(p);
+}
+function highlightCoach(p) {
+  if (!p.table || data.length < 2) return;
+  const cc = coachCache.result ? coachCache : null; if (!cc) return;
+  const d = xMode() === 'time' ? distanceAtTime(data[0].samples, state.cursor) : state.cursor;
+  const cur = cornerAt(cc.result, d);
+  for (const row of p.table.querySelectorAll('.coach-row')) row.classList.toggle('current', !!cur && Number(row.dataset.start) === cur.start);
 }
 
 function renderScatter(p) {
@@ -557,6 +639,7 @@ function onCursor(e) {
       }
       if (p.kind === 'detail') renderDetail(p);
       if (p.kind === 'scatter') renderScatter(p);
+      if (p.kind === 'coach') highlightCoach(p);
     }
     updatePos();
   });
@@ -601,6 +684,7 @@ function openComponentSheet(key) {
 
   // what a driver looks for first
   items.push(viewRow('timeslip'));
+  items.push(viewRow('coach'));
   for (const id of ['speed', 'glon', 'glat']) items.push(numRow(id));
   items.push(viewRow('map'));
   items.push(viewRow('gforce'));

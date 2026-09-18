@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS = {
   lastDevice: '',
   panelRatios: [30, 35, 35, 35],
   panelCount: 2,
-  panelC: 'glat',
+  panelC: 'coach', // third panel (tablets/desktop): the corner coach
   panelC2: null,
   followCursor: false,
   mapStyle: 'osm', // osm | satellite | custom
@@ -41,7 +41,8 @@ const DEFAULT_SETTINGS = {
   theme: 'system', // light | dark | system – follows the phone, light by day at the track
   weather: true, // session weather from Open-Meteo
   glassBar: true, // floating, translucent tab bar (iOS 26 look, restrained)
-  settingsVersion: 2,
+  aiCoach: true, // on-device language model narrates the coach facts (Apple Intelligence / Gemini Nano)
+  settingsVersion: 3,
 };
 
 const listeners = new Map();
@@ -76,6 +77,11 @@ export async function initState() {
   if (saved && (Number(saved.settingsVersion) || 1) < 2) {
     // 2.0 redesign: answer-first defaults for existing installs
     Object.assign(state.settings, { theme: 'system', language: detectLanguage(), panelA: 'timeslip', panelA2: 'speed', panelB: 'map', autoplaySpeed: 1, settingsVersion: 2 });
+    await db.setSetting('settings', state.settings);
+  }
+  if (saved && (Number(state.settings.settingsVersion) || 1) < 3) {
+    if (!saved.panelC || saved.panelC === 'glat') state.settings.panelC = 'coach';
+    state.settings.settingsVersion = 3;
     await db.setSetting('settings', state.settings);
   }
   setLanguage(state.settings.language);

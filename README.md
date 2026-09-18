@@ -196,6 +196,21 @@ Nutzungstexte setzt der Workflow, die App‑ID braucht die Fähigkeit HealthKit 
 --capabilities HEALTHKIT`). Android: Health Connect über `RnHealth.kt` (Kotlin, connect-client), Berechtigung
 `READ_HEART_RATE` und Rationale‑Activity im Plugin‑Manifest; auf Android 9–13 muss die Health‑Connect‑App installiert sein.
 
+### Kurven-Coach und KI-Erklärung
+
+`app/js/coach.js` erklärt deterministisch, wo und warum eine Runde gegen die schnellste verliert: Kurven aus der Streckendefinition
+(Fallback: Querbeschleunigungs‑Spitzen), je Kurve Bremspunkt (Längs‑g < −0,25 g), Scheitel (Mindestgeschwindigkeit), Gaspunkt
+(Längs‑g > 0,12 g), Ausgangstempo und seitlicher Linienversatz zur Referenz; Zeitverlust je Kurve aus der Abstandskurve, aufgeteilt in
+Anbremsen und Ausgang. Unterschiede unter der Sensor‑Toleranz (8 m Bremspunkt, 1 m/s Scheitel, 1,5 m Linie, 0,05 s) werden nicht
+genannt. Muster über mehrere Kurven („in 5 von 16 Kurven bremst du früher“) kommen dazu. Im Analyzer ist der Coach eine
+Panel‑Komponente (Standard im dritten Panel auf großen Bildschirmen): Zusammenfassung, Kurvenliste nach Zeitverlust, Tipp springt
+mit dem Cursor zur Kurve, aktuelle Kurve wird hervorgehoben.
+
+`app/js/ai.js` formt die Fakten optional mit einem Sprachmodell **auf dem Gerät** zu drei bis vier Sätzen: iOS 26 über Apple
+Foundation Models (Swift‑Plugin, `aiGenerate`), Android über Gemini Nano mit der ML‑Kit‑GenAI‑Prompt‑API (`RnAi.kt`, nur auf
+unterstützten Geräten wie Pixel 9 / Galaxy S25). Ohne Modell bleibt der Vorlagentext. Abschaltbar unter *Einstellungen →
+KI‑Erklärung auf dem Gerät*. Es verlassen keine Daten das Telefon.
+
 ### Wetter je Session
 
 Die Rundenliste zeigt unter jeder Session das Wetter der Fahrstunden (`app/js/weather.js`): Symbol und Zustand, Temperatur,

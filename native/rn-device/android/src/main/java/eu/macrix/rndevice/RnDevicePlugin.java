@@ -284,6 +284,33 @@ public class RnDevicePlugin extends Plugin {
         });
     }
 
+    // ------------------------------------------------------------------ on-device language model (Gemini Nano via ML Kit)
+
+    @PluginMethod
+    public void aiAvailable(PluginCall call) {
+        RnAi.status(getContext(), st -> {
+            JSObject r = new JSObject();
+            r.put("available", "available".equals(st) || "downloadable".equals(st));
+            r.put("provider", "gemini");
+            r.put("status", st);
+            call.resolve(r);
+            return null;
+        });
+    }
+
+    @PluginMethod
+    public void aiGenerate(PluginCall call) {
+        String prompt = call.getString("prompt");
+        String instructions = call.getString("instructions", "");
+        if (prompt == null) { call.reject("prompt required"); return; }
+        RnAi.generate(getContext(), instructions, prompt, (text, err) -> {
+            if (err != null || text == null) { call.reject("AI: " + (err != null ? err.getMessage() : "no text")); return null; }
+            JSObject r = new JSObject(); r.put("text", text);
+            call.resolve(r);
+            return null;
+        });
+    }
+
     // ------------------------------------------------------------------ PostgreSQL
 
     @PluginMethod

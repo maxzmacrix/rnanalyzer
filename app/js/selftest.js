@@ -249,6 +249,15 @@ export async function run() {
     click($$('.right-col .panel .panel-title .chip').pop()); await waitFor(sheet); click(byText('.item .lbl', before, sheet()).closest('.item')); await wait(500);
   });
 
+  await step('coach panel: corners with time lost, tap jumps the cursor', async () => {
+    await setSelection(demoLaps().filter((l) => l.complete).slice(0, 2).map((l) => l.id)); await go('#/analyze', 1200);
+    const chip = $$('.right-col .panel .panel-title .chip').pop(); const before = chip.textContent; click(chip, 'panel title');
+    const s = await waitFor(sheet, 2000, 'component sheet'); click(byText('.item .lbl', t('ch_coach'), s).closest('.item'), 'coach item'); await wait(700);
+    assert($('.coach-head'), 'coach header'); assert($$('.coach-row').length >= 1, 'corner rows'); assert($('.coach-narrative').textContent.length > 10, 'narrative');
+    const { state: st } = await import('./state.js'); const c0 = st.cursor; click($('.coach-row'), 'corner row'); await wait(300); assert(st.cursor !== c0 || $('.coach-row.current'), 'cursor jumped to the corner');
+    click($$('.right-col .panel .panel-title .chip').pop()); await waitFor(sheet); click(byText('.item .lbl', before, sheet()).closest('.item')); await wait(500);
+  });
+
   await step('video cells: HUD, tap to enlarge and back, sound button', async () => {
     await setSelection(demoLaps().filter((l) => l.video && [...state.videoNames].includes(l.video.fileName)).map((l) => l.id)); await go('#/analyze', 1200);
     await waitFor(() => $$('.vcell').length >= 2, 6000, 'two video cells');

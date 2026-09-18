@@ -8,6 +8,7 @@ import { APP_VERSION } from '../main.js';
 import { isNative as isNativeApp_ } from '../deviceNative.js';
 import { startTour, hasDemoData, removeDemoData } from '../tour.js';
 import { checkForAppUpdate, updateCheckAvailable } from '../update.js';
+import { resetAiStatus } from '../ai.js';
 let isNativeApp = false; // evaluated at mount – the shell's bridge object may not exist at module load
 
 export function mount(main) {
@@ -18,7 +19,7 @@ export function mount(main) {
   const item = (label, control, sub) => h('div.item', h('div.lbl', h('div', label), sub ? h('div.sub', sub) : null), control);
   const root = h('div.view.scroll.settings');
 
-  root.append(
+  root.append(...[
     h('h3', t('settings_title')),
     item(t('theme'), segmented([{ value: 'light', label: t('theme_light') }, { value: 'dark', label: t('theme_dark') }, { value: 'system', label: t('theme_system') }], s.theme || 'dark', (v) => updateSettings({ theme: v }))),
     item(t('glass_bar'), switchEl(s.glassBar !== false, (v) => updateSettings({ glassBar: v })), t('glass_bar_hint')),
@@ -26,9 +27,10 @@ export function mount(main) {
     item(t('speed_units'), segmented([{ value: 'metric', label: 'km/h' }, { value: 'imperial', label: 'mph' }], s.units, (v) => updateSettings({ units: v }))),
     item(t('map_tiles'), switchEl(s.mapTiles, (v) => updateSettings({ mapTiles: v }))),
     item(t('weather_setting'), switchEl(s.weather !== false, (v) => updateSettings({ weather: v })), t('weather_hint')),
+    isNativeApp ? item(t('ai_coach_setting'), switchEl(s.aiCoach !== false, (v) => { updateSettings({ aiCoach: v }); resetAiStatus(); }), t('ai_coach_hint')) : null,
     item(t('map_style'), segmented([{ value: 'osm', label: t('map_osm') }, { value: 'satellite', label: t('map_satellite') }], s.mapStyle === 'satellite' ? 'satellite' : 'osm', (v) => updateSettings({ mapStyle: v })), t('satellite_hint')),
     item(t('opt_all_tracks'), switchEl(s.allTracks, (v) => updateSettings({ allTracks: v }))),
-  );
+  ].filter(Boolean));
 
   // storage
   const storageInfo = h('div.sub', '…');

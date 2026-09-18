@@ -121,6 +121,40 @@ test('weather: WMO codes and wind directions map sensibly', async () => {
   assert.equal(w.windDirectionLabel(359), 'N');
 });
 
+// ------------------------------------------------------------------ corner coach
+function syntheticLap(brakeAt, apexV) {
+  // 1000 m straight north with one corner at 400–460 m (lateral g), speed profile: 50 m/s → braking from brakeAt → apexV at 430 m → back to 50 m/s
+  const step = 2, n = Math.floor(1000 / step) + 1;
+  const d = new Float64Array(n), t = new Float64Array(n), v = new Float64Array(n), gLon = new Float64Array(n), gLat = new Float64Array(n), lat = new Float64Array(n), lng = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    d[i] = i * step;
+    const x = d[i];
+    if (x < brakeAt) v[i] = 50; else if (x < 430) v[i] = 50 - (50 - apexV) * (x - brakeAt) / (430 - brakeAt); else if (x < 600) v[i] = apexV + (50 - apexV) * (x - 430) / 170; else v[i] = 50;
+    t[i] = i ? t[i - 1] + step / ((v[i] + v[i - 1]) / 2) : 0;
+    lat[i] = 37 + x / 111320; lng[i] = -3;
+    gLat[i] = x >= 400 && x <= 460 ? 0.9 : 0;
+  }
+  for (let i = 1; i < n; i++) gLon[i] = ((v[i] - v[i - 1]) / (t[i] - t[i - 1] || 1)) / 9.81;
+  return { lap: { id: `L${brakeAt}`, lapTimeMs: t[n - 1] * 1000, complete: true, trackDef: null, track: { id: 'x' } }, samples: { n, d, t, v, gLon, gLat, lat, lng } };
+}
+test('coach: detects the corner, the earlier braking and the slower apex', async () => {
+  globalThis.window ??= globalThis;
+  const { coachCompare, cornerAt } = await import('../../app/js/coach.js');
+  const ref = syntheticLap(340, 22), cmp = syntheticLap(300, 19);
+  const r = coachCompare(ref, cmp);
+  assert.equal(r.corners.length, 1, 'one corner from the lateral-g fallback');
+  const c = r.corners[0];
+  assert.ok(c.lost > 0.2, `time lost ${c.lost}`);
+  assert.ok(r.total > 0.2, `total ${r.total}`);
+  const brake = c.facts.find((f) => f.key === 'coach_brake_earlier'); assert.ok(brake && Math.abs(brake.m - 40) < 10, `brake fact ${JSON.stringify(brake)}`);
+  const apex = c.facts.find((f) => f.key === 'coach_apex_slower'); assert.ok(apex && Math.abs(apex.v - 3) < 1, `apex fact ${JSON.stringify(apex)}`);
+  assert.equal(cornerAt(r, 420), c);
+  assert.equal(cornerAt(r, 20), null, 'before the braking zone no corner');
+  const same = coachCompare(ref, ref);
+  assert.equal(same.corners[0].facts.length, 0, 'identical laps: no facts');
+  assert.ok(Math.abs(same.total) < 1e-6);
+});
+
 // ------------------------------------------------------------------ zip / xlsx
 test('zip: zipStore → unzip round trip', async () => {
   const data = new TextEncoder().encode('hello rn');

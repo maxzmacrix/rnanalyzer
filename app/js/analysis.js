@@ -58,6 +58,7 @@ export const CHANNELS = {
   timeslip:{ key: null,   label: 'ch_timeslip', unit: 's', decimals: 2, kind: 'timeslip' },
   map:     { key: null,   label: 'ch_map',      kind: 'map' },
   gforce:  { key: null,   label: 'ch_gforce',   kind: 'scatter' },
+  coach:   { key: null,   label: 'ch_coach',    kind: 'coach' },
   detail:  { key: null,   label: 'ch_detail',   kind: 'detail' },
   overview:{ key: null,   label: 'ch_overview', kind: 'overview' },
   sections:{ key: null,   label: 'ch_sections', kind: 'sections' },

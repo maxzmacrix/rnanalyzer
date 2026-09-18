@@ -224,6 +224,23 @@ export async function run() {
     click($('.right-col .panel .panel-title .chip')); await waitFor(sheet); click(byTextIncl('.item', before, sheet()) || $$('.item', sheet())[0]); await wait(400);
   });
 
+  await step('analyzer: channel strips panel renders, cursor follows a tap, channel chooser saves', async () => {
+    const before = { A: state.settings.panelA, A2: state.settings.panelA2, ch: state.settings.stripChannels };
+    await updateSettings({ panelA: 'strips', panelA2: null }); await wait(500);
+    const body = $('.right-col .panel .panel-body.scroll-y'); assert(body && body.querySelector('canvas'), 'strips canvas mounted');
+    eq($('.right-col .panel .panel-title .chip').textContent, t('ch_strips'), 'panel title is the strips label');
+    const canvas = body.querySelector('canvas'); const r = canvas.getBoundingClientRect(); const c0 = state.cursor;
+    const ev = (type) => new PointerEvent(type, { bubbles: true, pointerId: 1, clientX: r.left + r.width * 0.7, clientY: r.top + 60, isPrimary: true });
+    canvas.dispatchEvent(ev('pointerdown')); canvas.dispatchEvent(ev('pointerup')); await wait(150);
+    assert(state.cursor !== c0, 'cursor moved by a tap in the strips');
+    click($('.right-col .panel .panel-title .chip'), 'panel title'); let sh = await waitFor(sheet, 2000, 'component sheet');
+    click(byTextIncl('.item', t('strips_channels'), sh), 'choose channels'); await wait(300); sh = await waitFor(sheet, 2000, 'channel chooser');
+    const rows = $$('.item', sh).filter((i) => i.querySelector('.check')); assert(rows.length >= 5, 'chooser lists channels');
+    click(rows[rows.length - 1], 'toggle last channel'); click($('button.btn.accent', sh), 'done'); await wait(400);
+    assert(Array.isArray(state.settings.stripChannels), 'stripChannels saved');
+    await updateSettings({ panelA: before.A, panelA2: before.A2, stripChannels: before.ch }); await wait(300);
+  });
+
   await step('analyzer: custom sectors sheet adds a split', async () => {
     click($$('#top-right button').pop(), 'options'); const s = await waitFor(sheet, 2000, 'options');
     click(byTextIncl('.item, button', t('opt_edit_sectors'), s), 'edit sectors'); await wait(500);

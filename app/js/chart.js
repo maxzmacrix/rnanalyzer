@@ -457,3 +457,207 @@ export class ScatterChart {
     ctx.save(); ctx.translate(10, oy + size / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle'; ctx.fillText(this.yLabel || '', 0, 0); ctx.restore();
   }
 }
+
+/**
+ * Stacked channel strips (time-distance view): every strip is one channel with its own y range, all strips share the
+ * x axis, the zoom and the cursor. A corner band at the top numbers the corners of the reference lap; sector lines and
+ * highlight markers run through every strip. Gestures are the LineChart's; the y axis does not zoom.
+ */
+export class StripChart extends LineChart {
+  constructor(canvas, opts = {}) {
+    super(canvas, opts);
+    this.strips = []; this.corners = [];
+    this.minStripH = 56;
+  }
+  static get BAND() { return 22; }
+
+  resize() {
+    const parent = this.canvas.parentElement || this.canvas;
+    const need = StripChart.BAND + 4 + PAD.bottom + this.minStripH * Math.max(1, (this.strips || []).length);
+    const w = Math.max(50, parent.clientWidth), h = Math.max(50, parent.clientHeight, need);
+    this.w = w; this.h = h;
+    this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
+    this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+    this.requestDraw();
+  }
+
+  /** @param d {strips:[{label,unit,series,fmt,zeroLine}], corners:[{num,start,end}], markers, xMax, xLabel, fmtX, empty} */
+  setData(d) {
+    this.strips = d.strips || [];
+    this.corners = d.corners || [];
+    this.series = this.strips.length ? this.strips[0].series : []; // the gesture code and cursor labels look at .series
+    this.series2 = [];
+    this.markers = d.markers || [];
+    this.xMax = Math.max(1e-6, d.xMax || 1);
+    this.xLabel = d.xLabel || '';
+    this.fmtX = d.fmtX || ((v) => Math.round(v).toString());
+    this.empty = d.empty || '';
+    if (this.view) {
+      const [a, b] = this.view;
+      if (a >= this.xMax || b - a < 1e-6) this.view = null;
+      else this.view = [Math.max(0, a), Math.min(this.xMax, b)];
+    }
+    this.resize();
+  }
+  zoomYBy() {}
+  panY() {}
+  currentYRange() { return [0, 1]; }
+
+  plotRect() {
+    const top = StripChart.BAND + 4;
+    return { x: PAD.left, y: top, w: Math.max(10, this.w - PAD.left - PAD.right), h: Math.max(10, this.h - top - PAD.bottom) };
+  }
+
+  draw() {
+    const ctx = this.ctx, dpr = this.dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, this.w, this.h);
+    const r = this.plotRect();
+    const v = this.getView();
+    const css = getComputedStyle(this.canvas);
+    const colGrid = css.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.12)';
+    const colText = css.getPropertyValue('--chart-text').trim() || '#c9d3e6';
+    const colAxis = css.getPropertyValue('--chart-axis').trim() || 'rgba(255,255,255,0.35)';
+    const colCursor = css.getPropertyValue('--chart-cursor').trim() || '#ff3b30';
+    const colMarker = css.getPropertyValue('--chart-marker').trim() || '#6be5f6';
+    const colBand = css.getPropertyValue('--sector-default').trim() || '#0b6fb0';
+    const colBand2 = css.getPropertyValue('--accent').trim() || '#e5202b';
+    const colShade = css.getPropertyValue('--fg-05').trim() || 'rgba(0,0,0,0.05)';
+    const colBgSolid = css.getPropertyValue('--bg2').trim() || '#101216';
+
+    ctx.fillStyle = css.getPropertyValue('--chart-bg').trim() || 'rgba(0,0,0,0.15)';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    if (!this.strips.length) {
+      ctx.fillStyle = colText; ctx.font = FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(this.empty || '', r.x + r.w / 2, r.y + r.h / 2);
+      this._drawXAxis(ctx, r, v, colGrid, colText, colAxis);
+      return;
+    }
+
+    // corner band and shading of every other corner window
+    const band = StripChart.BAND;
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x, 0, r.w, this.h); ctx.clip();
+    this.corners.forEach((c, i) => {
+      if (c.end < v[0] || c.start > v[1]) return;
+      const x0 = this.xToPx(Math.max(c.start, v[0]), r, v), x1 = this.xToPx(Math.min(c.end, v[1]), r, v);
+      ctx.fillStyle = i % 2 ? colBand2 : colBand;
+      ctx.fillRect(x0, 1, Math.max(1, x1 - x0), band - 2);
+      if (i % 2) { ctx.fillStyle = colShade; ctx.fillRect(x0, r.y, Math.max(1, x1 - x0), r.h); }
+      if (x1 - x0 > 16) {
+        ctx.fillStyle = '#ffffff'; ctx.font = FONT_BOLD; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(c.num), (x0 + x1) / 2, band / 2);
+      }
+    });
+    ctx.restore();
+
+    // strips
+    const n = this.strips.length;
+    const sh = r.h / n;
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x - PAD.left, r.y, r.w + PAD.left, r.h); ctx.clip();
+    this._drawXGrid(ctx, r, v, colGrid);
+    this.strips.forEach((st, k) => {
+      const y0 = r.y + k * sh, y1 = y0 + sh;
+      const inner = { y: y0 + 4, h: Math.max(4, sh - 8) };
+      const yr = this.computeYRange(st.series, null);
+      const toPx = (y) => inner.y + inner.h - ((y - yr[0]) / (yr[1] - yr[0])) * inner.h;
+      // separator, min/max ticks
+      if (k) { ctx.strokeStyle = colAxis; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(r.x - PAD.left, y0); ctx.lineTo(r.x + r.w, y0); ctx.stroke(); }
+      ctx.fillStyle = colText; ctx.font = FONT; ctx.textAlign = 'right';
+      const fmt = st.fmt || ((x) => x.toFixed(1));
+      ctx.textBaseline = 'top'; ctx.fillText(fmt(yr[1]), r.x - 4, inner.y);
+      ctx.textBaseline = 'bottom'; ctx.fillText(fmt(yr[0]), r.x - 4, inner.y + inner.h);
+      if (st.zeroLine && yr[0] < 0 && yr[1] > 0) { ctx.strokeStyle = colAxis; ctx.lineWidth = 1; ctx.beginPath(); const py = toPx(0); ctx.moveTo(r.x, py); ctx.lineTo(r.x + r.w, py); ctx.stroke(); }
+      // series
+      ctx.save(); ctx.beginPath(); ctx.rect(r.x, y0, r.w, sh); ctx.clip();
+      for (const s of st.series) {
+        if (!s.n) continue;
+        ctx.strokeStyle = s.color; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        ctx.beginPath();
+        let started = false, lastPx = -Infinity;
+        let i0 = 0; while (i0 < s.n - 1 && s.x[i0 + 1] < v[0]) i0++;
+        const stepPx = r.w / Math.max(1, s.n);
+        for (let i = i0; i < s.n; i++) {
+          const x = s.x[i], y = s.y[i];
+          if (x > v[1]) { if (started && Number.isFinite(y)) ctx.lineTo(this.xToPx(x, r, v), toPx(y)); break; }
+          if (!Number.isFinite(y)) { started = false; continue; }
+          const px = this.xToPx(x, r, v);
+          if (stepPx < 0.5 && px - lastPx < 0.5 && i < s.n - 1) continue;
+          lastPx = px;
+          if (!started) { ctx.moveTo(px, toPx(y)); started = true; } else ctx.lineTo(px, toPx(y));
+        }
+        ctx.stroke();
+      }
+      // cursor dots
+      if (Number.isFinite(this.cursor) && this.cursor >= v[0] && this.cursor <= v[1]) {
+        const px = this.xToPx(this.cursor, r, v);
+        for (const s of st.series) {
+          const y = interpAt(s.x, s.y, this.cursor, s.n);
+          if (!Number.isFinite(y)) continue;
+          ctx.fillStyle = s.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(px, toPx(y), 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+      }
+      ctx.restore();
+      // label and values at the cursor
+      ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.font = FONT_BOLD;
+      let cx = r.x + 6; const ty = y0 + 3;
+      const title = st.unit ? `${st.label} [${st.unit}]` : st.label;
+      // a translucent backing keeps the label readable where the curves run through the top of the strip
+      ctx.globalAlpha = 0.72; ctx.fillStyle = colBgSolid; ctx.fillRect(r.x + 2, ty - 2, Math.min(r.w - 4, ctx.measureText(title).width + 8 + (Number.isFinite(this.cursor) ? st.series.length * 60 : 0)), 16); ctx.globalAlpha = 1;
+      ctx.fillStyle = colText;
+      ctx.fillText(title, cx, ty); cx += ctx.measureText(title).width + 12;
+      if (Number.isFinite(this.cursor)) {
+        ctx.font = FONT_BOLD;
+        for (const s of st.series) {
+          const txt = fmt(interpAt(s.x, s.y, this.cursor, s.n));
+          const w = ctx.measureText(txt).width;
+          if (cx + w > r.x + r.w - this.reserveRight - 4 && k === 0) break;
+          if (cx + w > r.x + r.w - 4) break;
+          ctx.fillStyle = s.color; ctx.fillText(txt, cx, ty); cx += w + 10;
+        }
+      }
+    });
+    // markers through all strips
+    for (const m of this.markers) {
+      if (m.x < v[0] || m.x > v[1]) continue;
+      const px = this.xToPx(m.x, r, v);
+      ctx.strokeStyle = m.color || colMarker; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(px, r.y); ctx.lineTo(px, r.y + r.h); ctx.stroke(); ctx.setLineDash([]);
+      if (m.label) { ctx.fillStyle = m.color || colMarker; ctx.font = FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(m.label, px + 3, r.y + r.h - 2); }
+    }
+    // cursor line
+    if (Number.isFinite(this.cursor) && this.cursor >= v[0] && this.cursor <= v[1]) {
+      const px = this.xToPx(this.cursor, r, v);
+      ctx.strokeStyle = colCursor; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px, r.y); ctx.lineTo(px, r.y + r.h); ctx.stroke();
+    }
+    ctx.restore();
+
+    // x axis (ticks below, no grid – the grid was drawn behind the strips)
+    ctx.font = FONT; ctx.fillStyle = colText; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const xstep = niceStep(v[1] - v[0], Math.max(2, Math.floor(r.w / 70)));
+    for (let x = Math.ceil(v[0] / xstep) * xstep; x <= v[1] + 1e-9; x += xstep) ctx.fillText(formatTick(x, xstep), this.xToPx(x, r, v), r.y + r.h + 4);
+    ctx.strokeStyle = colAxis; ctx.beginPath(); ctx.moveTo(r.x, r.y + r.h); ctx.lineTo(r.x + r.w, r.y + r.h); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x, r.y + r.h); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(this.xLabel, r.x + r.w, this.h - 1);
+    if (Number.isFinite(this.cursor)) {
+      const px = this.xToPx(this.cursor, r, v);
+      if (px >= r.x && px <= r.x + r.w) {
+        ctx.font = FONT_BOLD; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        const txt = this.fmtX(this.cursor);
+        const tw = ctx.measureText(txt).width + 8;
+        ctx.fillStyle = colCursor;
+        ctx.fillRect(Math.min(Math.max(px - tw / 2, r.x), r.x + r.w - tw), r.y + r.h + 1, tw, 14);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(txt, Math.min(Math.max(px, r.x + tw / 2), r.x + r.w - tw / 2), r.y + r.h + 2);
+      }
+    }
+  }
+
+  _drawXGrid(ctx, r, v, colGrid) {
+    ctx.strokeStyle = colGrid; ctx.lineWidth = 1;
+    const xstep = niceStep(v[1] - v[0], Math.max(2, Math.floor(r.w / 70)));
+    for (let x = Math.ceil(v[0] / xstep) * xstep; x <= v[1] + 1e-9; x += xstep) {
+      const px = this.xToPx(x, r, v);
+      ctx.beginPath(); ctx.moveTo(px, r.y); ctx.lineTo(px, r.y + r.h); ctx.stroke();
+    }
+  }
+}

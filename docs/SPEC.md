@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.10 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.11 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -92,7 +92,14 @@ One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap en
   compared lap's time lost, OSM or Esri satellite, start and sector lines, corner numbers, optional "map follows the
   cursor"), g-force (scatter lateral vs. longitudinal), values at the cursor, lap overview (min/max, best values
   marked), sector times (device sectors, geometric fallback, custom sectors; best possible and fastest contiguous lap),
-  corner coach (section 3.5), highlights (section 3.8).
+  corner coach (section 3.5), highlights (section 3.8), channel strips (below).
+* **Channel strips** (`StripChart` in `chart.js`): the classic time-distance view of desktop telemetry tools. The chosen
+  channels are stacked as strips with their own y range each, over one shared x axis, zoom and cursor; a band on top
+  numbers the corners of the fastest lap (from `detectCorners`, section 3.5) and shades every other corner window; sector
+  lines and highlight markers run through all strips. Each strip shows its label, unit and the values of every lap at the
+  cursor. Channels are chosen in the component sheet ("Choose channels…", setting `stripChannels`, default speed,
+  longitudinal g, lateral g, yaw, RPM, throttle); channels the selected laps do not carry are skipped. The strips keep a
+  minimum height, so the panel scrolls when many channels are chosen. The y axis does not zoom in this view.
 * **Channels**: speed, longitudinal / lateral / vertical / combined acceleration, GPS deviation, altitude, heading,
   gyroscope (yaw/pitch/roll), OBD/CAN (RPM, throttle, water and oil temperature, OBD speed, only when present in the
   file), heart rate, custom CAN channels from `.cdrn`. Five main rows visible, the rest under "More channels".
@@ -246,7 +253,7 @@ single Capacitor plugin `RnDevice` that the app registers at runtime.
 | `app/js/reference.js` | Context-aware comparison partner `pickReference` (session, driver, car, weather, variant, pace) |
 | `app/js/ai.js` | Availability and invocation of the on-device language model via the plugin |
 | `app/js/sync.js` | Playback engine `player`: cursor from the reference video or a clock, videos synchronised by distance/time, drift tolerance 0.35 s |
-| `app/js/chart.js` | Canvas line chart and scatter plot, zoom/pan, cursor, sector lines |
+| `app/js/chart.js` | Canvas line chart, stacked channel strips (`StripChart`) and scatter plot, zoom/pan, cursor, sector lines |
 | `app/js/map.js` | Canvas map in Web Mercator, tile providers (OSM, Esri, custom), traces, painting by time lost, nearest sample |
 | `app/js/xlsx.js` | OOXML workbook without a library |
 | `app/js/share.js` | Web Share API with files, download fallback |
@@ -432,6 +439,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.11 | 2026-09-18 | Channel strips panel: stacked channels over one distance/time axis with corner band, shared zoom and cursor, channel chooser |
 | 2.1.10 | 2026-09-18 | Diagnostics log for the whole app (device XML requests, control protocol, FTP downloads, imports, unhandled errors) under Settings → About and in the control page, with copy and "Send to support" |
 | 2.1.9 | 2026-09-18 | Race Navigator page: device data instead of IP addresses while connected (address controls behind "Change device", shown again on failure); laps on the device grouped by event, newest first, per-event selection |
 | 2.1.8 | 2026-09-18 | First test against a real device (Android, RN PRO 1.60): fix for data downloads (the assembled measurements XML did not self-close its sample elements, so every .rnz failed to parse); recording off is sent as 2 instead of 0; driver and vehicle change try several parameter layouts; new protocol log in the control page with "Send to support" (share sheet or mail to info@rn-vision.com) |

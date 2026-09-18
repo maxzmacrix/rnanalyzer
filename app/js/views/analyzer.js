@@ -9,8 +9,8 @@ import { fmtLapTime } from '../rnparser.js';
 import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, switchEl, segmented, confirmDialog, promptDialog } from '../ui.js';
 import { buildXlsx } from '../xlsx.js';
 import { shareFiles } from '../share.js';
-import { LineChart, ScatterChart } from '../chart.js';
-import { coachCompare, cornerAt, whatIfApex } from '../coach.js';
+import { LineChart, ScatterChart, StripChart } from '../chart.js';
+import { coachCompare, cornerAt, whatIfApex, detectCorners } from '../coach.js';
 import { detectHighlights } from '../highlights.js';
 
 import { aiStatus, aiNarrate } from '../ai.js';
@@ -145,7 +145,7 @@ function onSettings(patch) {
   if ('autoplaySpeed' in patch) { speedChip.textContent = `${patch.autoplaySpeed}×`; player.setSpeed(Number(patch.autoplaySpeed)); }
   if ('mapTiles' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setTiles(patch.mapTiles);
   if ('mapStyle' in patch || 'customTileUrl' in patch) for (const p of Object.values(panels)) if (p.map) p.map.setProvider(providerFor(state.settings));
-  const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'xMode', 'sectors', 'units', 'theme', 'language'];
+  const keys = ['panelA', 'panelA2', 'panelB', 'panelB2', 'panelC', 'panelC2', 'stripChannels', 'xMode', 'sectors', 'units', 'theme', 'language'];
   if (keys.some((k) => k in patch)) { scaledCache.clear(); data = data.map((d) => ({ ...d, color: lapColor(d.lap.id) })); if ('xMode' in patch) refreshSlips(); updateRefLabel(); refreshPanels(); updateVideoColors(); updatePos(); }
 }
 
@@ -241,6 +241,7 @@ function destroyPanelContent(p) {
   if (p.scatter) { p.scatter.destroy(); p.scatter = null; }
   if (p.map) { p.map.destroy(); p.map = null; }
   p.table = null; p.kind = null;
+  p.body.classList.remove('scroll-y');
   clear(p.body);
 }
 function panelSetting(key) {
@@ -322,6 +323,16 @@ function configurePanel(p) {
         onView: (x0, x1) => { for (const o of Object.values(panels)) if (o !== p && o.chart) o.chart.setView(x0, x1, true); }, // always in sync
         onLongPress: (x) => addSplitAt(x),
       });
+    } else if (kind === 'strips') {
+      // the stacked channels can be taller than the panel: the body scrolls, the canvas grows with the strip count
+      const canvas = h('canvas');
+      p.body.classList.add('scroll-y');
+      p.body.appendChild(canvas);
+      p.chart = new StripChart(canvas, {
+        onCursor: (x) => setCursor(x, `panel${p.key}`),
+        onView: (x0, x1) => { for (const o of Object.values(panels)) if (o !== p && o.chart) o.chart.setView(x0, x1, true); },
+        onLongPress: (x) => addSplitAt(x),
+      });
     } else if (kind === 'scatter') {
       const canvas = h('canvas');
       p.body.appendChild(canvas);
@@ -357,6 +368,7 @@ function renderPanel(p) {
   if (!p.kind) return;
   if (p.kind === 'number') renderNumber(p);
   else if (p.kind === 'timeslip') renderTimeSlip(p);
+  else if (p.kind === 'strips') renderStrips(p);
   else if (p.kind === 'map') renderMap(p);
   else if (p.kind === 'scatter') renderScatter(p);
   else if (p.kind === 'coach') renderCoach(p);
@@ -402,6 +414,60 @@ function renderTimeSlip(p) {
     empty: data.length < 2 ? t('select_two_for_timeslip') : '',
   });
   p.chart.setCursor(state.cursor);
+}
+
+// ------------------------------------------------------------------ channel strips (time-distance view)
+const DEFAULT_STRIPS = ['speed', 'glon', 'glat', 'gyrY', 'rpm', 'thr'];
+/** Channels the strip panel shows: the user's choice, reduced to what the selected laps carry; never empty while laps are selected. */
+function stripChannels() {
+  const wanted = Array.isArray(state.settings.stripChannels) && state.settings.stripChannels.length ? state.settings.stripChannels : DEFAULT_STRIPS;
+  // OBD/health channels count only when the lap really carries them (the file holds -1 placeholders otherwise)
+  const have = (id) => { const c = CHANNELS[id]; if (c && c.avail && !data.some((d) => d.lap.channels[c.avail])) return false; return chanInfo(id) && kindOf(id) === 'number' && data.some((d) => yArr(d, id)); };
+  const list = wanted.filter(have);
+  return list.length || !data.length ? list : ['speed', 'glon', 'glat'].filter(have);
+}
+let cornerCache = { key: '', corners: [] };
+/** Corner windows of the reference lap in the current x units, for the band on top of the strips. */
+function stripCorners() {
+  if (!data.length) return [];
+  const ref = data[0];
+  const key = `${ref.lap.id}|${xMode()}`;
+  if (cornerCache.key !== key) {
+    const toX = (d) => (xMode() === 'time' ? timeAtDistance(ref.samples, d) : d);
+    cornerCache = { key, corners: detectCorners(ref).map((c) => ({ num: c.num, start: toX(c.start), end: toX(c.end) })) };
+  }
+  return cornerCache.corners;
+}
+function renderStrips(p) {
+  const strips = [];
+  for (const id of stripChannels()) {
+    const info = chanInfo(id);
+    const series = [];
+    for (const d of data) { const y = yArr(d, id); if (y) series.push({ x: xArray(d.samples, xMode()), y, n: d.samples.n, color: d.color, label: lapLabel(d.lap) }); }
+    strips.push({ label: info.label, unit: info.unit, series, fmt: fmtNum(info.decimals), zeroLine: /^g/.test(id) || id.startsWith('gyr') });
+  }
+  p.chart.setData({
+    strips, corners: stripCorners(), markers: [...sectorMarkers(), ...highlightMarkers()], xMax: xMaxAll(), xLabel: xLabelText(), fmtX,
+    empty: data.length ? '' : t('select_laps_first'),
+  });
+  p.chart.setCursor(state.cursor);
+}
+/** Sheet with checkboxes for the channels of the strip panel; the order is the channel order of the app. */
+function openStripChannels() {
+  const available = ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg', 'gyrY', 'gyrP', 'gyrR', ...['rpm', 'thr', 'wt', 'ot', 'os', 'hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]))];
+  const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add('custom:' + c.name);
+  available.push(...custom);
+  const chosen = new Set(stripChannels());
+  const rows = available.map((id) => {
+    const info = chanInfo(id);
+    const cb = h('div.check', { class: chosen.has(id) ? 'on' : '', html: chosen.has(id) ? icons.check : '' });
+    return h('div.item', { on: { click: () => { if (chosen.has(id)) chosen.delete(id); else chosen.add(id); cb.classList.toggle('on', chosen.has(id)); cb.innerHTML = chosen.has(id) ? icons.check : ''; } } }, h('span.lbl', `${info.label}${info.unit ? ' [' + info.unit + ']' : ''}`), cb);
+  });
+  const s = sheet(t('ch_strips'), [
+    h('div.small.muted', { style: { padding: '6px 16px' } }, t('strips_hint')),
+    ...rows,
+    h('div', { style: { padding: '10px 16px' } }, h('button.btn.accent.block', { on: { click: async () => { await updateSettings({ stripChannels: available.filter((id) => chosen.has(id)) }); s.close(); } } }, t('done'))),
+  ]);
 }
 
 // ------------------------------------------------------------------ corner coach
@@ -786,6 +852,8 @@ function openComponentSheet(key) {
   for (const id of ['speed', 'glon', 'glat']) items.push(numRow(id));
   items.push(viewRow('map'));
   items.push(viewRow('gforce'));
+  items.push(viewRow('strips'));
+  if (cur.comp === 'strips') items.push(h('div.item', { on: { click: () => { s.close(); openStripChannels(); } } }, h('div.lbl', t('strips_channels')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })));
   const health = ['hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
   for (const id of health) items.push(numRow(id));
   // everything else behind one row

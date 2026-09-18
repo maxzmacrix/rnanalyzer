@@ -61,6 +61,7 @@ export function mount(main) {
     on('sectors', () => refreshPanels()),
     on('theme', () => onSettings({ theme: true })),
     on('theme', () => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); } }),
+    on('resize', () => sizeBigVideo()),
   );
   playBtn.innerHTML = player.playing ? icons.pause : icons.play;
   load();
@@ -194,8 +195,17 @@ function toggleBigVideo(cell) {
   for (const v of videoObjs.values()) v.cell.classList.toggle('big', v.cell === bigVideo);
   videoGrid.classList.toggle('max', !!bigVideo);
   root.classList.toggle('video-max', !!bigVideo);
-  if (bigVideo) videoPanel.style.flex = '0 0 auto'; else applyRatios();
+  sizeBigVideo();
   requestAnimationFrame(() => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); if (p.scatter) p.scatter.draw(); } });
+}
+/** The enlarged video takes the panel width at 16:9, but never more than 60 % of the height – panels and play bar stay visible. */
+function sizeBigVideo() {
+  if (!root) return;
+  if (!bigVideo) { applyRatios(); return; }
+  const avail = root.clientHeight || window.innerHeight;
+  const w = videoPanel.clientWidth || root.clientWidth;
+  const h = Math.min(avail * 0.6, w * 9 / 16 + 8);
+  videoPanel.style.flex = `0 0 ${Math.round(h)}px`;
 }
 function updateVideoHud() {
   for (const [id, v] of videoObjs) {

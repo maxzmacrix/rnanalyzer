@@ -34,11 +34,13 @@ function route() {
   try { view.mount(main); } catch (e) { console.error('mount failed', e); main.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
 
+function phoneLayout() { return window.innerWidth < 900 && !(window.innerWidth > window.innerHeight && window.innerHeight <= 500); }
+export function applyGlass() { document.documentElement.toggleAttribute('data-glass', state.settings.glassBar !== false && phoneLayout()); }
 export function applyTheme() {
   const pref = state.settings.theme || 'dark';
   const dark = pref === 'dark' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   if (dark) document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme');
-  document.documentElement.toggleAttribute('data-glass', state.settings.glassBar !== false);
+  applyGlass();
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', dark ? '#07080a' : '#ffffff');
   emit('theme', dark ? 'dark' : 'light');
@@ -89,7 +91,7 @@ async function boot() {
   }
   // keep screen orientation free; re-layout on rotation
   window.addEventListener('orientationchange', () => setTimeout(() => emit('resize'), 250));
-  window.addEventListener('resize', () => emit('resize'));
+  window.addEventListener('resize', () => { applyGlass(); emit('resize'); });
 }
 
 boot().catch((e) => {

@@ -12,6 +12,7 @@ import { shareFiles } from '../share.js';
 import { LineChart, ScatterChart } from '../chart.js';
 import { coachCompare, cornerAt, whatIfApex } from '../coach.js';
 import { detectHighlights } from '../highlights.js';
+
 import { aiStatus, aiNarrate } from '../ai.js';
 import { getLanguage } from '../i18n.js';
 import { TrackMap, nearestSample, providerFor } from '../map.js';
@@ -111,7 +112,7 @@ function autoPanelCount() { return window.innerHeight >= 900 && window.innerWidt
 function updateRefLabel() {
   clear(refLbl);
   if (!data.length) { refLbl.textContent = t('select_laps_first'); return; }
-  refLbl.append(h('span', { style: { color: data[0].color, fontWeight: 700 } }, `${t('reference')}: ${lapLabel(data[0].lap)}`));
+  refLbl.append(h('span', { style: { color: data[0].color, fontWeight: 700 } }, `${t('reference')}: ${lapLabel(data[0].lap)}`), h('span.mono.small.muted', ` ${fmtLapTime(data[0].lap.lapTimeMs)}`));
   refLbl.classList.toggle('hidden', data.length < 2);
 }
 
@@ -167,7 +168,7 @@ async function updateVideos() {
     const url = URL.createObjectURL(rec.blob);
     const el = h('video', { playsinline: true, 'webkit-playsinline': true, preload: 'auto', muted: true, src: url });
     el.muted = true;
-    const label = h('div.vlabel', h('b', `L${d.lap.lapNumber}`), ` ${displayDriver(d.lap)}`);
+    const label = h('div.vlabel', h('b', `L${d.lap.lapNumber}`), ` ${displayDriver(d.lap)}`, h('span.mono.vtime', ` · ${fmtLapTime(d.lap.lapTimeMs)}`));
     const hud = h('div.vhud.mono');
     const sound = h('button.vsound', { html: icons.mute, title: t('sound'), on: { click: (e) => {
       e.stopPropagation();
@@ -456,7 +457,11 @@ function renderCoach(p) {
   const cc = coachResult();
   const { result, cmp } = cc, ref = data[0];
   const wrap = h('div.coach');
-  wrap.appendChild(h('div.coach-head', h('span', { style: { color: cmp.color, fontWeight: 800 } }, lapLabel(cmp.lap)), ` ${t('coach_vs_short')} `, h('span', { style: { color: ref.color, fontWeight: 800 } }, lapLabel(ref.lap)), h('b.mono.gap', { class: result.total > 0 ? 'lost' : 'gained' }, fmtGap(result.total))));
+  wrap.appendChild(h('div.coach-head',
+    h('span', { style: { color: cmp.color, fontWeight: 800 } }, lapLabel(cmp.lap)), h('span.mono.small.muted', fmtLapTime(cmp.lap.lapTimeMs)),
+    ` ${t('coach_vs_short')} `,
+    h('span', { style: { color: ref.color, fontWeight: 800 } }, lapLabel(ref.lap)), h('span.mono.small.muted', fmtLapTime(ref.lap.lapTimeMs)),
+    h('b.mono.gap', { class: result.total > 0 ? 'lost' : 'gained' }, fmtGap(result.total))));
   wrap.appendChild(h('div.small.muted', t('coach_subject', { lap: lapLabel(cmp.lap), ref: lapLabel(ref.lap) })));
   const narr = h('div.coach-narrative', cc.aiText || templateNarrative(cc));
   const note = h('div.coach-note.small.muted', cc.aiText ? t('coach_ai_on_device') : '');

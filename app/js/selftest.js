@@ -217,15 +217,20 @@ export async function run() {
     await closeSheet();
   });
 
-  await step('analyzer: component sheet lists views only, channel picker sets main and second curve', async () => {
-    const chip = $('.right-col .panel .panel-title .chip:not(.max)'); const before = { A: state.settings.panelA, A2: state.settings.panelA2 };
+  await step('analyzer: component sheet is a flat list of views; the panel\u2019s Channels chip opens the picker', async () => {
+    const chip = $('.right-col .panel .panel-title .chip:not(.max):not(.chan)'); const before = { A: state.settings.panelA, A2: state.settings.panelA2 };
     click(chip, 'panel title'); let s = await waitFor(sheet, 2000, 'component sheet');
-    assert(!$$('.item .check', s).length, 'no checkboxes in the component sheet');
-    click(byText('.item .lbl > div', t('ch_map'), s).closest('.item'), 'map view'); await wait(500);
-    eq($('.right-col .panel .panel-title .chip:not(.max)').textContent, t('ch_map'), 'panel shows the map');
-    click($('.right-col .panel .panel-title .chip:not(.max)')); s = await waitFor(sheet, 2000, 'component sheet');
-    click($('.item .chip.small', byText('.item .lbl > div', t('ch_chart'), s).closest('.item')), 'channels chip of the chart row'); await wait(400);
-    s = await waitFor(sheet, 2000, 'channel picker');
+    assert(!$$('.item .check', s).length && !$$('.group', s).length && !$$('.item .chip', s).length, 'flat list without checkboxes, groups or chips');
+    const labels = $$('.item .lbl', s).map((e) => e.textContent.trim());
+    assert(labels.length >= 9 && labels.every((l, i) => !i || labels[i - 1].localeCompare(l) <= 0), 'alphabetical order');
+    click(byText('.item .lbl', t('ch_map'), s).closest('.item'), 'map view'); await wait(500);
+    eq($('.right-col .panel .panel-title .chip:not(.max):not(.chan)').textContent, t('ch_map'), 'panel shows the map');
+    assert(!$('.right-col .panel .panel-title .chip.chan').offsetParent, 'no Channels chip on the map');
+    click($('.right-col .panel .panel-title .chip:not(.max):not(.chan)')); s = await waitFor(sheet, 2000, 'component sheet');
+    click(byText('.item .lbl', t('ch_chart'), s).closest('.item'), 'channel view'); await wait(500);
+    eq(state.settings.panelA, 'speed', 'channel view starts with speed');
+    const chan = $('.right-col .panel .panel-title .chip.chan'); assert(chan && chan.offsetParent, 'Channels chip visible');
+    click(chan, 'Channels chip'); s = await waitFor(sheet, 2000, 'channel picker');
     assert($$('.item .check', s).length >= 5, 'picker lists channels with second-curve checkboxes');
     click(byText('.item .lbl', chanTitleFor('glat'), s).closest('.item'), 'lateral g'); await wait(500);
     eq(state.settings.panelA, 'glat', 'main curve set from the picker');
@@ -246,13 +251,12 @@ export async function run() {
     const before = { A: state.settings.panelA, A2: state.settings.panelA2, ch: state.settings.stripChannels };
     await updateSettings({ panelA: 'strips', panelA2: null }); await wait(500);
     const body = $('.right-col .panel .panel-body.scroll-y'); assert(body && body.querySelector('canvas'), 'strips canvas mounted');
-    eq($('.right-col .panel .panel-title .chip:not(.max)').textContent, t('ch_strips'), 'panel title is the strips label');
+    eq($('.right-col .panel .panel-title .chip:not(.max):not(.chan)').textContent, t('ch_strips'), 'panel title is the strips label');
     const canvas = body.querySelector('canvas'); const r = canvas.getBoundingClientRect(); const c0 = state.cursor;
     const ev = (type) => new PointerEvent(type, { bubbles: true, pointerId: 1, clientX: r.left + r.width * 0.7, clientY: r.top + 60, isPrimary: true });
     canvas.dispatchEvent(ev('pointerdown')); canvas.dispatchEvent(ev('pointerup')); await wait(150);
     assert(state.cursor !== c0, 'cursor moved by a tap in the strips');
-    click($('.right-col .panel .panel-title .chip:not(.max)'), 'panel title'); let sh = await waitFor(sheet, 2000, 'component sheet');
-    click($('.item .chip.small', byTextIncl('.item', t('ch_strips'), sh)), 'channels chip of the strips row'); await wait(400); sh = await waitFor(sheet, 2000, 'channel chooser');
+    click($('.right-col .panel .panel-title .chip.chan'), 'Channels chip of the strips panel'); let sh = await waitFor(sheet, 2000, 'channel chooser');
     const rows = $$('.item', sh).filter((i) => i.querySelector('.check')); assert(rows.length >= 5, 'chooser lists channels');
     click(rows[rows.length - 1], 'toggle last channel'); click($('button.btn.accent', sh), 'done'); await wait(400);
     assert(Array.isArray(state.settings.stripChannels), 'stripChannels saved');
@@ -282,19 +286,19 @@ export async function run() {
 
   await step('g-force as a panel component', async () => {
     await go('#/analyze', 900);
-    const chip = $$('.right-col .panel .panel-title .chip:not(.max)').pop(); const before = chip.textContent; click(chip, 'panel title');
+    const chip = $$('.right-col .panel .panel-title .chip:not(.max):not(.chan)').pop(); const before = chip.textContent; click(chip, 'panel title');
     const s = await waitFor(sheet, 2000, 'component sheet'); click(byText('.item .lbl', t('ch_gforce'), s).closest('.item'), 'g-force item'); await wait(600);
-    assert($$('.right-col .panel .panel-title .chip:not(.max)').pop().textContent === t('ch_gforce'), 'panel shows G-force');
-    click($$('.right-col .panel .panel-title .chip:not(.max)').pop()); await waitFor(sheet); click(byText('.item .lbl', before, sheet()).closest('.item')); await wait(500);
+    assert($$('.right-col .panel .panel-title .chip:not(.max):not(.chan)').pop().textContent === t('ch_gforce'), 'panel shows G-force');
+    click($$('.right-col .panel .panel-title .chip:not(.max):not(.chan)').pop()); await waitFor(sheet); click(byText('.item .lbl', before, sheet()).closest('.item')); await wait(500);
   });
 
   await step('coach panel: corners with time lost, tap jumps the cursor', async () => {
     await setSelection(demoLaps().filter((l) => l.complete).slice(0, 2).map((l) => l.id)); await go('#/analyze', 1200);
-    const chip = $$('.right-col .panel .panel-title .chip:not(.max)').pop(); const before = chip.textContent; click(chip, 'panel title');
+    const chip = $$('.right-col .panel .panel-title .chip:not(.max):not(.chan)').pop(); const before = chip.textContent; click(chip, 'panel title');
     const s = await waitFor(sheet, 2000, 'component sheet'); click(byText('.item .lbl', t('ch_coach'), s).closest('.item'), 'coach item'); await wait(700);
     assert($('.coach-head'), 'coach header'); assert($$('.coach-row').length >= 1, 'corner rows'); assert($('.coach-narrative').textContent.length > 10, 'narrative');
     const { state: st } = await import('./state.js'); const c0 = st.cursor; click($('.coach-row'), 'corner row'); await wait(300); assert(st.cursor !== c0 || $('.coach-row.current'), 'cursor jumped to the corner');
-    click($$('.right-col .panel .panel-title .chip:not(.max)').pop()); await waitFor(sheet); click(byText('.item .lbl', before, sheet()).closest('.item')); await wait(500);
+    click($$('.right-col .panel .panel-title .chip:not(.max):not(.chan)').pop()); await waitFor(sheet); click(byText('.item .lbl', before, sheet()).closest('.item')); await wait(500);
   });
 
   await step('video cells: HUD, tap to enlarge and back, sound button', async () => {

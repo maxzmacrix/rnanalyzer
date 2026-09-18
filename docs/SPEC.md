@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.9 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.10 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -117,9 +117,7 @@ card with "Search again" (Bonjour `_racenav._tcp`) and "Enter address".
   driver and vehicle (select, create, rename), change track (search, names cached), event type and new event, video
   quality and layout, status card every 4 s (GPS, battery, storage, remaining time, set time, warnings), camera preview
   (MJPEG, switch camera, rotate), actions (clean up laps, AP password, power off).
-* Protocol log: the last requests to the device and its answers; "Send to support" opens the system share sheet with the
-  log as a text file (header: app version, platform, device name, firmware, status), falling back to a prefilled mail
-  to info@rn-vision.com. Nothing is sent automatically.
+* Diagnostics (also under Settings → About): the app-wide log (section 3.7) with the connected device in the header.
 * Not implemented yet: pit-lane definition, export to memory stick (requests prepared in the client), RN software
   update (needs an SSH plugin).
 
@@ -129,7 +127,7 @@ Language (device, DE, EN), units km/h or mph, appearance (system, light, dark), 
 tiles, map style (streets, satellite), floating tab bar, session weather, on-device AI explanation, storage (usage,
 request persistent storage, delete all videos, delete everything), check for update (Android APK), start the guided
 tour and remove demo data, reset settings (all settings back to defaults after confirmation; laps, videos and custom
-sectors stay), version and notices.
+sectors stay), diagnostics (section 3.7), version and notices.
 
 ### 3.5 Corner coach and AI explanation
 
@@ -191,6 +189,10 @@ removed.
   with `latest.json` of the newest GitHub release (on start, on resume, every 20 minutes, manually).
 * **Sharing**: Web Share API with files (iOS/Android share sheet: Files, AirDrop, WhatsApp, YouTube, Instagram),
   otherwise download.
+* **Diagnostics**: `diag.js` records device XML requests, control protocol exchanges, FTP downloads, import results and
+  unhandled errors (last 200 entries, memory only). Settings → About → Diagnostics shows the log with app version and
+  platform; "Send to support" opens the share sheet with the log as a text file, falling back to a prefilled mail to
+  info@rn-vision.com. Nothing is sent automatically.
 
 ---
 
@@ -257,7 +259,8 @@ single Capacitor plugin `RnDevice` that the app registers at runtime.
 | `app/js/health.js` | Heart rate from Apple Health / Health Connect resampled to the lap's time base, channel `hr` |
 | `app/js/device.js` | HTTP client for the simple device API (`/api/info`, `/api/laps`, `/files/<name>`), mixed-content detection |
 | `app/js/deviceNative.js` | Device client of the native app: Race Navigator HTTP-XML API (port 8080), assembles `.rn` XML, videos via FTP through the plugin, Bonjour discovery |
-| `app/js/deviceControl.js` | RN Connect protocol: `currentstatus`, `rarequest` actions, constants (recording modes, video quality, event types, status flags), protocol log of the last requests and answers |
+| `app/js/deviceControl.js` | RN Connect protocol: `currentstatus`, `rarequest` actions, constants (recording modes, video quality, event types, status flags) |
+| `app/js/diag.js` | Diagnostics log (`record`, last 200 entries: device XML requests, control protocol, FTP, imports, unhandled errors), sheet with copy and "Send to support" (share sheet, mail fallback) |
 | `app/js/views/laps.js` | Lap list, filters, selection, lap menu, import, sharing |
 | `app/js/views/analyzer.js` | Analysis screen, panels, component picker, options, Excel export, custom sectors |
 | `app/js/views/device.js` | Race Navigator page (connection state), embeds `devices.js` and `control.js` |
@@ -429,6 +432,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.10 | 2026-09-18 | Diagnostics log for the whole app (device XML requests, control protocol, FTP downloads, imports, unhandled errors) under Settings → About and in the control page, with copy and "Send to support" |
 | 2.1.9 | 2026-09-18 | Race Navigator page: device data instead of IP addresses while connected (address controls behind "Change device", shown again on failure); laps on the device grouped by event, newest first, per-event selection |
 | 2.1.8 | 2026-09-18 | First test against a real device (Android, RN PRO 1.60): fix for data downloads (the assembled measurements XML did not self-close its sample elements, so every .rnz failed to parse); recording off is sent as 2 instead of 0; driver and vehicle change try several parameter layouts; new protocol log in the control page with "Send to support" (share sheet or mail to info@rn-vision.com) |
 | 2.1.7 | 2026-09-18 | Landscape phone layout (video rail left, side tab rail) applies only on touch devices with a coarse pointer; a zoomed desktop window with a mouse keeps the stacked layout at any zoom level |

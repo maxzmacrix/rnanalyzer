@@ -6,6 +6,7 @@
 //   • discovery: Bonjour _racenav._tcp via the RnDevice plugin
 // The lap is assembled into the same .rn XML the device exports, so the normal RNZ import pipeline handles it.
 
+import { record } from './diag.js';
 import { zipStore } from './zip.js';
 
 export const RN_HTTP_PORT = 8080;
@@ -44,12 +45,14 @@ async function getXml(base, uri, timeoutMs = 20000) {
   const tm = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(base + uri, { headers: { Accept: 'application/xml' }, signal: ctrl.signal, cache: 'no-store' });
+    const text = res.ok ? await res.text() : '';
+    record('xml', `${res.status} ${uri}`, res.ok ? `${text.length} chars` : '');
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${uri}`);
-    const text = await res.text();
     const doc = new DOMParser().parseFromString(text, 'application/xml');
-    if (doc.getElementsByTagName('parsererror')[0]) throw new Error('Invalid XML from ' + uri);
+    if (doc.getElementsByTagName('parsererror')[0]) { record('xml', `invalid XML ${uri}`, text.slice(0, 300)); throw new Error('Invalid XML from ' + uri); }
     return doc;
-  } finally { clearTimeout(tm); }
+  } catch (e) { if (!(e.message || '').startsWith('HTTP ') && !(e.message || '').startsWith('Invalid XML')) record('xml', `ERR ${uri}`, e.message || e); throw e; }
+  finally { clearTimeout(tm); }
 }
 const els = (doc, name) => Array.from(doc.getElementsByTagName(name));
 function txt(el, name, def = '') {
@@ -203,6 +206,7 @@ export async function nativeBuildRnz(input, dataFile) {
     mn++;
     x += `   <sm id="${esc(r.id)}" mt="${esc(r.mt)}" la="${esc(r.la)}" lo="${esc(r.lo)}" za="${esc(r.za)}" ds="${esc(r.ds)}" lt="${esc(r.lt)}" lg="${esc(r.lg)}" rp="${esc(r.rp)}" gs="${esc(r.gs)}" gd="${esc(r.gd)}" ph="${esc(r.ph)}" rl="${esc(r.rl)}" ya="${esc(r.ya)}" al="${esc(r.al)}" dr="${esc(r.dr)}" df="${esc(r.df)}" os="${esc(r.os)}" ot="${esc(r.ot)}" wt="${esc(r.wt)}" tp="${esc(r.tp)}" mn="${mn}" ga="${esc(r.ga)}" igpsv="${esc(r.igpsv)}" igyrv="${esc(r.igyrv)}" iobdv="${esc(r.iobdv)}" ipc="${esc(r.ipc)}"/>\n`;
   }
+  record('info', `built ${dataFile}`, `${mn} samples, ${sectors.length} sectors, ${b.videos.length} videos`);
   x += '  </measurements>\n  <lapSectors>\n';
   for (const s of sectors) x += `    <lapsector>\n      <id>${esc(txt(s, 'id'))}</id>\n      <sectorNumber>${esc(txt(s, 'sectorNumber'))}</sectorNumber>\n      <startTime>${esc(txt(s, 'startTime'))}</startTime>\n      <endTime>${esc(txt(s, 'endTime'))}</endTime>\n    </lapsector>\n`;
   x += '  </lapSectors>\n  <videos>\n';
@@ -221,7 +225,8 @@ export async function nativeDownloadVideo(input, fileName, onProgress) {
     handle = await p.addListener('ftpProgress', (e) => { if (!e || (e.fileName && e.fileName !== fileName)) return; onProgress(Number(e.loaded) || 0, Number(e.total) || 0, Number(e.bps) || 0); });
   }
   try {
-    const res = await p.ftpDownload({ host, port: 21, user: FTP_USER, password: FTP_PASSWORD, path: fileName, fileName });
+    record('ftp', `download ${fileName}`, host);
+    const res = await p.ftpDownload({ host, port: 21, user: FTP_USER, password: FTP_PASSWORD, path: fileName, fileName }).catch((e) => { record('ftp', `ERR ${fileName}`, e.message || e); throw e; });
     const src = window.Capacitor.convertFileSrc(res.path);
     const blob = await (await fetch(src)).blob();
     p.deleteFile && p.deleteFile({ path: res.path }).catch(() => {});

@@ -9,8 +9,9 @@ import * as deviceView from './views/device.js';
 import * as settingsView from './views/settings.js';
 import { installUpdateChecks } from './update.js';
 import { initTabbar } from './tabbar.js';
+import { installGlobalErrorLog, setAppVersion } from './diag.js';
 
-export const APP_VERSION = '2.1.9';
+export const APP_VERSION = '2.1.10';
 
 const views = { laps: lapsView, analyze: analyzeView, device: deviceView, settings: settingsView };
 const nativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -80,6 +81,8 @@ async function registerSW() {
 }
 
 async function boot() {
+  setAppVersion(APP_VERSION);
+  installGlobalErrorLog();
   await initState();
   applyTheme();
   applyI18n();

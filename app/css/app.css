@@ -530,7 +530,8 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .coach-head { font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .coach-head .gap { margin-left: auto; font-size: 15px; }
 .panel .coach-head { padding-right: 120px; }
-.vlabel .vtime { font-weight: 400; opacity: 0.85; } /* the floating panel title chip sits top right */
+.vlabel .vtime { font-weight: 400; opacity: 0.85; }
+.diag-pre { margin: 0; padding: 8px 16px; font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-break: break-all; max-height: 55vh; overflow: auto; user-select: text; } /* the floating panel title chip sits top right */
 .event-head .session-delete { color: var(--text-dim); flex: 0 0 auto; }
 .coach .lost { color: var(--accent); } .coach .gained { color: var(--green); }
 .coach-narrative { font-size: 14px; line-height: 1.45; padding: 10px 12px; border-radius: 12px; background: var(--fg-06); }

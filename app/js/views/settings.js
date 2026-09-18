@@ -1,6 +1,7 @@
 // Settings view.
 
 import { state, updateSettings, reloadLaps, clearSelection, resetSettings } from '../state.js';
+import { showDiagnostics } from '../diag.js';
 import { t, fmtBytes } from '../i18n.js';
 import { h, setTitle, setTopButtons, switchEl, segmented, confirmDialog, toast } from '../ui.js';
 import { db } from '../db.js';
@@ -70,6 +71,7 @@ export function mount(main) {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   root.append(...[
     h('h3', t('about')),
+    h('div.item', h('div.lbl', h('div', t('protocol_log')), h('div.small.muted', t('protocol_log_sub'))), h('button.btn.ghost.diagnostics', { on: { click: () => showDiagnostics([]) } }, t('show'))),
     h('div.item.about-row', h('img.about-logo', { src: 'icons/logo.svg', alt: 'RN' }), h('div.lbl', h('div', 'RN Analyzer'), h('div.sub', `${t('version')} ${APP_VERSION} · ${isNativeApp ? 'App' : standalone ? 'PWA' : 'Browser'} · ${navigator.onLine ? t('online') : t('offline')}`))),
     h('div.item', h('div.lbl', h('div', t('tour_start')), h('div.sub', t('tour_start_hint'))), h('button.btn.ghost', { on: { click: () => startTour() } }, t('tour_start_btn'))),
     hasDemoData() ? h('div.item', h('div.lbl', h('div', t('tour_remove')), h('div.sub', t('demo_data_hint'))), h('button.btn.danger', { on: { click: async () => { await removeDemoData(); toast(t('tour_removed')); main.innerHTML = ''; mount(main); } } }, t('delete'))) : null,

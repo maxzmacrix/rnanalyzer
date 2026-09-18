@@ -4,6 +4,7 @@ import { unzip } from './zip.js';
 import { parseRnzBuffer } from './rnparser.js';
 import { db } from './db.js';
 import { reloadLaps } from './state.js';
+import { record } from './diag.js';
 
 /**
  * Import a list of File/Blob objects.
@@ -48,11 +49,13 @@ export async function importFiles(files, onProgress) {
       }
     } catch (e) {
       console.error('import failed', name, e);
+      record('import', `ERR ${name}`, e && e.message ? e.message : String(e));
       result.errors.push({ name, error: e && e.message ? e.message : String(e) });
     }
     onProgress && onProgress({ index: i + 1, total: list.length, name, phase: 'done' });
   }
   await reloadLaps();
+  record('import', `${result.laps} laps, ${result.videos} videos`, result.skipped.length ? `skipped ${result.skipped.join(', ')}` : '');
   return result;
 }
 

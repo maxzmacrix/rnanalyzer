@@ -440,7 +440,7 @@ The bridge is complete but not tested against a real device.
 
 | Target | Source | Mechanism | Trigger |
 |---|---|---|---|
-| Web/PWA | `app/` | GitHub Pages (`pages.yml`), static, HTTPS | Push to `main` |
+| Web/PWA | `app/` | GitHub Pages (`pages.yml`), static, HTTPS, served at `https://analyzer.race-navigator.com/` (custom domain, DNS CNAME to `maxzmacrix.github.io`; the github.io address redirects) | Push to `main` |
 | iOS (iPhone, iPad) | Capacitor + `native/rn-device` | `ios.yml` on a macOS runner: generate project, Info.plist, signing from secrets, archive, TestFlight upload | Tag `ios-v*`, push to `main` (compile check), manual |
 | Android | Capacitor + `native/rn-device` | `android.yml`: generate project, minSdk 26, keystore from secrets, APK + AAB, GitHub release with `latest.json` | Tag `android-v*`, or a manual run with `release: true` (creates the tag itself); push to `main` builds without publishing |
 
@@ -529,6 +529,7 @@ Short form of the architecture decisions. New decisions are appended here, never
 
 | 2026-09-18 | From the AI ideas paper ("AI-Powered Innovation for the Next-Gen Race Navigator", 14 features) **only two adopted**: context-aware comparison partner (Smart Lap Comparison, without tyre/fuel data) and what-if per corner (from Predictive Lap Modeling, as an estimate, not a simulation). Not adopted for this app: coach read-aloud, driver fingerprint, session summary sharing, NL telemetry Q&A, telemetry+video fusion, leaderboards, community coach, setup optimizer, pit/tyre strategy, maintenance predictor, AR/VR, real-time coaching | Both adopted features run on the data in the RNZ, offline and deterministically. The rest needs a cloud, other users' data, vehicle sensors the Race Navigator does not record (tyre and brake temperatures, oil pressure), or belongs to RN Loop/RN Line per the portfolio boundaries. |
 | 2026-09-18 | **Highlights adopted** as the third feature from the AI ideas paper (owner decision): markers and a jump list from telemetry (g peaks, time loss/gain, off-line excursions). Automatic video cutting and export stay out | Detection is deterministic on RNZ data and reuses the synchronised video for the jump; cutting clips in the browser is expensive and fragile and adds nothing the jump does not already give |
+| 2026-09-18 | Web version under the own domain `analyzer.race-navigator.com` instead of the github.io address | Customer-facing address without the vendor's name; a redirect was rejected because it changes the visible URL and breaks the PWA origin. Consequence: a new storage origin, existing web users import again. |
 | 2026-09-18 | Portfolio positioning (RN Line, RN Cloud spine) and the three bridges (deep link to lap and time, per-lap aggregate export, import from URL) **not adopted for now** | Decision by the owner on 2026-09-18: only the two features above. The bridges remain listed as candidates. |
 
 Open candidates (not decided): deep link to lap and timestamp, per-lap aggregate export (JSON), import from an HTTPS link, file handler for `.rnz` in the native app, samples sheet in the Excel export, pit-lane

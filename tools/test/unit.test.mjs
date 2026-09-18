@@ -170,7 +170,10 @@ test('index.html: tabs match the routes in main.js and the manifest icons exist'
 test('demo data: index lists existing, anonymised laps', async () => {
   const idx = JSON.parse(rd('app/demo/index.json'));
   assert.ok(idx.laps.length >= 3 && idx.videos.length >= 1);
-  for (const f of [...idx.laps, ...idx.videos]) assert.ok(existsSync(join(APP, 'demo', f)), `demo file ${f}`);
+  for (const f of idx.laps) assert.ok(existsSync(join(APP, 'demo', f)), `demo file ${f}`);
+  assert.ok(idx.videoArchive && existsSync(join(APP, 'demo', idx.videoArchive)), 'video archive');
+  const arc = await zip.unzip(readFileSync(join(APP, 'demo', idx.videoArchive)).buffer);
+  for (const v of idx.videos) assert.ok(arc.some((e) => e.name === v && e.data.length > 100000), `clip ${v} in archive`);
   for (const f of idx.laps) {
     const files = await zip.unzip(readFileSync(join(APP, 'demo', f)).buffer);
     const rn = files.find((x) => x.name.endsWith('.rn'));

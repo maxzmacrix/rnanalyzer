@@ -8,6 +8,7 @@ import { db } from './db.js';
 import { player } from './sync.js';
 import { t } from './i18n.js';
 import { h, clear, icons, toast } from './ui.js';
+import { unzip } from './zip.js';
 
 const DEMO_BASE = './demo/';
 const DEMO_DRIVER = 'DRIVER A';
@@ -29,14 +30,19 @@ export async function removeDemoData() {
 
 export async function loadDemoData(onProgress = () => {}) {
   const index = await (await fetch(DEMO_BASE + 'index.json', { cache: 'no-cache' })).json();
-  const names = [...index.laps, ...index.videos];
+  const names = [...index.laps, ...(index.videoArchive ? [index.videoArchive] : index.videos)];
   const files = [];
   for (let i = 0; i < names.length; i++) {
     onProgress(i + 1, names.length);
     const r = await fetch(DEMO_BASE + names[i]);
-    if (!r.ok) throw new Error(names[i]);
-    const blob = await r.blob();
-    files.push(new File([blob], names[i], { type: /\.mp4$/i.test(names[i]) ? 'video/mp4' : 'application/zip' }));
+    if (!r.ok) throw new Error(`${names[i]} (HTTP ${r.status})`);
+    const buf = await r.arrayBuffer();
+    if (names[i] === index.videoArchive) {
+      // clips travel inside one stored zip so the native shells serve them like any other file
+      for (const e of await unzip(buf)) if (/\.mp4$/i.test(e.name)) files.push(new File([e.data], e.name.split('/').pop(), { type: 'video/mp4' }));
+    } else {
+      files.push(new File([buf], names[i], { type: /\.mp4$/i.test(names[i]) ? 'video/mp4' : 'application/zip' }));
+    }
   }
   await importFiles(files);
   await reloadLaps();

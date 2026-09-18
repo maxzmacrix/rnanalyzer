@@ -19,7 +19,8 @@ LAPS = [
 ]
 DRIVER = 'DRIVER A'
 
-shutil.rmtree(OUT, ignore_errors=True); os.makedirs(OUT)
+os.makedirs(OUT, exist_ok=True)
+for _f in os.listdir(OUT): os.remove(os.path.join(OUT, _f))
 index = {'laps': [], 'videos': []}
 
 def shift(ts, seconds):
@@ -59,5 +60,11 @@ for rnz, video, base in LAPS:
         zo.comment = comment.encode('utf-8')
     index['laps'].append(f'{base}.rnz')
 
+# pack the clips into one uncompressed archive – fetch() of bare .mp4 files fails in the iOS shell's media handler
+with zipfile.ZipFile(os.path.join(OUT, 'demo-videos.zip'), 'w', zipfile.ZIP_STORED) as zv:
+    for clip in index['videos']:
+        zv.write(os.path.join(OUT, clip), clip)
+        os.remove(os.path.join(OUT, clip))
+index['videoArchive'] = 'demo-videos.zip'
 json.dump(index, open(os.path.join(OUT, 'index.json'), 'w'), indent=2)
 for f in sorted(os.listdir(OUT)): print(f'{f:24s} {os.path.getsize(os.path.join(OUT, f)) / 1024:8.0f} kB')

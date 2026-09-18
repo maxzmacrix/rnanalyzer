@@ -11,7 +11,7 @@ import { lowerBound, timeSlipSeries, interpAt } from './analysis.js';
 
 // thresholds above GPS/sensor noise – differences below these are not reported
 export const T = { brakeM: 8, apexMs: 1.0, gasM: 8, lineM: 1.5, lostS: 0.05, exitMs: 1.0 };
-const BRAKE_G = -0.25, GAS_G = 0.12, SUSTAIN = 3, LAT_G = 0.45;
+const BRAKE_G = -0.25, GAS_G = 0.12, SUSTAIN = 3, LAT_G = 0.45, APEX_K = 10; // APEX_K samples = 1 s at 10 Hz
 
 const M_PER_DEG = 111320;
 function toXY(lat, lng, lat0) { const k = Math.cos((lat0 * Math.PI) / 180); return { x: lng * M_PER_DEG * k, y: lat * M_PER_DEG }; }
@@ -66,7 +66,18 @@ function sustained(arr, i, n, pred) { for (let k = 0; k < SUSTAIN; k++) if (i + 
 export function cornerMetrics(s, w) {
   const i0 = Math.max(0, lowerBound(s.d, w.start, s.n)), i1 = Math.min(s.n - 1, lowerBound(s.d, w.end, s.n));
   if (i1 <= i0 + 2) return null;
-  let apexI = i0; for (let i = i0; i <= i1; i++) if (s.v[i] < s.v[apexI]) apexI = i;
+  // apex = the interior local speed minimum (over ±1 s) nearest to the corner anchor; the global minimum of the window
+  // can sit on its boundary (the exit of a slower previous corner) when corners follow each other closely.
+  // Fallback when the window has no interior minimum: global minimum, as before.
+  let apexI = -1, bestDist = Infinity;
+  for (let i = i0 + 1; i < i1; i++) {
+    let isMin = true;
+    for (let k = Math.max(i0, i - APEX_K); k <= Math.min(i1, i + APEX_K); k++) if (s.v[k] < s.v[i]) { isMin = false; break; }
+    if (!isMin) continue;
+    const dist = Math.abs(s.d[i] - w.d);
+    if (dist < bestDist) { bestDist = dist; apexI = i; }
+  }
+  if (apexI < 0) { apexI = i0; for (let i = i0; i <= i1; i++) if (s.v[i] < s.v[apexI]) apexI = i; }
   let brakeI = -1; for (let i = i0; i <= apexI; i++) if (sustained(s.gLon, i, s.n, (g) => g < BRAKE_G)) { brakeI = i; break; }
   let gasI = -1; for (let i = apexI; i <= i1; i++) if (sustained(s.gLon, i, s.n, (g) => g > GAS_G)) { gasI = i; break; }
   let gLatMax = 0; for (let i = i0; i <= i1; i++) gLatMax = Math.max(gLatMax, Math.abs(s.gLat[i] || 0));
@@ -136,6 +147,32 @@ export function coachCompare(ref, cmp) {
     const n = count(k); if (n >= need) patterns.push({ key: pk, n, total: out.length });
   }
   return { corners: out, patterns, total, ranked: [...out].filter((c) => c.lost >= T.lostS).sort((a, b) => b.lost - a.lost) };
+}
+
+/**
+ * What-if estimate for one corner: seconds the lap would gain if it carried `dv` m/s more speed through the corner,
+ * with the same line, braking point and throttle point. The extra speed is applied as a triangle that peaks at the
+ * apex and fades to zero at the braking and throttle points (or the corner window when those are unknown).
+ * A rough, deterministic estimate – not a simulation.
+ * @param {object} s       samples of the lap
+ * @param {object} corner  entry of coachCompare().corners (uses .cmp metrics and the window)
+ * @param {number} dv      extra apex speed in m/s (> 0)
+ * @returns {number} seconds saved (≥ 0), NaN when the corner has no usable data
+ */
+export function whatIfApex(s, corner, dv) {
+  if (!s || !corner || !corner.cmp || !(dv > 0)) return NaN;
+  const m = corner.cmp;
+  const dStart = Number.isFinite(m.dBrake) ? m.dBrake : corner.start, dEnd = Number.isFinite(m.dGas) ? m.dGas : corner.end;
+  if (!(m.dApex > dStart) || !(dEnd > m.dApex)) return NaN;
+  const i0 = Math.max(1, lowerBound(s.d, dStart, s.n)), i1 = Math.min(s.n - 1, lowerBound(s.d, dEnd, s.n));
+  let saved = 0;
+  for (let i = i0; i <= i1; i++) {
+    const dd = s.d[i] - s.d[i - 1], v = s.v[i];
+    if (!(dd > 0) || !(v > 1)) continue;
+    const w = s.d[i] <= m.dApex ? (s.d[i] - dStart) / (m.dApex - dStart) : (dEnd - s.d[i]) / (dEnd - m.dApex);
+    saved += dd * (1 / v - 1 / (v + dv * Math.max(0, Math.min(1, w))));
+  }
+  return saved;
 }
 
 export function cornerAt(result, d) {

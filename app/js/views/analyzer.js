@@ -10,7 +10,8 @@ import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, switchEl,
 import { buildXlsx } from '../xlsx.js';
 import { shareFiles } from '../share.js';
 import { LineChart, ScatterChart } from '../chart.js';
-import { coachCompare, cornerAt } from '../coach.js';
+import { coachCompare, cornerAt, whatIfApex } from '../coach.js';
+import { detectHighlights } from '../highlights.js';
 import { aiStatus, aiNarrate } from '../ai.js';
 import { getLanguage } from '../i18n.js';
 import { TrackMap, nearestSample, providerFor } from '../map.js';
@@ -351,6 +352,7 @@ function renderPanel(p) {
   else if (p.kind === 'map') renderMap(p);
   else if (p.kind === 'scatter') renderScatter(p);
   else if (p.kind === 'coach') renderCoach(p);
+  else if (p.kind === 'highlights') renderHighlights(p);
   else if (p.kind === 'detail') renderDetail(p);
   else if (p.kind === 'overview') renderOverview(p);
   else if (p.kind === 'sections') renderSections(p);
@@ -367,7 +369,7 @@ function renderNumber(p) {
     if (info2) { const y2 = yArr(d, p.comp2Id); if (y2) series2.push({ x: xArray(d.samples, xMode()), y: y2, n: d.samples.n, color: d.color }); }
   }
   p.chart.setData({
-    series, series2, markers: sectorMarkers(), xMax: xMaxAll(),
+    series, series2, markers: [...sectorMarkers(), ...highlightMarkers()], xMax: xMaxAll(),
     xLabel: xLabelText(), yLabel: `${info.label}${info.unit ? ' [' + info.unit + ']' : ''}`, y2Label: info2 ? `${info2.label}${info2.unit ? ' [' + info2.unit + ']' : ''}` : '',
     fmt: fmtNum(info.decimals), fmt2: info2 ? fmtNum(info2.decimals) : null, fmtX,
     zeroLine: /^g/.test(p.compId) || p.compId.startsWith('gyr'),
@@ -385,7 +387,7 @@ function renderTimeSlip(p) {
   if (info2) for (const d of data) { const y2 = yArr(d, p.comp2Id); if (y2) series2.push({ x: xArray(d.samples, xMode()), y: y2, n: d.samples.n, color: d.color }); }
   const timeMode = xMode() === 'time';
   p.chart.setData({
-    series, series2, markers: sectorMarkers(), xMax: xMaxAll(), xLabel: xLabelText(),
+    series, series2, markers: [...sectorMarkers(), ...highlightMarkers()], xMax: xMaxAll(), xLabel: xLabelText(),
     yLabel: timeMode ? `Δ ${t('distance')} [m]` : `${t('ch_timeslip')} [s]`,
     y2Label: info2 ? `${info2.label}${info2.unit ? ' [' + info2.unit + ']' : ''}` : '',
     fmt: (v) => (Number.isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2) : '–'), fmt2: info2 ? fmtNum(info2.decimals) : null, fmtX, zeroLine: true,
@@ -414,11 +416,22 @@ function factText(f) {
   if ('v' in f) return t(f.key, spd(f.v));
   return t(f.key, f);
 }
+/** What-if step: +5 km/h (metric) or +3 mph (imperial) at the apex, as m/s and as a label. */
+function whatIfStep() { return state.settings.units === 'imperial' ? { dv: 3 / 2.2369363, v: 3, u: 'mph' } : { dv: 5 / 3.6, v: 5, u: 'km/h' }; }
+/** "+5 km/h at the apex ≈ −0.12 s" for one corner, or '' when the estimate is below the reporting threshold. */
+function whatIfText(cmp, c) {
+  const st = whatIfStep();
+  const s = whatIfApex(cmp.samples, c, st.dv);
+  return Number.isFinite(s) && s >= 0.01 ? t('coach_whatif', { v: st.v, u: st.u, s: s.toFixed(2) }) : '';
+}
 /** The coach facts as plain lines – shown as template text and handed to the on-device model. */
 function coachLines(cc) {
   const { result, cmp } = cc, ref = data[0];
   const lines = [t('coach_vs', { lap: lapLabel(cmp.lap), ref: lapLabel(ref.lap), gap: fmtGap(result.total) })];
-  for (const c of result.ranked.slice(0, 6)) lines.push(`${cornerLabel(c)}: ${fmtGap(c.lost)}${c.facts.length ? ' – ' + c.facts.map(factText).join(', ') : ''}`);
+  for (const c of result.ranked.slice(0, 6)) {
+    const wi = whatIfText(cmp, c);
+    lines.push(`${cornerLabel(c)}: ${fmtGap(c.lost)}${c.facts.length ? ' – ' + c.facts.map(factText).join(', ') : ''}${wi ? ' – ' + wi : ''}`);
+  }
   for (const p of result.patterns) lines.push(t(p.key, { n: p.n, total: p.total }));
   return lines;
 }
@@ -458,11 +471,67 @@ function renderCoach(p) {
     } } },
       h('div.row.between', h('b', cornerLabel(c)), h('span.mono', { class: c.lost > 0 ? 'lost' : 'gained' }, fmtGap(c.lost))),
       h('div.small.muted', c.facts.length ? c.facts.map(factText).join(' · ') : t('coach_no_diff')));
+    const wi = whatIfText(cmp, c);
+    if (wi) row.appendChild(h('div.small.whatif', wi));
     list.appendChild(row);
   }
   wrap.appendChild(list);
   p.table.appendChild(wrap);
   highlightCoach(p);
+}
+// ------------------------------------------------------------------ highlights (moments worth jumping to)
+let hlCache = { key: '', events: [], target: null };
+/** The lap whose highlights are shown: the compared (slowest) lap, or the only lap. */
+function highlightTarget() { return data.length < 2 ? data[0] || null : coachTarget(); }
+function highlightEvents() {
+  const tgt = highlightTarget();
+  if (!tgt) return hlCache = { key: '', events: [], target: null };
+  const key = `${data[0].lap.id}|${tgt.lap.id}`;
+  if (hlCache.key !== key) hlCache = { key, events: detectHighlights(tgt, data[0]), target: tgt };
+  return hlCache;
+}
+const HL_COLORS = { gpeak: '#ff9a1f', loss: '#ff4d4d', gain: '#3fd162', offtrack: '#ffe14d' };
+function hlValueText(e) {
+  const imp = state.settings.units === 'imperial';
+  if (e.kind === 'gpeak') return t('hl_gpeak', { g: e.value.toFixed(1) });
+  if (e.kind === 'loss') return t('hl_loss', { s: e.value.toFixed(2) });
+  if (e.kind === 'gain') return t('hl_gain', { s: Math.abs(e.value).toFixed(2) });
+  return t('hl_offtrack', { m: Math.round(imp ? e.value * 3.28084 : e.value), u: imp ? 'ft' : 'm' });
+}
+function hlShort(e) {
+  if (e.kind === 'gpeak') return `${e.value.toFixed(1)}g`;
+  if (e.kind === 'loss') return `−${e.value.toFixed(1)}`;
+  if (e.kind === 'gain') return `+${Math.abs(e.value).toFixed(1)}`;
+  return '⇢';
+}
+/** Chart markers for the highlights, in the current x units of the target lap. */
+function highlightMarkers() {
+  const { events } = highlightEvents();
+  return events.map((e) => ({ x: xMode() === 'time' ? e.t : e.d, label: hlShort(e), color: HL_COLORS[e.kind], d: e.d }));
+}
+function renderHighlights(p) {
+  clear(p.table);
+  const { events, target } = highlightEvents();
+  if (!target) { p.table.appendChild(h('div.empty', t('coach_select_two'))); return; }
+  const wrap = h('div.coach');
+  wrap.appendChild(h('div.coach-head', h('span', { style: { color: target.color, fontWeight: 800 } }, lapLabel(target.lap)), h('span.small.muted', data.length < 2 ? t('hl_single_hint') : '')));
+  if (!events.length) { wrap.appendChild(h('div.empty', t('hl_none'))); p.table.appendChild(wrap); return; }
+  const cc = data.length >= 2 ? coachResult() : null;
+  const list = h('div.coach-list');
+  const imp = state.settings.units === 'imperial';
+  for (const e of events) {
+    const corner = cc ? cornerAt(cc.result, e.d) : null;
+    const where = corner ? cornerLabel(corner) : `${Math.round(e.d * (imp ? 3.28084 : 1))} ${imp ? 'ft' : 'm'}`;
+    const row = h('div.coach-row', { 'data-d': e.d, on: { click: () => {
+      const x = xMode() === 'time' ? e.t : e.d;
+      setCursor(x, 'highlights'); for (const id of videoObjs.keys()) player.seekVideo(id, true);
+    } } },
+      h('div.row.between', h('b', where), h('span.mono', { style: { color: HL_COLORS[e.kind] } }, hlValueText(e))),
+      h('div.small.muted', t(`hl_kind_${e.kind}`)));
+    list.appendChild(row);
+  }
+  wrap.appendChild(list);
+  p.table.appendChild(wrap);
 }
 function highlightCoach(p) {
   if (!p.table || data.length < 2) return;
@@ -685,6 +754,7 @@ function openComponentSheet(key) {
   // what a driver looks for first
   items.push(viewRow('timeslip'));
   items.push(viewRow('coach'));
+  items.push(viewRow('highlights'));
   for (const id of ['speed', 'glon', 'glat']) items.push(numRow(id));
   items.push(viewRow('map'));
   items.push(viewRow('gforce'));

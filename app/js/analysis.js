@@ -59,6 +59,7 @@ export const CHANNELS = {
   map:     { key: null,   label: 'ch_map',      kind: 'map' },
   gforce:  { key: null,   label: 'ch_gforce',   kind: 'scatter' },
   coach:   { key: null,   label: 'ch_coach',    kind: 'coach' },
+  highlights: { key: null, label: 'ch_highlights', kind: 'highlights' },
   detail:  { key: null,   label: 'ch_detail',   kind: 'detail' },
   overview:{ key: null,   label: 'ch_overview', kind: 'overview' },
   sections:{ key: null,   label: 'ch_sections', kind: 'sections' },

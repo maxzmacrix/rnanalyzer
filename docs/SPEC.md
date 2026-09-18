@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.8 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.9 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -108,8 +108,11 @@ One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap en
 One connection state: device reachable → connection card, control and import on one page; not reachable → one calm
 card with "Search again" (Bonjour `_racenav._tcp`) and "Enter address".
 
-* **Import**: lap list from the device with sorting, data/video selection, download queue with progress and speed,
-  jump into the comparison after the download.
+* **Import**: lap list from the device grouped by event (newest first, only the newest event unfolded, per-event
+  "Data"/"Video" selection), sorting by driver or lap time as flat lists, data/video selection, download queue with
+  progress and speed, jump into the comparison after the download.
+* While the device answers, the page shows device data only (name, type, firmware, lap count); IP addresses appear
+  only when the connection fails or behind "Change device".
 * **Control** (formerly RN Connect): recording on/off and mode (manual, auto 20/40 km/h, standing start, auto RPM),
   driver and vehicle (select, create, rename), change track (search, names cached), event type and new event, video
   quality and layout, status card every 4 s (GPS, battery, storage, remaining time, set time, warnings), camera preview
@@ -426,6 +429,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.9 | 2026-09-18 | Race Navigator page: device data instead of IP addresses while connected (address controls behind "Change device", shown again on failure); laps on the device grouped by event, newest first, per-event selection |
 | 2.1.8 | 2026-09-18 | First test against a real device (Android, RN PRO 1.60): fix for data downloads (the assembled measurements XML did not self-close its sample elements, so every .rnz failed to parse); recording off is sent as 2 instead of 0; driver and vehicle change try several parameter layouts; new protocol log in the control page with "Send to support" (share sheet or mail to info@rn-vision.com) |
 | 2.1.7 | 2026-09-18 | Landscape phone layout (video rail left, side tab rail) applies only on touch devices with a coarse pointer; a zoomed desktop window with a mouse keeps the stacked layout at any zoom level |
 | 2.1.6 | 2026-09-18 | Fix: with the floating tab bar, mouse clicks on the tabs did not switch the view in the browser (pointer capture swallowed the click); the bar now switches on release for taps and slides alike |

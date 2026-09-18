@@ -234,6 +234,14 @@ test('highlights: g peak in the corner, time loss against the reference, off-lin
   assert.equal(offTrack(wide.samples, ref.samples, 20).length, 0);
 });
 
+// ------------------------------------------------------------------ device client
+test('device client: every <sm> element of the assembled .rn XML is self-closed', () => {
+  const src = rd('app/js/deviceNative.js');
+  const smLine = src.split('\n').find((l) => l.includes('<sm id="${esc(r.id)}"'));
+  assert.ok(smLine, 'sm template line');
+  assert.ok(/"\/>\\n`;\s*$/.test(smLine), `sm element must end with "/>: ${smLine.slice(-40)}`);
+});
+
 // ------------------------------------------------------------------ reference choice
 test('reference: same session and driver first, otherwise same track with same car and similar weather', async () => {
   const { pickReference } = await import('../../app/js/reference.js');
@@ -341,7 +349,7 @@ test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
   const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.equal(v, '2.1.7');
+  assert.equal(v, '2.1.8');
   assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
   assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
   assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));

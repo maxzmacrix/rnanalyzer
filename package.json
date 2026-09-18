@@ -1,6 +1,6 @@
 {
   "name": "rn-analyzer",
-  "version": "2.1.7",
+  "version": "2.1.8",
   "description": "RN Analyzer 2.0 - Race Navigator lap analysis (web app + Capacitor iOS/Android shells)",
   "private": true,
   "type": "module",

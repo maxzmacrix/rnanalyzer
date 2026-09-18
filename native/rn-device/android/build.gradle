@@ -58,7 +58,7 @@ dependencies {
     // PostgreSQL JDBC driver – fallback for measurement data (device DB rtts/rtts8888)
     implementation 'org.postgresql:postgresql:42.7.3'
     // Health Connect (heart rate) – Kotlin suspend API, hence the Kotlin plugin above
-    implementation 'androidx.health.connect:connect-client:1.1.0'
+    implementation 'androidx.health.connect:connect-client:1.1.0-alpha07' // newer builds need AGP >= 8.6 / compileSdk 35 (Capacitor 6 ships AGP 8.2)
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
     implementation 'androidx.activity:activity:1.8.0'
 }

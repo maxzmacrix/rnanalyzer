@@ -425,6 +425,8 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 /* ---------- session analysis in the lap list ---------- */
 .filter-bar { display: flex; gap: 6px; padding: 0 10px 8px; overflow-x: auto; scrollbar-width: none; align-items: center; flex: 0 0 auto; }
 .filter-bar::-webkit-scrollbar { display: none; }
+/* mouse and trackpad: no touch scrolling and the scrollbar is hidden, so the chips wrap instead */
+@media (hover: hover) and (pointer: fine) { .filter-bar { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; } }
 .filter-bar .chip { flex: 0 0 auto; white-space: nowrap; }
 .filter-bar .chip.on { background: var(--seg-on-bg); color: var(--seg-on-fg); border-color: transparent; }
 .filter-bar .sep { flex: 0 0 1px; width: 1px; height: 18px; background: var(--fg-16); margin: 0 2px; }

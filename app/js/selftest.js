@@ -270,6 +270,21 @@ export async function run() {
     const snd = $('.vcell .vsound'); const h0 = snd.innerHTML; click(snd); await wait(100); assert(snd.innerHTML !== h0, 'sound toggled'); click(snd); await wait(100);
   });
 
+  await step('video cells: enlarged video whose lap leaves the selection → grid back to normal, remaining cells visible', async () => {
+    const vidLaps = demoLaps().filter((l) => l.video && [...state.videoNames].includes(l.video.fileName)).map((l) => l.id);
+    await setSelection(vidLaps); await go('#/analyze', 1200);
+    await waitFor(() => $$('.vcell').length >= 2, 6000, 'two video cells');
+    const cell = $('.vcell'); click(cell, 'cell'); await wait(400);
+    assert($('.videos').classList.contains('max'), 'cell enlarged');
+    const { toggleSelect } = await import('./state.js');
+    for (const id of vidLaps) { await toggleSelect(id); await wait(900); if (!cell.isConnected) break; }
+    assert(!cell.isConnected, 'enlarged cell removed with its lap');
+    assert(!$('.videos').classList.contains('max'), 'grid left the enlarged mode');
+    assert($$('.vcell').length >= 1 && $$('.vcell').every((c) => getComputedStyle(c).display !== 'none'), 'remaining video visible');
+    await setSelection(vidLaps); await wait(900);
+    assert($$('.vcell').length >= 2 && $$('.vcell').every((c) => getComputedStyle(c).display !== 'none'), 'all videos visible again');
+  });
+
   await step('web: no device tab, store hint in Settings', async () => {
     assert(!$('#tabbar a[data-view="device"]'), 'device tab hidden on the web');
     await go('#/settings', 600); assert($$('#main .sub').some((e) => /App Store/.test(e.textContent)), 'store hint');

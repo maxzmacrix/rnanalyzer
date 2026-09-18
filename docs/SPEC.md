@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.0 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.1 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -64,7 +64,8 @@ The app has four tabs. The web version has no Race Navigator tab because the bro
 * List of all imported laps, grouped by event, track and device. Colour codes: white = complete, grey = incomplete,
   yellow = best lap per driver in the event. Badges for video, heart rate, demo data.
 * Session header with the weather of the driving hours (Open-Meteo, cached, switchable).
-* Filters (complete, with video, outliers), sort by time, search across driver, vehicle, track, event, lap time.
+* Filters (complete, with video, outliers, driver, vehicle), sort by time, search across driver, vehicle, track, event, lap time.
+  The chip bar scrolls horizontally on touch devices and wraps into rows on mouse devices.
 * Selection of up to 10 laps. The red "Compare with best lap (+0.391)" button opens the analysis; "Suggest comparison"
   picks a typical lap against the best.
 * **Context-aware comparison partner** (`reference.js`): for a single selected lap the partner is the best complete lap of
@@ -407,6 +408,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.1 | 2026-09-18 | Fix: after enlarging a video and changing the laps, the video grid stayed in the enlarged mode with every cell hidden. Filter chips in the lap list wrap on mouse devices instead of scrolling with a hidden scrollbar. Android release from a manual workflow run |
 | 2.1.0 | 2026-09-18 | Context-aware comparison partner, what-if per corner, highlights panel and chart markers, interior apex detection; specification in the repository; documentation in English |
 | 2.0.x | 2026-09-17 | Rewrite as offline web app with native shells: answer-first analysis, corner coach with on-device AI, session weather, heart rate, guided tour, RN Connect control, Android and iOS builds |
 

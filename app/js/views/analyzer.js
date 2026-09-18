@@ -182,6 +182,12 @@ async function updateVideos() {
     player.registerVideo(d.lap.id, el, d.lap.video ? d.lap.video.offsetS : 0);
     el.addEventListener('loadedmetadata', () => player.seekVideo(d.lap.id, true));
   }
+  // the enlarged video's lap left the selection: back to the grid, otherwise every remaining cell stays hidden
+  if (bigVideo && ![...videoObjs.values()].some((v) => v.cell === bigVideo)) {
+    bigVideo = null;
+    videoGrid.classList.remove('max'); root.classList.remove('video-max');
+    sizeBigVideo();
+  }
   // order cells like selection
   for (const d of withVideo) { const v = videoObjs.get(d.lap.id); if (v) videoGrid.appendChild(v.cell); }
   videoGrid.classList.toggle('one', videoObjs.size === 1);

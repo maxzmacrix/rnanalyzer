@@ -242,7 +242,11 @@ export async function run() {
     click(btn, 'maximise'); await wait(400);
     eq($$('.right-col .panel').filter((p) => p.offsetParent).length, 1, 'one panel visible');
     assert(!$('.video-panel').offsetParent, 'videos hidden');
+    eq(state.settings.maxPanel, 'A', 'maximised panel stored');
+    await go('#/laps', 500); await go('#/analyze', 900); // a tab switch remounts the analyzer: the maximised panel must survive
+    eq($$('.right-col .panel').filter((p) => p.offsetParent).length, 1, 'still one panel after the tab switch');
     click($('.right-col .panel:not(.hidden) .panel-title .chip.max'), 'restore'); await wait(400);
+    eq(state.settings.maxPanel, null, 'restore clears the setting');
     assert($$('.right-col .panel').filter((p) => p.offsetParent).length >= 2, 'panels back');
     assert($('.video-panel').offsetParent, 'videos back');
   });

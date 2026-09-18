@@ -2,7 +2,8 @@
 
 import { interpAt, niceStep } from './analysis.js';
 
-const PAD = { left: 46, right: 12, top: 30, bottom: 30 };
+// top 44: the panel title chips float over the first 40 px, the plot starts below them (cursor values live in that band)
+const PAD = { left: 46, right: 12, top: 44, bottom: 30 };
 const FONT = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
 const FONT_BOLD = '600 12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
 
@@ -50,7 +51,7 @@ export class LineChart {
   setData(d) {
     this.series = d.series || [];
     this.series2 = d.series2 || [];
-    this.markers = d.markers || [];
+    this.markers = (d.markers || []).slice().sort((a, b) => a.x - b.x); // sorted, so neighbouring labels can alternate rows
     this.xMax = Math.max(1e-6, d.xMax || 1);
     this.xLabel = d.xLabel || ''; this.yLabel = d.yLabel || ''; this.y2Label = d.y2Label || '';
     this.fmt = d.fmt || ((v) => (Number.isFinite(v) ? v.toFixed(1) : '–'));
@@ -189,12 +190,16 @@ export class LineChart {
     if (this.zeroLine && yr[0] < 0 && yr[1] > 0) {
       ctx.strokeStyle = colAxis; ctx.lineWidth = 1; ctx.beginPath(); const py = yToPx(0); ctx.moveTo(r.x, py); ctx.lineTo(r.x + r.w, py); ctx.stroke();
     }
+    let lastLabelPx = -Infinity, labelRow = 0;
     for (const m of this.markers) {
       if (m.x < v[0] || m.x > v[1]) continue;
       const px = this.xToPx(m.x, r, v);
       ctx.strokeStyle = m.color || colMarker; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(px, r.y); ctx.lineTo(px, r.y + r.h); ctx.stroke(); ctx.setLineDash([]);
-      if (m.label) { ctx.fillStyle = m.color || colMarker; ctx.font = FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(m.label, px + 3, r.y + 3); }
+      if (m.label) {
+        labelRow = px - lastLabelPx < 44 ? (labelRow + 1) % 2 : 0; lastLabelPx = px; // neighbours alternate between two rows
+        ctx.fillStyle = m.color || colMarker; ctx.font = FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(m.label, px + 3, r.y + r.h - 3 - labelRow * 13);
+      }
     }
     const drawSeries = (list, toPx, width) => {
       for (const s of list) {
@@ -236,11 +241,14 @@ export class LineChart {
     // cursor value labels
     if (Number.isFinite(this.cursor)) {
       ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-      const maxX = this.w - this.reserveRight - 4;
+      // the values live in the band beside the title chips; when the chips leave no room (phones) they move into the plot
+      const inPlot = this.w - this.reserveRight - 4 - r.x < 120;
+      const maxX = inPlot ? r.x + r.w - 4 : this.w - this.reserveRight - 4;
       const vals = this.series.map((s) => ({ c: s.color, t: this.fmt(interpAt(s.x, s.y, this.cursor, s.n)), bold: true }));
       const vals2 = this.series2.map((s) => ({ c: s.color, t: this.fmt2(interpAt(s.x, s.y, this.cursor, s.n)), bold: false }));
       let cx = r.x + 4, row = 0;
-      const rowsY = [2, 16];
+      const rowsY = inPlot ? [r.y + 3, r.y + 17] : [2, 16];
+      if (inPlot) { ctx.font = FONT_BOLD; const tw = [...vals, ...vals2].reduce((a, v) => a + ctx.measureText(v.t).width + 10, 0); ctx.globalAlpha = 0.72; ctx.fillStyle = css.getPropertyValue('--bg2').trim() || '#101216'; ctx.fillRect(r.x + 1, r.y + 1, Math.min(r.w - 2, tw + 6), 16); ctx.globalAlpha = 1; }
       for (const vv of [...vals, ...vals2]) {
         ctx.font = vv.bold ? FONT_BOLD : FONT;
         const w = ctx.measureText(vv.t).width;
@@ -470,10 +478,12 @@ export class StripChart extends LineChart {
     this.minStripH = 56;
   }
   static get BAND() { return 22; }
+  /** the corner band starts below the panel title chips (they float over the first 40 px) */
+  static get BAND_TOP() { return 42; }
 
   resize() {
     const parent = this.canvas.parentElement || this.canvas;
-    const need = StripChart.BAND + 4 + PAD.bottom + this.minStripH * Math.max(1, (this.strips || []).length);
+    const need = StripChart.BAND_TOP + StripChart.BAND + 4 + PAD.bottom + this.minStripH * Math.max(1, (this.strips || []).length);
     const w = Math.max(50, parent.clientWidth), h = Math.max(50, parent.clientHeight, need);
     this.w = w; this.h = h;
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
@@ -487,7 +497,7 @@ export class StripChart extends LineChart {
     this.corners = d.corners || [];
     this.series = this.strips.length ? this.strips[0].series : []; // the gesture code and cursor labels look at .series
     this.series2 = [];
-    this.markers = d.markers || [];
+    this.markers = (d.markers || []).slice().sort((a, b) => a.x - b.x); // sorted, so neighbouring labels can alternate rows
     this.xMax = Math.max(1e-6, d.xMax || 1);
     this.xLabel = d.xLabel || '';
     this.fmtX = d.fmtX || ((v) => Math.round(v).toString());
@@ -504,7 +514,7 @@ export class StripChart extends LineChart {
   currentYRange() { return [0, 1]; }
 
   plotRect() {
-    const top = StripChart.BAND + 4;
+    const top = StripChart.BAND_TOP + StripChart.BAND + 4;
     return { x: PAD.left, y: top, w: Math.max(10, this.w - PAD.left - PAD.right), h: Math.max(10, this.h - top - PAD.bottom) };
   }
 
@@ -541,11 +551,11 @@ export class StripChart extends LineChart {
       if (c.end < v[0] || c.start > v[1]) return;
       const x0 = this.xToPx(Math.max(c.start, v[0]), r, v), x1 = this.xToPx(Math.min(c.end, v[1]), r, v);
       ctx.fillStyle = i % 2 ? colBand2 : colBand;
-      ctx.fillRect(x0, 1, Math.max(1, x1 - x0), band - 2);
+      ctx.fillRect(x0, StripChart.BAND_TOP + 1, Math.max(1, x1 - x0), band - 2);
       if (i % 2) { ctx.fillStyle = colShade; ctx.fillRect(x0, r.y, Math.max(1, x1 - x0), r.h); }
       if (x1 - x0 > 16) {
         ctx.fillStyle = '#ffffff'; ctx.font = FONT_BOLD; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(String(c.num), (x0 + x1) / 2, band / 2);
+        ctx.fillText(String(c.num), (x0 + x1) / 2, StripChart.BAND_TOP + band / 2);
       }
     });
     ctx.restore();
@@ -611,19 +621,22 @@ export class StripChart extends LineChart {
         for (const s of st.series) {
           const txt = fmt(interpAt(s.x, s.y, this.cursor, s.n));
           const w = ctx.measureText(txt).width;
-          if (cx + w > r.x + r.w - this.reserveRight - 4 && k === 0) break;
           if (cx + w > r.x + r.w - 4) break;
           ctx.fillStyle = s.color; ctx.fillText(txt, cx, ty); cx += w + 10;
         }
       }
     });
     // markers through all strips
+    let lastLabelPx = -Infinity, labelRow = 0;
     for (const m of this.markers) {
       if (m.x < v[0] || m.x > v[1]) continue;
       const px = this.xToPx(m.x, r, v);
       ctx.strokeStyle = m.color || colMarker; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(px, r.y); ctx.lineTo(px, r.y + r.h); ctx.stroke(); ctx.setLineDash([]);
-      if (m.label) { ctx.fillStyle = m.color || colMarker; ctx.font = FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(m.label, px + 3, r.y + r.h - 2); }
+      if (m.label) {
+        labelRow = px - lastLabelPx < 44 ? (labelRow + 1) % 2 : 0; lastLabelPx = px;
+        ctx.fillStyle = m.color || colMarker; ctx.font = FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(m.label, px + 3, r.y + r.h - 2 - labelRow * 13);
+      }
     }
     // cursor line
     if (Number.isFinite(this.cursor) && this.cursor >= v[0] && this.cursor <= v[1]) {

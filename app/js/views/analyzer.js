@@ -59,6 +59,7 @@ export function mount(main) {
   root = h('div.analyzer', videoPanel, d0, rightCol, playBar);
   main.appendChild(root);
   applyRatios();
+  if (state.settings.maxPanel) applyMaxPanel(state.settings.maxPanel);
 
   unsub.push(
     on('selection', load), on('laps', load), on('settings', onSettings), on('cursor', onCursor),
@@ -241,8 +242,13 @@ function createPanel(key) {
   return { key, el, body, titleChip, chanBtn, maxBtn, kind: null, chart: null, map: null, table: null, compId: null, comp2Id: null };
 }
 let maxPanelKey = null;
+/** One panel takes the screen. Stored in the settings, so the state survives tab switches and restarts. */
 function toggleMaxPanel(key) {
-  maxPanelKey = maxPanelKey === key ? null : key;
+  applyMaxPanel(maxPanelKey === key ? null : key);
+  updateSettings({ maxPanel: maxPanelKey });
+}
+function applyMaxPanel(key) {
+  maxPanelKey = key && panels[key] ? key : null;
   root.classList.toggle('panel-max', !!maxPanelKey);
   for (const [k, p] of Object.entries(panels)) {
     p.el.classList.toggle('hidden', !!maxPanelKey && k !== maxPanelKey);

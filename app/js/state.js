@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS = {
   panelC: 'coach', // third panel (tablets/desktop): the corner coach
   panelC2: null,
   stripChannels: ['speed', 'glon', 'glat', 'gyrY', 'rpm', 'thr'], // channel strips panel; channels the laps do not carry are skipped
+  maxPanel: null, // panel key (A/B/C) that fills the analysis screen, null = normal layout
   followCursor: false,
   mapStyle: 'osm', // osm | satellite | custom
   customTileUrl: '',

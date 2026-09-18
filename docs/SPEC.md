@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.13 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.14 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -110,7 +110,9 @@ One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap en
   checkbox adds a second curve; for the gap chart it picks the curve laid over the gap; for the strips it is a
   multi-select with Done.
 * **Maximise**: every panel has a maximise button next to its title; videos, dividers and the other panels step aside
-  until it is tapped again (layout only, not stored). Dividers are 24 px wide on touch devices.
+  until it is tapped again. The state is a setting (`maxPanel`), so it survives tab switches and restarts. Dividers are
+  24 px wide on touch devices. The title chips float over the first 40 px of a panel; charts start their plot below
+  that band and keep the cursor values in it, marker labels sit at the bottom of the plot.
 * **Cursor** in red, synchronous across charts, map, videos and values. X axis distance or time. Pinch = zoom
   (horizontal X, vertical Y), two-finger drag = pan, double tap = reset, zoom synchronised across panels.
 * **Play bar**: play/pause, 5 s back, speed 0.25 to 2× (videos up to 2×, above that clock-driven), live gaps per lap.
@@ -447,6 +449,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.14 | 2026-09-18 | Charts start below the title chips, marker labels at the plot bottom (no overlaps); maximised panel remembered across tab switches |
 | 2.1.13 | 2026-09-18 | Component sheet is a flat alphabetical list of views; channels are chosen through a "Channels" chip in the panel title |
 | 2.1.12 | 2026-09-18 | Component sheet lists views only, one channel picker for chart, gap overlay and strips; maximise button per panel; wider dividers on touch devices |
 | 2.1.11 | 2026-09-18 | Channel strips panel: stacked channels over one distance/time axis with corner band, shared zoom and cursor, channel chooser |

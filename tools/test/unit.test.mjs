@@ -364,7 +364,7 @@ test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
   const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.equal(v, '2.1.13');
+  assert.equal(v, '2.1.14');
   assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
   assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
   assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));

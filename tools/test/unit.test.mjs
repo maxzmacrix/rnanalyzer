@@ -169,6 +169,45 @@ test('coach: what-if apex estimate is positive, grows with the speed step and is
   assert.ok(Number.isNaN(whatIfApex(cmp.samples, { ...c, cmp: null }, 1)), 'no metrics → NaN');
 });
 
+/** syntheticLap plus OBD channels: throttle 0 from the braking point to gasAt, ramp to 100 % at fullAt, optional lift;
+ *  engine speed from GPS speed with fixed gear ratios (m/s per rpm) chosen by speed bands. */
+function syntheticObdLap(brakeAt, apexV, { gasAt, fullAt, lift = false, bands }) {
+  const base = syntheticLap(brakeAt, apexV);
+  const s = base.samples, n = s.n;
+  const thr = new Float32Array(n), rpm = new Float32Array(n);
+  const ratios = [0.004, 0.0065, 0.009, 0.012, 0.015]; // five gears, m/s per rpm
+  for (let i = 0; i < n; i++) {
+    const x = s.d[i], v = s.v[i];
+    if (x < brakeAt || x >= fullAt) thr[i] = 100; else if (x < gasAt) thr[i] = 0; else thr[i] = 20 + 80 * (x - gasAt) / (fullAt - gasAt);
+    if (lift && x >= 520 && x <= 540) thr[i] = 40;
+    const g = bands.filter((b) => v >= b).length; // number of shift-up speeds below v = gear index
+    rpm[i] = v / ratios[g];
+  }
+  return { lap: { ...base.lap, channels: { throttle: true, rpm: true } }, samples: { ...s, thr, rpm } };
+}
+test('coach with OBD: throttle point, full throttle, coasting, lifts, gear at the apex, shift rpm', async () => {
+  globalThis.window ??= globalThis;
+  const { coachCompare, gearTable, shiftRpm } = await import('../../app/js/coach.js');
+  // ref: apex (22 m/s) in gear 2, shifts at 26/34/42 m/s; cmp: apex (19 m/s) already in gear 3, shifts later (38/48 m/s → higher rpm)
+  const ref = syntheticObdLap(340, 22, { gasAt: 440, fullAt: 480, bands: [15, 26, 34, 42] });
+  const cmp = syntheticObdLap(300, 19, { gasAt: 470, fullAt: 540, lift: true, bands: [12, 18, 38, 48] });
+  const table = gearTable(ref.samples); assert.ok(table && table.length >= 3, `gear table ${JSON.stringify(table)}`);
+  const sr = shiftRpm(ref.samples), sc = shiftRpm(cmp.samples); assert.ok(sr > 3000 && sc > sr + 300, `shift rpm ref ${sr} cmp ${sc}`);
+  const r = coachCompare(ref, cmp);
+  assert.deepEqual(r.obd, { thr: true, rpm: true, gears: true });
+  const c = r.corners[0], keys = c.facts.map((f) => f.key);
+  const gas = c.facts.find((f) => f.key === 'coach_gas_later'); assert.ok(gas && Math.abs(gas.m - 30) < 8, `throttle point from the throttle channel ${JSON.stringify(gas)}`);
+  const full = c.facts.find((f) => f.key === 'coach_full_later'); assert.ok(full && Math.abs(full.m - 60) < 10, `full throttle ${JSON.stringify(full)}`);
+  assert.ok(keys.includes('coach_coast_longer'), `coasting ${keys}`);
+  const lifts = c.facts.find((f) => f.key === 'coach_lifts'); assert.ok(lifts && lifts.n === 1, `lifts ${JSON.stringify(lifts)}`);
+  const gear = c.facts.find((f) => f.key === 'coach_gear_higher'); assert.ok(gear && gear.n === 1, `gear ${JSON.stringify(gear)} (ref gear ${c.ref.gear}, cmp gear ${c.cmp.gear})`);
+  assert.ok(r.shift && r.shift.key === 'coach_shift_higher' && r.shift.rpm > r.shift.ref, `shift ${JSON.stringify(r.shift)}`);
+  // without the channels nothing OBD-related appears
+  const plain = coachCompare(syntheticLap(340, 22), syntheticLap(300, 19));
+  assert.deepEqual(plain.obd, { thr: false, rpm: false, gears: false });
+  assert.ok(!plain.corners[0].facts.some((f) => /full|coast|lifts|gear/.test(f.key)) && !plain.shift);
+});
+
 // ------------------------------------------------------------------ highlights
 test('highlights: g peak in the corner, time loss against the reference, off-line excursion', async () => {
   globalThis.window ??= globalThis;
@@ -302,7 +341,7 @@ test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
   const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.equal(v, '2.1.3');
+  assert.equal(v, '2.1.4');
   assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
   assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
   assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));

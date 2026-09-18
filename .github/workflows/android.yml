@@ -107,7 +107,7 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease bundleRelease > /tmp/gradle.log 2>&1 \
-            || { echo "::error title=gradle::$(grep -iE 'error|failed|what went wrong' -A3 /tmp/gradle.log | head -40 | tr '\n' '|' | cut -c1-3800)"; tail -n 120 /tmp/gradle.log; exit 1; }
+            || { echo "::error title=gradle::$( (grep -iE 'requires|compile against|Gradle plugin|e: |error:|Unresolved|Could not' /tmp/gradle.log | head -25; echo '--- what went wrong ---'; grep -A14 'What went wrong' /tmp/gradle.log | head -40) | tr '\n' '|' | cut -c1-3800)"; tail -n 120 /tmp/gradle.log; exit 1; }
           tail -n 5 /tmp/gradle.log
           mkdir -p "$RUNNER_TEMP/out"
           cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/out/RN-Analyzer.apk"
@@ -121,7 +121,7 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug > /tmp/gradle.log 2>&1 \
-            || { echo "::error title=gradle::$(grep -iE 'error|failed|what went wrong' -A3 /tmp/gradle.log | head -40 | tr '\n' '|' | cut -c1-3800)"; tail -n 120 /tmp/gradle.log; exit 1; }
+            || { echo "::error title=gradle::$( (grep -iE 'requires|compile against|Gradle plugin|e: |error:|Unresolved|Could not' /tmp/gradle.log | head -25; echo '--- what went wrong ---'; grep -A14 'What went wrong' /tmp/gradle.log | head -40) | tr '\n' '|' | cut -c1-3800)"; tail -n 120 /tmp/gradle.log; exit 1; }
           tail -n 5 /tmp/gradle.log
           mkdir -p "$RUNNER_TEMP/out"
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/out/RN-Analyzer-debug.apk"
@@ -138,7 +138,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG" "$RUNNER_TEMP"/out/* --repo "$GITHUB_REPOSITORY" --latest \
-            --title "RN Analyzer $MARKETING_VERSION for Android (build ${{ github.run_number }})" \
-            --notes "Android app for the Race Navigator. Install: download RN-Analyzer.apk on the phone, open it and allow the installation. RN-Analyzer.aab is the Play Store bundle."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$RUNNER_TEMP"/out/* --repo "$GITHUB_REPOSITORY" --clobber 2> /tmp/gh.log || { echo "::error title=release upload::$(tr '\n' ' ' < /tmp/gh.log | cut -c1-1500)"; exit 1; }
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest > /dev/null 2>&1 || true
+          else
+            gh release create "$TAG" "$RUNNER_TEMP"/out/* --repo "$GITHUB_REPOSITORY" --latest \
+              --title "RN Analyzer $MARKETING_VERSION for Android (build ${{ github.run_number }})" \
+              --notes "Android app for the Race Navigator. Install: download RN-Analyzer.apk on the phone, open it and allow the installation. RN-Analyzer.aab is the Play Store bundle." 2> /tmp/gh.log \
+              || { echo "::error title=release create::$(tr '\n' ' ' < /tmp/gh.log | cut -c1-1500)"; exit 1; }
+          fi
           echo "::notice title=Release::https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"

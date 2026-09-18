@@ -57,7 +57,7 @@ import java.util.concurrent.Executors;
  *  - deleteFile():   remove a downloaded temp file
  *  - cameraStart()/cameraStop(): MJPEG frames over a raw TCP socket (events "cameraFrame", "cameraEnd")
  *  - fileBegin()/fileAppend()/share(): stage a file from the web app in chunks and hand it to the Android share sheet
- *    (the Android WebView has no Web Share API; files travel through a FileProvider content URI)
+ *    (the Android WebView has no Web Share API; files travel through the app's FileProvider content URI)
  */
 @CapacitorPlugin(name = "RnDevice")
 public class RnDevicePlugin extends Plugin {
@@ -250,7 +250,7 @@ public class RnDevicePlugin extends Plugin {
         String title = call.getString("title", "");
         if (arr == null || arr.length() == 0) { call.reject("paths are required"); return; }
         ArrayList<Uri> uris = new ArrayList<>();
-        String authority = getContext().getPackageName() + ".rndevice.share";
+        String authority = getContext().getPackageName() + ".fileprovider"; // the app template's FileProvider, its cache-path covers rn-share/
         try {
             for (int i = 0; i < arr.length(); i++) {
                 File f = new File(arr.getString(i));

@@ -12,16 +12,8 @@
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
     <application>
-        <!-- Share sheet: staged files (diagnostics, .rnz, videos) leave the app through this FileProvider -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.rndevice.share"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/rn_share_paths" />
-        </provider>
+        <!-- Share sheet: staged files leave the app through the FileProvider the Capacitor app template already declares
+             (${applicationId}.fileprovider, cache-path "."); a second provider of the same class would fail the manifest merge -->
         <!-- Health Connect shows the app's privacy rationale through these intents (Android 13 and 14+) -->
         <activity-alias
             android:name=".ViewPermissionUsageActivity"

@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   profiles: [],
   theme: 'system', // light | dark | system – follows the phone, light by day at the track
   weather: true, // session weather from Open-Meteo
+  glassBar: true, // floating, translucent tab bar (iOS 26 look, restrained)
   settingsVersion: 2,
 };
 

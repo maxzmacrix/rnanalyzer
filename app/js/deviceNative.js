@@ -15,7 +15,14 @@ const EPOCH = '19700101000000000';
 
 export function isNative() {
   const C = window.Capacitor;
-  return !!(C && C.isNativePlatform && C.isNativePlatform());
+  try {
+    if (C && typeof C.isNativePlatform === 'function' && C.isNativePlatform()) return true;
+    if (C && typeof C.getPlatform === 'function' && C.getPlatform() !== 'web') return true;
+  } catch { /* fall through */ }
+  // belt and braces: the shells' own origins (iOS: capacitor://localhost, Android: https://localhost with the bridge object)
+  if (location.protocol === 'capacitor:') return true;
+  if (location.hostname === 'localhost' && (window.androidBridge || (C && C.Plugins && C.Plugins.RnDevice))) return true;
+  return false;
 }
 function plugin() {
   const C = window.Capacitor;

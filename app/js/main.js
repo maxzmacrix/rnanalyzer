@@ -38,6 +38,7 @@ export function applyTheme() {
   const pref = state.settings.theme || 'dark';
   const dark = pref === 'dark' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   if (dark) document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme');
+  document.documentElement.toggleAttribute('data-glass', state.settings.glassBar !== false);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', dark ? '#07080a' : '#ffffff');
   emit('theme', dark ? 'dark' : 'light');
@@ -76,7 +77,7 @@ async function boot() {
   applyTheme();
   applyI18n();
   if (!nativeApp) { const a = document.querySelector('#tabbar a[data-view="device"]'); if (a) a.remove(); }
-  on('settings', (patch) => { if (patch && 'theme' in patch) applyTheme(); if (patch && patch.language) { applyI18n(); if (current && current.unmount) current.unmount(); current = null; route(); } });
+  on('settings', (patch) => { if (patch && ('theme' in patch || 'glassBar' in patch)) applyTheme(); if (patch && patch.language) { applyI18n(); if (current && current.unmount) current.unmount(); current = null; route(); } });
   window.addEventListener('hashchange', route);
   route();
   registerSW();

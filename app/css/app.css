@@ -498,3 +498,24 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 /* selection bar on phones: the dots say how many, the button says what next */
 .sel-summary .count { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 480px) { .sel-summary .count { display: none; } .sel-summary .dots { margin-right: auto; } .sel-summary .compare { flex: 1; } }
+
+/* ---------- floating glass tab bar (data-glass on <html>; phones/portrait only, the side rail keeps its shape) ---------- */
+:root { --glass-bg: rgba(255, 255, 255, 0.78); --glass-border: rgba(255, 255, 255, 0.65); --glass-hi: rgba(255, 255, 255, 0.85); --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); --tabspace: calc(var(--tab-h) + var(--sab) + 22px); }
+:root[data-theme="dark"] { --glass-bg: rgba(22, 24, 30, 0.72); --glass-border: rgba(255, 255, 255, 0.14); --glass-hi: rgba(255, 255, 255, 0.12); --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+@media not all and ((min-width: 900px) or ((orientation: landscape) and (max-height: 500px))) {
+  :root[data-glass] .tabbar {
+    position: fixed; left: 12px; right: 12px; bottom: calc(var(--sab) + 10px); height: var(--tab-h); padding: 0 6px;
+    border-radius: 30px; border: 1px solid var(--glass-border); border-top-color: var(--glass-hi);
+    background: var(--glass-bg); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow); z-index: 30;
+  }
+  :root[data-glass] .tabbar a { position: relative; border-radius: 22px; margin: 6px 2px; }
+  :root[data-glass] .tabbar a.active { background: var(--fg-10); }
+  /* content runs behind the floating bar: scrolling views get room at the end, fixed layouts stop above it */
+  :root[data-glass] .view.scroll, :root[data-glass] .scroll.grow { padding-bottom: var(--tabspace); }
+  :root[data-glass] .analyzer { margin-bottom: calc(var(--tab-h) + var(--sab) + 18px); }
+  :root[data-glass] .toast { bottom: calc(var(--tabspace) + 6px); }
+  :root[data-glass] .tour-card { bottom: calc(var(--tabspace) + 4px); }
+  :root[data-glass] .update-banner { position: relative; }
+  :root[data-glass] .filter-bar, :root[data-glass] .sel-summary { padding-bottom: 8px; }
+}

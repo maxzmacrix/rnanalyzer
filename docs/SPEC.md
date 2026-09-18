@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.12 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.13 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -103,11 +103,12 @@ One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap en
 * **Channels**: speed, longitudinal / lateral / vertical / combined acceleration, GPS deviation, altitude, heading,
   gyroscope (yaw/pitch/roll), OBD/CAN (RPM, throttle, water and oil temperature, OBD speed, only when present in the
   file), heart rate, custom CAN channels from `.cdrn`.
-* **Component sheet**: lists views only (gap, coach, highlights, channel, channel strips, map, g-force; tables: sector
-  times, values at the cursor, lap summary). The three channel-based views carry a "Channels…" chip that opens the one
-  channel picker, grouped by data channels, gyroscope, OBD, health and CAN: for the channel chart a tap sets the main
-  curve and a checkbox adds a second curve; for the gap chart it picks the curve laid over the gap; for the strips it is
-  a multi-select. The sheet rows show the current channels as a subtitle.
+* **Component sheet**: one flat list of views, alphabetical in the current language, no groups: gap, channel, channel
+  strips, coach, g-force, highlights, lap summary, map, sector times, values at the cursor. Channels are never chosen
+  there: the three channel-based views show a "Channels" chip next to the panel title that opens the one channel
+  picker, grouped by data channels, gyroscope, OBD, health and CAN. For the channel chart a tap sets the main curve and a
+  checkbox adds a second curve; for the gap chart it picks the curve laid over the gap; for the strips it is a
+  multi-select with Done.
 * **Maximise**: every panel has a maximise button next to its title; videos, dividers and the other panels step aside
   until it is tapped again (layout only, not stored). Dividers are 24 px wide on touch devices.
 * **Cursor** in red, synchronous across charts, map, videos and values. X axis distance or time. Pinch = zoom
@@ -446,6 +447,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.13 | 2026-09-18 | Component sheet is a flat alphabetical list of views; channels are chosen through a "Channels" chip in the panel title |
 | 2.1.12 | 2026-09-18 | Component sheet lists views only, one channel picker for chart, gap overlay and strips; maximise button per panel; wider dividers on touch devices |
 | 2.1.11 | 2026-09-18 | Channel strips panel: stacked channels over one distance/time axis with corner band, shared zoom and cursor, channel chooser |
 | 2.1.10 | 2026-09-18 | Diagnostics log for the whole app (device XML requests, control protocol, FTP downloads, imports, unhandled errors) under Settings → About and in the control page, with copy and "Send to support" |

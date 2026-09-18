@@ -235,8 +235,10 @@ function createPanel(key) {
   const titleChip = h('button.chip', { on: { click: () => openComponentSheet(key) } }, '…');
   // one panel can take the whole screen: videos, the other panels and the dividers step aside until the button is tapped again
   const maxBtn = h('button.chip.icon.max', { title: t('panel_maximize'), 'aria-label': t('panel_maximize'), html: icons.expand, on: { click: () => toggleMaxPanel(key) } });
-  const el = h('div.panel', body, h('div.panel-title', titleChip, maxBtn));
-  return { key, el, body, titleChip, maxBtn, kind: null, chart: null, map: null, table: null, compId: null, comp2Id: null };
+  // views that draw channels get a "Channels" chip: the one place where channels are chosen
+  const chanBtn = h('button.chip.chan.hidden', { on: { click: () => { const k = panels[key].kind; openChannelPicker(key, k === 'strips' ? 'strips' : k === 'timeslip' ? 'second' : 'chart'); } } }, t('channels_btn'));
+  const el = h('div.panel', body, h('div.panel-title', titleChip, chanBtn, maxBtn));
+  return { key, el, body, titleChip, chanBtn, maxBtn, kind: null, chart: null, map: null, table: null, compId: null, comp2Id: null };
 }
 let maxPanelKey = null;
 function toggleMaxPanel(key) {
@@ -373,6 +375,7 @@ function configurePanel(p) {
   const info = chanInfo(comp) || { label: comp };
   const info2 = p.comp2Id ? chanInfo(p.comp2Id) : null;
   p.titleChip.textContent = info2 ? `${info.label} + ${info2.label}` : info.label;
+  p.chanBtn.classList.toggle('hidden', !(kind === 'number' || kind === 'timeslip' || kind === 'strips'));
   requestAnimationFrame(() => { if (p.chart) p.chart.setReserveRight(p.titleChip.parentElement.offsetWidth + 20); });
   renderPanel(p);
 }
@@ -881,31 +884,19 @@ function openComponentSheet(key) {
   const cur = panelSetting(key);
   const chartKind = kindOf(cur.comp) === 'number';
   let s = null;
-  // a row is a view; the three channel-based views carry a "Channels…" chip that opens the channel picker
-  const row = (label, sub, selected, onPick, pickerMode) => {
-    const chip = pickerMode ? h('button.chip.small', { on: { click: (e) => { e.stopPropagation(); s.close(); onPick(true).then(() => openChannelPicker(key, pickerMode)); } } }, t('channels_btn')) : null;
-    return h('div.item', { class: selected ? 'selected' : '', on: { click: async () => { await onPick(false); s.close(); } } },
-      h('div.lbl', h('div', label), sub ? h('div.small.muted.sub', sub) : null), chip);
-  };
-  const set = (comp, comp2 = null) => updateSettings({ [`panel${key}`]: comp, [`panel${key}2`]: comp2 });
-  const view = (id) => row(t(CHANNELS[id].label), null, cur.comp === id, () => set(id));
-  const items = [
-    // what a driver looks for first
-    row(t('ch_timeslip'), cur.comp2 && cur.comp === 'timeslip' ? `+ ${chanInfo(cur.comp2).label}` : t('second_curve_none'), cur.comp === 'timeslip',
-      (keepSecond) => set('timeslip', cur.comp === 'timeslip' || keepSecond ? cur.comp2 : (state.settings.panelA2 && kindOf(state.settings.panelA2) === 'number' ? state.settings.panelA2 : 'speed')), 'second'),
-    view('coach'),
-    view('highlights'),
-    row(t('ch_chart'), chartKind ? `${chanInfo(cur.comp).label}${cur.comp2 ? ' + ' + chanInfo(cur.comp2).label : ''}` : t('ch_speed'), chartKind,
-      () => (chartKind ? Promise.resolve() : set('speed')), 'chart'),
-    row(t('ch_strips'), stripChannels().map((id) => chanInfo(id).label).join(' · ') || t('select_laps_first'), cur.comp === 'strips', () => set('strips'), 'strips'),
-    view('map'),
-    view('gforce'),
-    h('div.group', t('group_more_views')),
-    view('sections'),
-    view('detail'),
-    view('overview'),
-  ];
-  s = sheet(t('select_component'), items);
+  // one flat list of views, alphabetical in the current language; channels are chosen in the panel itself ("Channels" chip)
+  const views = ['timeslip', 'coach', 'highlights', 'chart', 'strips', 'map', 'gforce', 'sections', 'detail', 'overview']
+    .map((id) => ({ id, label: t(id === 'chart' ? 'ch_chart' : CHANNELS[id].label) }))
+    .sort((a, b) => a.label.localeCompare(b.label, getLanguage()));
+  const rows = views.map((v) => {
+    const selected = v.id === 'chart' ? chartKind : cur.comp === v.id;
+    return h('div.item', { class: selected ? 'selected' : '', on: { click: async () => {
+      if (v.id === 'chart') { if (!chartKind) await updateSettings({ [`panel${key}`]: 'speed', [`panel${key}2`]: null }); }
+      else await updateSettings({ [`panel${key}`]: v.id, [`panel${key}2`]: v.id === 'timeslip' ? cur.comp2 : null });
+      s.close();
+    } } }, h('span.lbl', v.label));
+  });
+  s = sheet(t('select_component'), rows);
 }
 
 // ------------------------------------------------------------------ options sheet

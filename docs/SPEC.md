@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.11 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.12 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -102,7 +102,14 @@ One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap en
   minimum height, so the panel scrolls when many channels are chosen. The y axis does not zoom in this view.
 * **Channels**: speed, longitudinal / lateral / vertical / combined acceleration, GPS deviation, altitude, heading,
   gyroscope (yaw/pitch/roll), OBD/CAN (RPM, throttle, water and oil temperature, OBD speed, only when present in the
-  file), heart rate, custom CAN channels from `.cdrn`. Five main rows visible, the rest under "More channels".
+  file), heart rate, custom CAN channels from `.cdrn`.
+* **Component sheet**: lists views only (gap, coach, highlights, channel, channel strips, map, g-force; tables: sector
+  times, values at the cursor, lap summary). The three channel-based views carry a "Channels…" chip that opens the one
+  channel picker, grouped by data channels, gyroscope, OBD, health and CAN: for the channel chart a tap sets the main
+  curve and a checkbox adds a second curve; for the gap chart it picks the curve laid over the gap; for the strips it is
+  a multi-select. The sheet rows show the current channels as a subtitle.
+* **Maximise**: every panel has a maximise button next to its title; videos, dividers and the other panels step aside
+  until it is tapped again (layout only, not stored). Dividers are 24 px wide on touch devices.
 * **Cursor** in red, synchronous across charts, map, videos and values. X axis distance or time. Pinch = zoom
   (horizontal X, vertical Y), two-finger drag = pan, double tap = reset, zoom synchronised across panels.
 * **Play bar**: play/pause, 5 s back, speed 0.25 to 2× (videos up to 2×, above that clock-driven), live gaps per lap.
@@ -439,6 +446,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.12 | 2026-09-18 | Component sheet lists views only, one channel picker for chart, gap overlay and strips; maximise button per panel; wider dividers on touch devices |
 | 2.1.11 | 2026-09-18 | Channel strips panel: stacked channels over one distance/time axis with corner band, shared zoom and cursor, channel chooser |
 | 2.1.10 | 2026-09-18 | Diagnostics log for the whole app (device XML requests, control protocol, FTP downloads, imports, unhandled errors) under Settings → About and in the control page, with copy and "Send to support" |
 | 2.1.9 | 2026-09-18 | Race Navigator page: device data instead of IP addresses while connected (address controls behind "Change device", shown again on failure); laps on the device grouped by event, newest first, per-event selection |

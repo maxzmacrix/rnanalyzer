@@ -75,7 +75,7 @@ export function mount(main) {
 export function unmount() {
   unsub.forEach((u) => u()); unsub = [];
   for (const p of Object.values(panels)) destroyPanelContent(p);
-  panels = {};
+  panels = {}; maxPanelKey = null;
   player.pause();
   player.clearVideos();
   for (const v of videoObjs.values()) { try { v.el.pause(); v.el.removeAttribute('src'); v.el.load(); } catch { /* ignore */ } URL.revokeObjectURL(v.url); }
@@ -233,8 +233,21 @@ function updateVideoHud() {
 function createPanel(key) {
   const body = h('div.panel-body');
   const titleChip = h('button.chip', { on: { click: () => openComponentSheet(key) } }, '…');
-  const el = h('div.panel', body, h('div.panel-title', titleChip));
-  return { key, el, body, titleChip, kind: null, chart: null, map: null, table: null, compId: null, comp2Id: null };
+  // one panel can take the whole screen: videos, the other panels and the dividers step aside until the button is tapped again
+  const maxBtn = h('button.chip.icon.max', { title: t('panel_maximize'), 'aria-label': t('panel_maximize'), html: icons.expand, on: { click: () => toggleMaxPanel(key) } });
+  const el = h('div.panel', body, h('div.panel-title', titleChip, maxBtn));
+  return { key, el, body, titleChip, maxBtn, kind: null, chart: null, map: null, table: null, compId: null, comp2Id: null };
+}
+let maxPanelKey = null;
+function toggleMaxPanel(key) {
+  maxPanelKey = maxPanelKey === key ? null : key;
+  root.classList.toggle('panel-max', !!maxPanelKey);
+  for (const [k, p] of Object.entries(panels)) {
+    p.el.classList.toggle('hidden', !!maxPanelKey && k !== maxPanelKey);
+    p.maxBtn.innerHTML = maxPanelKey === k ? icons.shrink : icons.expand;
+    p.maxBtn.title = p.maxBtn.ariaLabel = maxPanelKey === k ? t('panel_restore') : t('panel_maximize');
+  }
+  requestAnimationFrame(() => { for (const p of Object.values(panels)) { if (p.chart) p.chart.resize(); if (p.map) p.map.requestDraw(); if (p.scatter) p.scatter.draw(); } });
 }
 function destroyPanelContent(p) {
   if (p.chart) { p.chart.destroy(); p.chart = null; }
@@ -360,7 +373,7 @@ function configurePanel(p) {
   const info = chanInfo(comp) || { label: comp };
   const info2 = p.comp2Id ? chanInfo(p.comp2Id) : null;
   p.titleChip.textContent = info2 ? `${info.label} + ${info2.label}` : info.label;
-  requestAnimationFrame(() => { if (p.chart) p.chart.setReserveRight(p.titleChip.offsetWidth + 20); });
+  requestAnimationFrame(() => { if (p.chart) p.chart.setReserveRight(p.titleChip.parentElement.offsetWidth + 20); });
   renderPanel(p);
 }
 
@@ -452,22 +465,65 @@ function renderStrips(p) {
   });
   p.chart.setCursor(state.cursor);
 }
-/** Sheet with checkboxes for the channels of the strip panel; the order is the channel order of the app. */
-function openStripChannels() {
-  const available = ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg', 'gyrY', 'gyrP', 'gyrR', ...['rpm', 'thr', 'wt', 'ot', 'os', 'hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]))];
+/** Channels the selected laps offer, grouped for the picker: basic, gyroscope, OBD, health, custom CAN. */
+function channelGroups() {
+  const has = (id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]);
+  const groups = [
+    { label: t('group_basic'), ids: ['speed', 'glon', 'glat', 'gvert', 'gcomb', 'dev', 'alt', 'hdg'] },
+    { label: t('group_gyro'), ids: ['gyrY', 'gyrP', 'gyrR'] },
+    { label: t('group_obd'), ids: ['rpm', 'thr', 'wt', 'ot', 'os'].filter(has) },
+    { label: t('group_health'), ids: ['hr'].filter(has) },
+  ];
   const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add('custom:' + c.name);
-  available.push(...custom);
-  const chosen = new Set(stripChannels());
-  const rows = available.map((id) => {
-    const info = chanInfo(id);
-    const cb = h('div.check', { class: chosen.has(id) ? 'on' : '', html: chosen.has(id) ? icons.check : '' });
-    return h('div.item', { on: { click: () => { if (chosen.has(id)) chosen.delete(id); else chosen.add(id); cb.classList.toggle('on', chosen.has(id)); cb.innerHTML = chosen.has(id) ? icons.check : ''; } } }, h('span.lbl', `${info.label}${info.unit ? ' [' + info.unit + ']' : ''}`), cb);
-  });
-  const s = sheet(t('ch_strips'), [
-    h('div.small.muted', { style: { padding: '6px 16px' } }, t('strips_hint')),
-    ...rows,
-    h('div', { style: { padding: '10px 16px' } }, h('button.btn.accent.block', { on: { click: async () => { await updateSettings({ stripChannels: available.filter((id) => chosen.has(id)) }); s.close(); } } }, t('done'))),
-  ]);
+  groups.push({ label: 'CAN', ids: [...custom] });
+  return groups.filter((g) => g.ids.length);
+}
+function chanTitle(id) { const info = chanInfo(id); return info ? `${info.label}${info.unit ? ' [' + info.unit + ']' : ''}` : id; }
+/**
+ * The one place where channels are chosen. mode 'chart': tap = main curve, checkbox = second curve (panel `key`);
+ * 'second': the extra curve over the gap chart; 'strips': the channels of the strip panel (multi-select, Done).
+ */
+function openChannelPicker(key, mode) {
+  const container = h('div');
+  let s = null;
+  const cur = panelSetting(key);
+  const chosen = new Set(mode === 'strips' ? stripChannels() : []);
+  const build = () => {
+    clear(container);
+    if (mode === 'chart') container.appendChild(h('div.small.muted', { style: { padding: '6px 16px' } }, t('picker_hint_chart')));
+    if (mode === 'strips') container.appendChild(h('div.small.muted', { style: { padding: '6px 16px' } }, t('strips_hint')));
+    if (mode === 'second') {
+      const none = !cur.comp2;
+      container.appendChild(h('div.item', { class: none ? 'selected' : '', on: { click: async () => { await updateSettings({ [`panel${key}2`]: null }); s.close(); } } }, h('span.lbl', t('second_curve_none'))));
+    }
+    for (const g of channelGroups()) {
+      container.appendChild(h('div.group', g.label));
+      for (const id of g.ids) {
+        if (mode === 'strips') {
+          const cb = h('div.check', { class: chosen.has(id) ? 'on' : '', html: chosen.has(id) ? icons.check : '' });
+          container.appendChild(h('div.item', { on: { click: () => { if (chosen.has(id)) chosen.delete(id); else chosen.add(id); cb.classList.toggle('on', chosen.has(id)); cb.innerHTML = chosen.has(id) ? icons.check : ''; } } }, h('span.lbl', chanTitle(id)), cb));
+        } else if (mode === 'second') {
+          container.appendChild(h('div.item', { class: cur.comp2 === id ? 'selected' : '', on: { click: async () => { await updateSettings({ [`panel${key}2`]: cur.comp2 === id ? null : id }); s.close(); } } }, h('span.lbl', chanTitle(id))));
+        } else {
+          const isPrimary = cur.comp === id, isSecondary = cur.comp2 === id;
+          const cb = h('div.check', { class: `${isSecondary ? 'on' : ''} ${isPrimary ? 'disabled' : ''}`, html: isSecondary ? icons.check : '' });
+          cb.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (isPrimary) return;
+            await updateSettings({ [`panel${key}2`]: isSecondary ? null : id });
+            Object.assign(cur, panelSetting(key)); build(); // the sheet stays open: a checkbox is a quick toggle
+          });
+          container.appendChild(h('div.item', { class: isPrimary ? 'selected' : '', on: { click: async () => { await updateSettings({ [`panel${key}`]: id, [`panel${key}2`]: cur.comp2 === id ? null : cur.comp2 }); s.close(); } } }, h('span.lbl', chanTitle(id)), cb));
+        }
+      }
+    }
+    if (mode === 'strips') {
+      const all = channelGroups().flatMap((g) => g.ids);
+      container.appendChild(h('div', { style: { padding: '10px 16px' } }, h('button.btn.accent.block', { on: { click: async () => { await updateSettings({ stripChannels: all.filter((id) => chosen.has(id)) }); s.close(); } } }, t('done'))));
+    }
+  };
+  build();
+  s = sheet(mode === 'strips' ? t('ch_strips') : mode === 'second' ? t('second_curve') : t('pick_channel'), [container]);
 }
 
 // ------------------------------------------------------------------ corner coach
@@ -822,59 +878,34 @@ function updatePos() {
 
 // ------------------------------------------------------------------ component sheet
 function openComponentSheet(key) {
-  const container = h('div');
-  let moreOpen = false, s = null;
-  const build = () => {
-  clear(container);
   const cur = panelSetting(key);
-  const items = [];
-  const numRow = (id) => {
-    const info = chanInfo(id);
-    if (!info) return null;
-    const isPrimary = cur.comp === id;
-    const isSecondary = cur.comp2 === id;
-    const cb = h('div.check', { class: `${isSecondary ? 'on' : ''} ${isPrimary ? 'disabled' : ''}`, html: isSecondary ? icons.check : '' });
-    cb.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (isPrimary) return;
-      await updateSettings({ [`panel${key}2`]: isSecondary ? null : id });
-      build(); // the sheet stays open: a checkbox is a quick toggle, not a decision that ends the dialog
-    });
-    return h('div.item', { class: isPrimary ? 'selected' : '', on: { click: async () => { await updateSettings({ [`panel${key}`]: id, [`panel${key}2`]: cur.comp2 === id ? null : cur.comp2 }); s.close(); } } },
-      h('span.lbl', `${info.label}${info.unit ? ' [' + info.unit + ']' : ''}`), cb);
+  const chartKind = kindOf(cur.comp) === 'number';
+  let s = null;
+  // a row is a view; the three channel-based views carry a "Channels…" chip that opens the channel picker
+  const row = (label, sub, selected, onPick, pickerMode) => {
+    const chip = pickerMode ? h('button.chip.small', { on: { click: (e) => { e.stopPropagation(); s.close(); onPick(true).then(() => openChannelPicker(key, pickerMode)); } } }, t('channels_btn')) : null;
+    return h('div.item', { class: selected ? 'selected' : '', on: { click: async () => { await onPick(false); s.close(); } } },
+      h('div.lbl', h('div', label), sub ? h('div.small.muted.sub', sub) : null), chip);
   };
-  const viewRow = (id) => h('div.item', { class: cur.comp === id ? 'selected' : '', on: { click: async () => { await updateSettings({ [`panel${key}`]: id, [`panel${key}2`]: null }); s.close(); } } }, h('span.lbl', t(CHANNELS[id].label)));
-
-  // what a driver looks for first
-  items.push(viewRow('timeslip'));
-  items.push(viewRow('coach'));
-  items.push(viewRow('highlights'));
-  for (const id of ['speed', 'glon', 'glat']) items.push(numRow(id));
-  items.push(viewRow('map'));
-  items.push(viewRow('gforce'));
-  items.push(viewRow('strips'));
-  if (cur.comp === 'strips') items.push(h('div.item', { on: { click: () => { s.close(); openStripChannels(); } } }, h('div.lbl', t('strips_channels')), h('span', { html: icons.fwd, style: { display: 'inline-flex' } })));
-  const health = ['hr'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
-  for (const id of health) items.push(numRow(id));
-  // everything else behind one row
-  const more = h('div.more-wrap', { class: moreOpen ? '' : 'hidden' });
-  more.appendChild(h('div.small.muted', { style: { padding: '6px 16px' } }, t('secondary_hint')));
-  more.appendChild(h('div.group', t('group_views')));
-  for (const id of ['sections', 'detail', 'overview']) more.appendChild(viewRow(id));
-  more.appendChild(h('div.group', t('group_basic')));
-  for (const id of ['gvert', 'gcomb', 'dev', 'alt', 'hdg']) more.appendChild(numRow(id));
-  more.appendChild(h('div.group', t('group_gyro')));
-  for (const id of ['gyrY', 'gyrP', 'gyrR']) more.appendChild(numRow(id));
-  const obd = ['rpm', 'thr', 'wt', 'ot', 'os'].filter((id) => data.some((d) => d.lap.channels[CHANNELS[id].avail]));
-  if (obd.length) { more.appendChild(h('div.group', t('group_obd'))); for (const id of obd) more.appendChild(numRow(id)); }
-  const custom = new Set(); for (const d of data) for (const c of d.lap.channels.custom || []) custom.add(c.name);
-  if (custom.size) { more.appendChild(h('div.group', 'CAN')); for (const name of custom) more.appendChild(numRow('custom:' + name)); }
-  const moreRow = h('div.item.more-row', { on: { click: () => { const hidden = more.classList.toggle('hidden'); moreOpen = !hidden; moreRow.querySelector('.lbl').textContent = hidden ? t('more_channels') : t('fewer_channels'); } } }, h('span.lbl', moreOpen ? t('fewer_channels') : t('more_channels')), h('span', { html: icons.chev, style: { display: 'inline-flex' } }));
-  items.push(moreRow, more);
-  container.append(...items);
-  };
-  build();
-  s = sheet(t('select_component'), [container]);
+  const set = (comp, comp2 = null) => updateSettings({ [`panel${key}`]: comp, [`panel${key}2`]: comp2 });
+  const view = (id) => row(t(CHANNELS[id].label), null, cur.comp === id, () => set(id));
+  const items = [
+    // what a driver looks for first
+    row(t('ch_timeslip'), cur.comp2 && cur.comp === 'timeslip' ? `+ ${chanInfo(cur.comp2).label}` : t('second_curve_none'), cur.comp === 'timeslip',
+      (keepSecond) => set('timeslip', cur.comp === 'timeslip' || keepSecond ? cur.comp2 : (state.settings.panelA2 && kindOf(state.settings.panelA2) === 'number' ? state.settings.panelA2 : 'speed')), 'second'),
+    view('coach'),
+    view('highlights'),
+    row(t('ch_chart'), chartKind ? `${chanInfo(cur.comp).label}${cur.comp2 ? ' + ' + chanInfo(cur.comp2).label : ''}` : t('ch_speed'), chartKind,
+      () => (chartKind ? Promise.resolve() : set('speed')), 'chart'),
+    row(t('ch_strips'), stripChannels().map((id) => chanInfo(id).label).join(' · ') || t('select_laps_first'), cur.comp === 'strips', () => set('strips'), 'strips'),
+    view('map'),
+    view('gforce'),
+    h('div.group', t('group_more_views')),
+    view('sections'),
+    view('detail'),
+    view('overview'),
+  ];
+  s = sheet(t('select_component'), items);
 }
 
 // ------------------------------------------------------------------ options sheet

@@ -114,7 +114,9 @@ card with "Search again" (Bonjour `_racenav._tcp`) and "Enter address".
   driver and vehicle (select, create, rename), change track (search, names cached), event type and new event, video
   quality and layout, status card every 4 s (GPS, battery, storage, remaining time, set time, warnings), camera preview
   (MJPEG, switch camera, rotate), actions (clean up laps, AP password, power off).
-* Protocol log: the last requests to the device and its answers, copyable, for support when a command misbehaves.
+* Protocol log: the last requests to the device and its answers; "Send to support" opens the system share sheet with the
+  log as a text file (header: app version, platform, device name, firmware, status), falling back to a prefilled mail
+  to info@rn-vision.com. Nothing is sent automatically.
 * Not implemented yet: pit-lane definition, export to memory stick (requests prepared in the client), RN software
   update (needs an SSH plugin).
 
@@ -424,7 +426,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
-| 2.1.8 | 2026-09-18 | First test against a real device (Android, RN PRO 1.60): fix for data downloads (the assembled measurements XML did not self-close its sample elements, so every .rnz failed to parse); recording off is sent as 2 instead of 0; driver and vehicle change try several parameter layouts; new protocol log in the control page for support |
+| 2.1.8 | 2026-09-18 | First test against a real device (Android, RN PRO 1.60): fix for data downloads (the assembled measurements XML did not self-close its sample elements, so every .rnz failed to parse); recording off is sent as 2 instead of 0; driver and vehicle change try several parameter layouts; new protocol log in the control page with "Send to support" (share sheet or mail to info@rn-vision.com) |
 | 2.1.7 | 2026-09-18 | Landscape phone layout (video rail left, side tab rail) applies only on touch devices with a coarse pointer; a zoomed desktop window with a mouse keeps the stacked layout at any zoom level |
 | 2.1.6 | 2026-09-18 | Fix: with the floating tab bar, mouse clicks on the tabs did not switch the view in the browser (pointer capture swallowed the click); the bar now switches on release for taps and slides alike |
 | 2.1.5 | 2026-09-18 | "Reset settings" in Settings: all settings back to defaults after confirmation, data untouched |

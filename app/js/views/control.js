@@ -5,6 +5,8 @@ import { state, on, updateSettings } from '../state.js';
 import { t, fmtBytes } from '../i18n.js';
 import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, confirmDialog, promptDialog, segmented, switchEl, initials } from '../ui.js';
 import { isNative, nativeInfo, deviceHost } from '../deviceNative.js';
+import { shareFiles, canShareFiles } from '../share.js';
+import { APP_VERSION } from '../main.js';
 import { DeviceControl, REQ, PARAM, RECORDING_MODE, VIDEO_QUALITY, EVENT_TYPES, DEVICE_STATUS_FLAGS, protocolLogText } from '../deviceControl.js';
 
 let root, ctrl = null, unsubStatus = null, unsub = [], info = null, busy = false;
@@ -164,6 +166,24 @@ function toggleRecording() {
   run(() => ctrl.setRecording(!rec), rec ? t('stopping') : t('starting'));
 }
 
+const SUPPORT_MAIL = 'info@rn-vision.com';
+/** Header for support: app version, platform, device identity and firmware as far as known. */
+function supportHeader() {
+  const st = ctrl && ctrl.status;
+  return [`RN Analyzer ${APP_VERSION} · ${isNative() ? 'app' : 'web'} · ${navigator.userAgent}`,
+    `Device: ${(info && info.deviceName) || '-'} · ${(info && info.deviceType) || '-'} · firmware ${(info && info.version) || '-'} · ${ctrl ? ctrl.host : '-'}`,
+    st ? `Status: recording ${st.cameraRecording || st.dataRecording ? 'on' : 'off'} · mode ${st.recordingMode} · driver ${st.driverId} · vehicle ${st.vehicleId}` : 'Status: -',
+    `Time: ${new Date().toISOString()}`, ''].join('\n');
+}
+async function sendToSupport(text) {
+  const body = supportHeader() + text;
+  const subject = `RN Analyzer ${APP_VERSION} – protocol log`;
+  if (canShareFiles()) {
+    try { const r = await shareFiles([new File([body], 'rn-analyzer-log.txt', { type: 'text/plain' })], subject); if (r === 'shared') return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  // mailto: keeps the body short – mail clients cap the URL length
+  location.href = `mailto:${SUPPORT_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 1800))}`;
+}
 function showProtocolLog() {
   const text = protocolLogText() || t('protocol_log_empty');
   const pre = h('pre', { style: { margin: 0, padding: '8px 16px', fontSize: '11px', lineHeight: '1.4', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: '55vh', overflow: 'auto', userSelect: 'text' } }, text);
@@ -171,7 +191,8 @@ function showProtocolLog() {
     h('div.small.muted', { style: { padding: '6px 16px' } }, t('protocol_log_hint')),
     pre,
     h('div.row', { style: { padding: '8px 16px 16px', justifyContent: 'flex-end', gap: '8px' } },
-      h('button.btn', { on: { click: async () => { try { await navigator.clipboard.writeText(text); toast(t('copied'), 1500); } catch { const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast(t('copy_manually'), 3000); } } } }, t('copy'))),
+      h('button.btn.ghost', { on: { click: async () => { try { await navigator.clipboard.writeText(supportHeader() + text); toast(t('copied'), 1500); } catch { const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast(t('copy_manually'), 3000); } } } }, t('copy')),
+      h('button.btn', { on: { click: () => sendToSupport(text) } }, t('send_support'))),
   ]);
 }
 

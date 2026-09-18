@@ -1,7 +1,8 @@
 """Build the demo data set for the guided tour (app/demo/).
 
-Takes three Guadix laps from "Example files", anonymises the driver (name → DRIVER A, photo removed),
-renames the video references and cuts 20-second low-resolution clips with ffmpeg.
+Takes two Guadix laps from "Example files", anonymises the driver (name → DRIVER A, photo removed),
+renames the video references and re-encodes the complete lap videos as low-resolution clips with ffmpeg
+(640 px wide, mono audio; about 4 MB per 1½-minute lap). CLIP_S limits the clip length when set.
 
     python tools/make-demo.py
 """
@@ -10,7 +11,7 @@ import os, re, zipfile, subprocess, json, shutil, datetime
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'Example files')
 OUT = os.path.join(ROOT, 'app', 'demo')
-CLIP_S = 20
+CLIP_S = None  # seconds; None = the whole lap video
 LAPS = [
     # (rnz, source video or None, demo base name)
     ('20171219_102903432_RNONE-228_LAP_6_1min26sec.rnz', '20171219_102248243_RNONE-228_Lap_6_1min26sec.mp4', 'demo-lap6'),
@@ -42,12 +43,12 @@ for rnz, video, base in LAPS:
         vstart = re.search(r'<startTime>([^<]*)</startTime>', m.group(1)).group(1)
         body = m.group(1)
         body = re.sub(r'<fileName>[^<]*</fileName>', f'<fileName>{clip}</fileName>', body)
-        body = re.sub(r'<endTime>[^<]*</endTime>', f'<endTime>{shift(vstart, CLIP_S)}</endTime>', body)
+        if CLIP_S: body = re.sub(r'<endTime>[^<]*</endTime>', f'<endTime>{shift(vstart, CLIP_S)}</endTime>', body)
         x = x[:m.start()] + f'<video locationType="0" uri="{clip}">' + body + '</video>' + x[m.end():]
         comment = re.sub(r'^VideoLocationType_0=.*$', f'VideoLocationType_0={clip}', comment, flags=re.M)
-        # 20 s from the start of the recording (its startTime stays valid), 640 px wide, small
-        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', os.path.join(SRC, video), '-t', str(CLIP_S),
-                        '-vf', 'scale=640:-2', '-c:v', 'libx264', '-crf', '28', '-preset', 'slow', '-pix_fmt', 'yuv420p',
+        # from the start of the recording (its startTime stays valid), 640 px wide, small
+        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', os.path.join(SRC, video)] + (['-t', str(CLIP_S)] if CLIP_S else []) +
+                       ['-vf', 'scale=640:-2', '-c:v', 'libx264', '-crf', '28', '-preset', 'slow', '-pix_fmt', 'yuv420p',
                         '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-movflags', '+faststart', os.path.join(OUT, clip)], check=True)
         index['videos'].append(clip)
     else:

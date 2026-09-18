@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.22 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.23 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -461,6 +461,7 @@ material. Whoever shares the software shares this repository plus the store and 
 |---|---|---|
 | 2.1.21 | 2026-09-18 | App icons optically centred (mark shifted 1.2 % left on every platform); Settings closes with the logo, version and company line |
 | 2.1.22 | 2026-09-18 | Samples sorted by measurement time on import and on device download (device rows arrive in storage order; straight lines across the map and spikes in the charts were the symptom); PostgreSQL fallback orders by time; diagnostics log the count of reordered rows |
+| 2.1.23 | 2026-09-18 | Web page description names Android; `tools/make-demo.py` prepared to ship the complete lap videos for the tour (regeneration needs the source videos) |
 | 2.1.20 | 2026-09-18 | Android build fix: the share sheet uses the app template's FileProvider instead of declaring a second one (manifest merge conflict in 2.1.19, whose Android build failed) |
 | 2.1.19 | 2026-09-18 | Android: native share sheet for diagnostics, lap data and videos through the plugin (the WebView has no Web Share API, the mail fallback cut the log at 1800 characters); device timeouts are logged as such |
 | 2.1.18 | 2026-09-18 | Satellite imagery is the default map style; existing installs on the old default follow (settings migration 4) |

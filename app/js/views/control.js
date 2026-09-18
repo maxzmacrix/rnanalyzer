@@ -5,7 +5,7 @@ import { state, on, updateSettings } from '../state.js';
 import { t, fmtBytes } from '../i18n.js';
 import { h, clear, icons, setTitle, setTopButtons, tbtn, toast, sheet, confirmDialog, promptDialog, segmented, switchEl, initials } from '../ui.js';
 import { isNative, nativeInfo, deviceHost } from '../deviceNative.js';
-import { DeviceControl, REQ, PARAM, RECORDING_MODE, VIDEO_QUALITY, EVENT_TYPES, DEVICE_STATUS_FLAGS } from '../deviceControl.js';
+import { DeviceControl, REQ, PARAM, RECORDING_MODE, VIDEO_QUALITY, EVENT_TYPES, DEVICE_STATUS_FLAGS, protocolLogText } from '../deviceControl.js';
 
 let root, ctrl = null, unsubStatus = null, unsub = [], info = null, busy = false;
 let drivers = [], vehicles = [], variantNames = new Map();
@@ -76,6 +76,7 @@ function buildLayout() {
     row('trash', t('cleanup_laps'), h('div', t('cleanup_laps_sub')), () => cleanup()),
     row('edit', t('wifi_password'), h('div', t('wifi_password_sub')), () => wifiPassword()),
     row('close', t('shutdown'), h('div', t('shutdown_sub')), () => shutdown()),
+    row('edit', t('protocol_log'), h('div', t('protocol_log_sub')), () => showProtocolLog()),
   );
   root.append(head, recCard, statusCard, setupCard, actionsCard);
 }
@@ -161,6 +162,17 @@ function toggleRecording() {
   if (!st) return;
   const rec = st.cameraRecording || st.dataRecording;
   run(() => ctrl.setRecording(!rec), rec ? t('stopping') : t('starting'));
+}
+
+function showProtocolLog() {
+  const text = protocolLogText() || t('protocol_log_empty');
+  const pre = h('pre', { style: { margin: 0, padding: '8px 16px', fontSize: '11px', lineHeight: '1.4', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: '55vh', overflow: 'auto', userSelect: 'text' } }, text);
+  const s = sheet(t('protocol_log'), [
+    h('div.small.muted', { style: { padding: '6px 16px' } }, t('protocol_log_hint')),
+    pre,
+    h('div.row', { style: { padding: '8px 16px 16px', justifyContent: 'flex-end', gap: '8px' } },
+      h('button.btn', { on: { click: async () => { try { await navigator.clipboard.writeText(text); toast(t('copied'), 1500); } catch { const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast(t('copy_manually'), 3000); } } } }, t('copy'))),
+  ]);
 }
 
 function pickDriver() {

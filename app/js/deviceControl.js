@@ -39,15 +39,26 @@ function serverDate(d = new Date()) {
   const p = (n, l = 2) => String(n).padStart(l, '0');
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}${p(d.getMilliseconds(), 3)}`;
 }
+/** The last requests and device answers, for diagnosing the protocol against a real device (Control → Protocol log). */
+export const protocolLog = [];
+const LOG_MAX = 60;
+function logEntry(url, status, body) {
+  const path = url.replace(/^https?:\/\/[^/]+\/resources\//, '');
+  protocolLog.push({ t: new Date().toISOString().slice(11, 23), path, status, body: String(body ?? '').replace(/\s+/g, ' ').slice(0, 400) });
+  if (protocolLog.length > LOG_MAX) protocolLog.splice(0, protocolLog.length - LOG_MAX);
+}
+export function protocolLogText() { return protocolLog.map((e) => `${e.t} ${e.status} ${e.path}\n    ${e.body}`).join('\n'); }
 async function getJson(url, timeoutMs = 10000) {
   const ctrl = new AbortController();
   const tm = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
+    const text = await res.text().catch(() => '');
+    if (!/currentstatus$/.test(url)) logEntry(url, res.status, text);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
     try { return JSON.parse(text); } catch { return xmlToObj(text); }
-  } finally { clearTimeout(tm); }
+  } catch (e) { if (!/currentstatus$/.test(url) && !(e.message || '').startsWith('HTTP ')) logEntry(url, 'ERR', e.message || e); throw e; }
+  finally { clearTimeout(tm); }
 }
 // Fallback when the device answers XML: flatten first-level children to an object (lists → arrays)
 function xmlToObj(text) {
@@ -125,14 +136,25 @@ export class DeviceControl {
     throw new Error('Timeout waiting for the device' + (last ? ` (status ${last.status})` : ''));
   }
 
+  /** Try several parameter layouts until the device accepts one (a "not found" answer is harmless). */
+  async actionVariants(type, variants) {
+    let lastErr = null;
+    for (const v of variants) {
+      try { return await this.action(type, v); }
+      catch (e) { lastErr = e; if (!/not found|invalid|unknown|rejected/i.test(e.message || '')) throw e; }
+    }
+    throw lastErr;
+  }
   // ---- convenience wrappers (parameter layout as in RN Connect) ----
-  setRecording(on) { return this.action(REQ.SetRecordingState, { int1: on ? 1 : 0 }); }
+  // Recording off: the device treats 0 as "invalid" (MTRNRecordingStateType.Invalid); its on/off style parameters
+  // elsewhere use 1 = on/open and 2 = off/close (camera preview), so stop is sent as 2.
+  setRecording(on) { return this.action(REQ.SetRecordingState, { int1: on ? 1 : 2 }); }
   setRecordingMode(mode) { return this.action(REQ.SetTypeOfRecording, { int1: mode }); }
   setTimeFromPhone() { const d = new Date(); return this.action(REQ.SetupTime, { int1: -d.getTimezoneOffset() * 60, str1: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', dt1: d, dt2: d }); }
   changeEventType(type) { return this.action(REQ.ChangeEventType, { int1: type }); }
   startNewEvent() { return this.action(REQ.ManageEvents, { int1: PARAM.Create }); }
-  selectDriver(id) { return this.action(REQ.ChangeDriver, { int1: id, int2: id }); }
-  selectVehicle(id) { return this.action(REQ.ChangeVehicle, { int1: id, int2: id }); }
+  selectDriver(id) { return this.actionVariants(REQ.ChangeDriver, [{ int1: id, int2: id }, { int1: -1, int2: id }, { int1: id, str1: String(id) }, { str1: String(id) }]); }
+  selectVehicle(id) { return this.actionVariants(REQ.ChangeVehicle, [{ int1: id, int2: id }, { int1: -1, int2: id }, { int1: id, str1: String(id) }, { str1: String(id) }]); }
   modifyDriver(param, id, name) { return this.action(REQ.ModifyDriver, { int1: param, int2: id, str1: name }); }
   modifyVehicle(param, id, model, number) { return this.action(REQ.ModifyVehicle, { int1: param, int2: id, int3: number, str1: model }); }
   setTrackVariant(variantId) { return this.action(REQ.SetTrackVariant, { str1: variantId }); }

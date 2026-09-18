@@ -41,13 +41,14 @@ export function initTabbar() {
     if (!downTab) return;
     bar.classList.remove('pressing');
     const target = cancelled ? null : (tabAt(e.clientX) || hoverTab);
-    const wasDrag = dragged;
     downTab = null; hoverTab = null; dragged = false;
-    if (wasDrag) {
-      suppressClick = true; // the browser would still fire a click on the tab the finger started on
-      if (target) location.hash = target.getAttribute('href');
-      else sync();
-    }
+    // With pointer capture on the bar the browser delivers the follow-up click to the bar, not to the link (mouse and
+    // pen do this; touch may still click the link). So the bar switches the tab itself on release, for taps and
+    // slides alike, and swallows the click that may follow.
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 400);
+    if (target) { const href = target.getAttribute('href'); if (location.hash !== href) location.hash = href; else sync(); }
+    else sync();
   };
   bar.addEventListener('pointerup', (e) => finish(e, false));
   bar.addEventListener('pointercancel', (e) => finish(e, true));

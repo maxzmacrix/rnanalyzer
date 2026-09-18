@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.5 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.6 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -244,7 +244,7 @@ single Capacitor plugin `RnDevice` that the app registers at runtime.
 | `app/js/share.js` | Web Share API with files, download fallback |
 | `app/js/i18n.js` | Dictionaries DE/EN, `t()`, language detection, date/byte formatting |
 | `app/js/ui.js` | DOM helper `h()`, icons, header, toast, sheet, confirm and prompt dialogs, switch, segmented control |
-| `app/js/tabbar.js` | Tab bar with press-and-slide and highlight pill |
+| `app/js/tabbar.js` | Tab bar with press-and-slide and highlight pill; switches the view on pointer release itself (pointer capture keeps the click from reaching the link) |
 | `app/js/tour.js` | Load/remove demo data, guided tour |
 | `app/js/update.js` | Android update check against the newest GitHub release |
 | `app/js/weather.js` | Session weather from Open-Meteo, WMO codes, wind direction, wet/dry classification `isWet`, cache |
@@ -423,6 +423,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.6 | 2026-09-18 | Fix: with the floating tab bar, mouse clicks on the tabs did not switch the view in the browser (pointer capture swallowed the click); the bar now switches on release for taps and slides alike |
 | 2.1.5 | 2026-09-18 | "Reset settings" in Settings: all settings back to defaults after confirmation, data untouched |
 | 2.1.4 | 2026-09-18 | Coach uses OBD/CAN when both laps have it: throttle point, full-throttle point, coasting, throttle lifts, gear at the apex, shift rpm |
 | 2.1.3 | 2026-09-18 | Import button shows an arrow into the tray (files come in), not the upload arrow |

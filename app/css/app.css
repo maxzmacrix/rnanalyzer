@@ -157,7 +157,7 @@ canvas { display: block; touch-action: none; }
 .tabbar a.active { color: var(--accent); }
 
 /* wide screens: sidebar */
-@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) {
+@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) and (pointer: coarse) {
   #app { flex-direction: row; }
   .tabbar { order: 0; flex-direction: column; height: auto; width: 84px; justify-content: flex-start; padding-top: calc(var(--sat) + 8px); border-top: 0; border-right: 1px solid var(--panel-border); }
   .tabbar a { flex: 0 0 64px; }
@@ -319,8 +319,8 @@ table.data td.label { text-align: left; }
 .legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
 
 /* ---------- landscape phone: video left, panels right ---------- */
-@media (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) {
-  /* phone landscape (clearly wider than tall – a zoomed, squarish desktop window stays in the stacked layout):
+@media (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) and (pointer: coarse) {
+  /* phone landscape: touch device, clearly wider than tall (a zoomed desktop window with a mouse never matches):
      videos left (42 %) stacked on top of each other, charts right – a grid so the play bar cannot steal width */
   .analyzer.has-video .videos:not(.max) { grid-template-columns: 1fr; }
   .analyzer.has-video { display: grid; grid-template-columns: 42% minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
@@ -479,7 +479,7 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .more-row .lbl { color: var(--text-dim); }
 .more-wrap.hidden { display: none; }
 .tour-offer .btn.block { max-width: 320px; }
-@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) {
+@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) and (min-aspect-ratio: 4/3) and (pointer: coarse) {
   .tabbar { padding-left: var(--sal); }
 }
 

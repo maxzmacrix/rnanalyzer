@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.6 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-18 · **App version:** 2.1.7 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -31,7 +31,7 @@ RN Analyzer 2.0 replaces the iPad app maintained from 2013 to 2020 (Objective-C)
 | **Zero dependencies, no build step** | `app/` can be served as is. No frameworks, no bundler, no npm package at runtime. Capacitor is needed only for the native shells. |
 | **Answer first** | Every view starts with the result (gap, time lost, tip); details are one tap away. Plain words instead of jargon. |
 | **One way, not three** | One analysis screen, one comparison gesture, one connection state to the device. Options are removed when a default can replace them. |
-| **Usable with gloves on** | Tap targets at least 40 px, play bar in the thumb zone, landscape with a side rail, system theme (light by day). |
+| **Usable with gloves on** | Tap targets at least 40 px, play bar in the thumb zone, landscape with a side rail on touch devices, system theme (light by day). |
 | **Deterministic before generative** | The coach computes traceably from measured data. A language model at most rephrases the computed facts and invents none. |
 
 ### Non-goals
@@ -423,6 +423,7 @@ material. Whoever shares the software shares this repository plus the store and 
 
 | Version | Date | Contents |
 |---|---|---|
+| 2.1.7 | 2026-09-18 | Landscape phone layout (video rail left, side tab rail) applies only on touch devices with a coarse pointer; a zoomed desktop window with a mouse keeps the stacked layout at any zoom level |
 | 2.1.6 | 2026-09-18 | Fix: with the floating tab bar, mouse clicks on the tabs did not switch the view in the browser (pointer capture swallowed the click); the bar now switches on release for taps and slides alike |
 | 2.1.5 | 2026-09-18 | "Reset settings" in Settings: all settings back to defaults after confirmation, data untouched |
 | 2.1.4 | 2026-09-18 | Coach uses OBD/CAN when both laps have it: throttle point, full-throttle point, coasting, throttle lifts, gear at the apex, shift rpm |

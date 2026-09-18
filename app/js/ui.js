@@ -55,6 +55,7 @@ export const icons = {
   mute: '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9zm13.6 3 2.7-2.7-1.4-1.4L15.2 10.6l-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z"/></svg>',
   refresh: '<svg viewBox="0 0 24 24"><path d="M17.6 6.4A8 8 0 0 0 4.3 10h2.1a6 6 0 0 1 9.8-2.2L14 10h6V4zM6.4 17.6A8 8 0 0 0 19.7 14h-2.1a6 6 0 0 1-9.8 2.2L10 14H4v6z"/></svg>',
   upload: '<svg viewBox="0 0 24 24"><path d="M12 4l5 5h-3v6h-4V9H7zM4 17h16v3H4z"/></svg>',
+  import: '<svg viewBox="0 0 24 24"><path d="M12 15l-5-5h3V4h4v6h3zM4 17h16v3H4z"/></svg>', // arrow into the tray: files come in
   laps: '<svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg>',
   options: '<svg viewBox="0 0 24 24"><path d="M3 6h12v2H3zm14 0h4v2h-4zM3 11h4v2H3zm6 0h12v2H9zM3 16h10v2H3zm12 0h6v2h-6z"/></svg>',
 };

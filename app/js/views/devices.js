@@ -4,13 +4,14 @@ import { state, updateSettings } from '../state.js';
 import { t, fmtBytes } from '../i18n.js';
 import { fmtLapTime } from '../rnparser.js';
 import { h, clear, icons, setTitle, setTopButtons, tbtn, toast } from '../ui.js';
-import { normalizeBase, mixedContentBlocked, fetchDeviceInfo, fetchDeviceLaps, downloadFile } from '../device.js';
+import { normalizeBase, mixedContentBlocked, fetchDeviceInfo, fetchDeviceLaps, downloadFile, groupLapsByEvent } from '../device.js';
 import { nativeDiscover } from '../deviceNative.js';
 import { importFiles } from '../import.js';
 
 let root, deviceArea, lapsArea, queueArea;
 let base = '', info = null, deviceLaps = [], selected = new Map(); // dataFile -> {data:bool, video:bool}
 let queue = [], running = false, sortMode = 'start';
+let connCard = null, connInfo = null, collapsed = new Set(), collapsedFor = ''; // event groups folded in the device lap list
 
 export function mount(main, slots) {
   if (!slots) { setTitle(t('devices_title')); setTopButtons([], [tbtn('', () => connect(), { icon: 'refresh', title: t('connect') })]); }
@@ -42,7 +43,7 @@ export function mount(main, slots) {
     } catch (e) { toast(String(e.message || e)); }
     discoverBtn.disabled = false;
   } } }, t('discover'));
-  const connCard = h('div.card',
+  connCard = h('div.card',
     h('div.small.muted', { style: { marginBottom: '8px', lineHeight: '1.45' } }, t('device_help')),
     h('div.row', h('div.field.grow', h('label', t('device_address')), addr, datalist), discoverBtn, h('button.btn.accent', { on: { click: () => connect(addr.value) } }, t('connect'))),
     found,
@@ -50,8 +51,12 @@ export function mount(main, slots) {
   );
   deviceArea = h('div'); queueArea = h('div'); lapsArea = h('div');
   if (slots) {
-    // embedded in the Race Navigator tab: connection card on top, device info + downloads in the import section
-    slots.connection.appendChild(connCard);
+    // embedded in the Race Navigator tab: while the device answers, the connection card shows device data only – the
+    // address controls stay behind "Change device"; they come back on their own when the connection fails
+    connInfo = h('div.grow', h('div.small.muted', t('connect') + '…'));
+    const connected = h('div.card', h('div.row', connInfo, h('button.btn.ghost', { on: { click: () => connCard.classList.toggle('hidden') } }, t('change_device'))));
+    connCard.classList.toggle('hidden', !!state.settings.lastDevice);
+    slots.connection.append(connected, connCard);
     slots.laps.append(deviceArea, queueArea, lapsArea);
     root = slots.laps;
   } else {
@@ -69,7 +74,7 @@ async function connect(input) {
   base = b;
   clear(deviceArea); clear(lapsArea);
   if (mixedContentBlocked(base)) deviceArea.appendChild(h('div.card', { style: { borderColor: 'var(--red)' } }, h('div.small', t('mixed_content_warning'))));
-  deviceArea.appendChild(h('div.card', h('div.muted', `${t('connect')}… ${base}`)));
+  deviceArea.appendChild(h('div.card', h('div.muted', `${t('connect')}…`)));
   try {
     info = await fetchDeviceInfo(base);
     deviceLaps = await fetchDeviceLaps(base);
@@ -77,6 +82,8 @@ async function connect(input) {
     await updateSettings({ lastDevice: base, deviceAddresses: list });
     renderDevice(); renderLaps();
   } catch (e) {
+    if (connCard) connCard.classList.remove('hidden');
+    if (connInfo) { clear(connInfo); connInfo.appendChild(h('div.small', { style: { color: 'var(--red)' } }, t('connection_failed', { e: e.message || e }))); }
     clear(deviceArea);
     deviceArea.appendChild(h('div.card', { style: { borderColor: 'var(--red)' } }, h('div', t('connection_failed', { e: e.message || e })),
       mixedContentBlocked(base) ? h('div.small.muted', { style: { marginTop: '6px' } }, t('mixed_content_warning')) : null));
@@ -85,10 +92,15 @@ async function connect(input) {
 
 function renderDevice() {
   clear(deviceArea);
+  if (connInfo) {
+    clear(connInfo);
+    connInfo.append(h('div', { style: { fontWeight: 700 } }, `${t('connected')}: ${info.deviceName || info.deviceType || 'Race Navigator'}`),
+      h('div.small.muted', `${info.deviceType || ''}${info.version ? ' · ' + t('version') + ' ' + info.version : ''} · ${t('laps_count', { n: deviceLaps.length })}`));
+  }
   deviceArea.appendChild(h('div.card.device-card',
     h('div.logo', h('img', { src: 'icons/logo.svg', alt: 'RN' }), h('span', (info.deviceType || '').replace(/^RN\s*/i, '') || 'ONE')),
     h('div.kv',
-      h('div.k', t('device')), h('div', info.deviceName || base),
+      h('div.k', t('device')), h('div', info.deviceName || info.deviceType || '–'),
       h('div.k', t('driver')), h('div', info.driver || '–'),
       h('div.k', t('vehicle')), h('div', info.car || '–'),
       h('div.k', t('version')), h('div', `${info.version || ''} · ${deviceLaps.length} ${t('nav_laps').toLowerCase()}`)),
@@ -119,18 +131,37 @@ function renderLaps() {
   const dlBtn = h('button.btn.accent', { on: { click: startDownloads } }, t('download'));
   lapsArea.append(header, h('div.row', { style: { padding: '4px 12px 8px', gap: '8px' } }, allData, allVideo, h('div.grow'), dlBtn));
 
-  for (const l of sorted) {
+  const lapRow = (l) => {
     const st = sel(l); const imp = importedState(l);
     const best = bestByDriver.get(l.driver) === l;
     const cb = (on, disabled, onChange) => h('div.check', { class: `${on ? 'on' : ''} ${disabled ? 'disabled' : ''}`, html: on ? icons.check : '', on: { click: (e) => { e.stopPropagation(); if (disabled) return; onChange(!on); renderLaps(); } } });
-    lapsArea.appendChild(h('div.dl-row', { on: { click: () => { if (!imp.data) st.data = !st.data; else if (l.videoFile && !imp.video) st.video = !st.video; renderLaps(); } } },
+    return h('div.dl-row', { on: { click: () => { if (!imp.data) st.data = !st.data; else if (l.videoFile && !imp.video) st.video = !st.video; renderLaps(); } } },
       h('div',
         h('div.t', { style: { color: best ? 'var(--yellow)' : (l.complete ? '' : 'var(--grey)') } }, `${fmtLapTime(l.lapTimeMs)}  `, h('span.small.muted', `${t('lap_n', { n: l.lapNumber })}`)),
         h('div.s', `${l.driver || '–'} · ${l.car || ''} · ${l.event || l.track || ''} · ${(l.startTime || '').slice(0, 16)}`),
         h('div.s', `${t('data')}: ${fmtBytes(l.dataSize)}${imp.data ? ' · ' + t('already_imported') : ''}` + (l.videoFile ? ` · ${t('video')}: ${fmtBytes(l.videoSize)}${imp.video ? ' · ' + t('already_imported') : ''}` : ` · ${t('no_video')}`))),
       h('div', { style: { textAlign: 'center' } }, h('div.small.muted', t('data')), cb(st.data || imp.data, imp.data, (v) => { st.data = v; })),
       h('div', { style: { textAlign: 'center' } }, h('div.small.muted', t('video')), cb(st.video || imp.video, !l.videoFile || imp.video, (v) => { st.video = v; })),
-    ));
+    );
+  };
+  if (sortMode !== 'start') { for (const l of sorted) lapsArea.appendChild(lapRow(l)); return; }
+  // default order: grouped by event, newest first; only the newest event is open until the user unfolds another
+  const groups = groupLapsByEvent(deviceLaps);
+  if (collapsedFor !== base) { collapsed = new Set(groups.slice(1).map((g) => g.key)); collapsedFor = base; }
+  for (const g of groups) {
+    const isCollapsed = collapsed.has(g.key);
+    const pending = g.laps.filter((l) => !importedState(l).data);
+    const drivers = [...new Set(g.laps.map((l) => l.driver).filter(Boolean))];
+    const groupChip = (label, fn) => h('button.chip', { on: { click: (e) => { e.stopPropagation(); fn(); renderLaps(); } } }, label);
+    lapsArea.appendChild(h('div.event-head', { class: isCollapsed ? 'collapsed' : '', on: { click: () => { if (collapsed.has(g.key)) collapsed.delete(g.key); else collapsed.add(g.key); renderLaps(); } } },
+      h('span.chev', { html: icons.chev, style: { display: 'inline-flex' } }),
+      h('div.grow',
+        h('div.title', g.name || g.date || '–'),
+        h('div.sub', `${g.date} · ${t('laps_count', { n: g.laps.length })}${pending.length !== g.laps.length ? ' · ' + t('already_imported') + ': ' + (g.laps.length - pending.length) : ''}${drivers.length ? ' · ' + drivers.slice(0, 3).join(', ') + (drivers.length > 3 ? ' …' : '') : ''}`)),
+      groupChip(`${t('data')} ✓`, () => { const on = !pending.every((l) => sel(l).data); for (const l of pending) sel(l).data = on; }),
+      groupChip(`${t('video')} ✓`, () => { const vids = g.laps.filter((l) => l.videoFile && !importedState(l).video); const on = !vids.every((l) => sel(l).video); for (const l of vids) sel(l).video = on; })));
+    if (isCollapsed) continue;
+    for (const l of g.laps) lapsArea.appendChild(lapRow(l));
   }
 }
 function sel(l) { if (!selected.has(l.dataFile)) selected.set(l.dataFile, { data: false, video: false }); return selected.get(l.dataFile); }

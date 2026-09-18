@@ -10,6 +10,26 @@
 
 import { isNative, nativeInfo, nativeLaps, nativeDownload } from './deviceNative.js';
 
+/**
+ * Group the device's lap list by event (name + day), newest event first, laps within an event by start time.
+ * @param {Array<{event?:string, track?:string, eventStartTime?:string, startTime?:string}>} laps
+ * @returns {Array<{key:string, name:string, date:string, laps:object[]}>}
+ */
+export function groupLapsByEvent(laps) {
+  const groups = new Map();
+  for (const l of laps) {
+    const day = String(l.eventStartTime || l.startTime || '').slice(0, 10);
+    const name = l.event || l.track || '';
+    const key = `${name}|${day}`;
+    if (!groups.has(key)) groups.set(key, { key, name, date: day, laps: [] });
+    groups.get(key).laps.push(l);
+  }
+  const out = [...groups.values()];
+  for (const g of out) g.laps.sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+  out.sort((a, b) => String(b.laps[0].startTime || '').localeCompare(String(a.laps[0].startTime || '')));
+  return out;
+}
+
 export function normalizeBase(input) {
   let s = (input || '').trim();
   if (!s) return '';

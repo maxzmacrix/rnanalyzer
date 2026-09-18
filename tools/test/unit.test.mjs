@@ -242,6 +242,21 @@ test('device client: every <sm> element of the assembled .rn XML is self-closed'
   assert.ok(/"\/>\\n`;\s*$/.test(smLine), `sm element must end with "/>: ${smLine.slice(-40)}`);
 });
 
+test('device client: laps on the device are grouped by event, newest first, laps by start time', async () => {
+  globalThis.window ??= globalThis;
+  const { groupLapsByEvent } = await import('../../app/js/device.js');
+  const laps = [
+    { event: 'Trackday Poznań', eventStartTime: '2024-07-04 09:00:00.000', startTime: '2024-07-04 11:24:29.894', lapNumber: 8 },
+    { event: 'Trackday Poznań', eventStartTime: '2024-07-04 09:00:00.000', startTime: '2024-07-04 10:12:00.000', lapNumber: 3 },
+    { event: 'Test Sochi', eventStartTime: '2022-01-16 08:00:00.000', startTime: '2022-01-16 10:08:55.000', lapNumber: 4 },
+    { event: '', track: 'Default Track', startTime: '2026-09-18 13:30:00.000', lapNumber: 1 },
+  ];
+  const g = groupLapsByEvent(laps);
+  assert.deepEqual(g.map((x) => x.name), ['Default Track', 'Trackday Poznań', 'Test Sochi']);
+  assert.deepEqual(g[1].laps.map((l) => l.lapNumber), [3, 8], 'laps within an event by start time');
+  assert.equal(g[1].date, '2024-07-04');
+});
+
 // ------------------------------------------------------------------ reference choice
 test('reference: same session and driver first, otherwise same track with same car and similar weather', async () => {
   const { pickReference } = await import('../../app/js/reference.js');
@@ -349,7 +364,7 @@ test('workflows: versions and identifiers are consistent', () => {
   const ios = rd('.github/workflows/ios.yml'), android = rd('.github/workflows/android.yml');
   const pkg = JSON.parse(rd('package.json'));
   const v = rd('app/js/main.js').match(/APP_VERSION = '([^']+)'/)[1];
-  assert.equal(v, '2.1.8');
+  assert.equal(v, '2.1.9');
   assert.match(ios, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));
   assert.match(ios, new RegExp(`BUILD="${v.replace(/\.\d+$/, '').replace(/\./g, '\\.')}\\.`), 'iOS build number prefix follows the marketing version');
   assert.match(android, new RegExp(`MARKETING_VERSION: '${v.replace(/\./g, '\\.')}'`));

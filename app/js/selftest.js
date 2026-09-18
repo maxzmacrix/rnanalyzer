@@ -134,11 +134,12 @@ export async function run() {
     eq(location.hash, '#/analyze', 'opened analyze');
     await go('#/laps', 600);
     assert($$('.lap-row.selected .selmark').length === state.selected.length, 'selection marks');
-    click(byText('.sel-summary button', t('deselect_all')), 'deselect all'); await wait(300);
+    click($$('.sel-summary button').find((b) => b.title === t('deselect_all')), 'deselect all'); await wait(300);
     eq(state.selected.length, 0, 'cleared');
   });
 
   await step('one lap selected → “Compare with best lap” button opens the comparison with the fastest lap as reference', async () => {
+    await clearSelection(); await wait(300);
     const rows = $$('.lap-row'); const slow = rows.find((r) => !r.classList.contains('best')) || rows[1]; slow.click(); await wait(400);
     const b = $('.sel-summary .compare'); assert(b, 'compare button'); assert(/\+|−/.test(b.textContent), `delta in label: ${b.textContent}`);
     b.click(); await wait(1200); eq(location.hash, '#/analyze', 'analyze opened'); eq(state.selected.length, 2, 'two laps');

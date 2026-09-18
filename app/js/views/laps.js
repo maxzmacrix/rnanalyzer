@@ -77,7 +77,7 @@ function renderSelection() {
         partner.lapTimeMs < l.lapTimeMs ? t('compare_with_best', { d: dTxt }) : t('compare_with', { lap: `L${partner.lapNumber}`, d: dTxt }));
     }
   }
-  selEl.append(dots, h('span.grow', t('selected', { n })), action, h('button.tbtn.small', { on: { click: () => clearSelection() } }, t('deselect_all')));
+  selEl.append(dots, h('span.grow.count', t('selected', { n })), action, h('button.tbtn', { html: icons.close, title: t('deselect_all'), 'aria-label': t('deselect_all'), on: { click: () => clearSelection() } }));
 }
 /** Best complete lap of the same session and driver (excluding the lap itself). */
 function comparisonPartner(l) {

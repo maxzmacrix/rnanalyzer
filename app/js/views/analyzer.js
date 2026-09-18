@@ -194,7 +194,7 @@ function toggleBigVideo(cell) {
   for (const v of videoObjs.values()) v.cell.classList.toggle('big', v.cell === bigVideo);
   videoGrid.classList.toggle('max', !!bigVideo);
   root.classList.toggle('video-max', !!bigVideo);
-  if (bigVideo) videoPanel.style.flex = '0 0 72%'; else applyRatios();
+  if (bigVideo) videoPanel.style.flex = '0 0 auto'; else applyRatios();
   requestAnimationFrame(() => { for (const p of Object.values(panels)) { if (p.chart) p.chart.requestDraw(); if (p.map) p.map.requestDraw(); if (p.scatter) p.scatter.draw(); } });
 }
 function updateVideoHud() {

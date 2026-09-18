@@ -158,6 +158,25 @@ Die Capacitor‑iOS‑Hülle liegt bei und wird **ohne Mac** auf GitHub‑Action
 
 Der Kompilier‑Check läuft außerdem bei jedem Push, der `native/**` oder die Capacitor‑Konfiguration ändert.
 
+### Bedienkonzept 2.0 („Antwort zuerst“)
+
+* **Ein Weg zum Vergleich:** Runde antippen → roter Knopf „Mit Bestzeit vergleichen (+0,391)“ (bzw. „Vergleichen“ bei mehreren) →
+  Analyse. „Vergleich vorschlagen“ und der Geräte‑Download springen direkt weiter.
+* **Referenz ist immer die schnellste vollständige Runde** der Auswahl (`refLapId()` in `state.js`), unabhängig von der Tipp‑Reihenfolge.
+* **Analyse öffnet mit der Antwort:** Panel A = „Abstand zur schnellsten Runde“ mit Geschwindigkeit als zweiter Kurve, Panel B = Karte,
+  auf der die schnellste Runde rot/grün gefärbt ist, wo die verglichene Runde verliert/gewinnt. In der Play‑Leiste (unten, Daumenzone)
+  laufen die Abstände je Runde als Zahl mit; „5 s zurück“, Tempo 0,25–2×.
+* **Ein Analyse‑Bildschirm:** kein Modus‑Umschalter mehr. Videos nebeneinander mit Geschwindigkeit/Rundenzeit‑Overlay, Tipp = groß,
+  Lautsprecher = Ton; G‑Kraft ist eine Panel‑Komponente wie Karte oder Sektorzeiten.
+* **Weniger Optionen:** Optionen‑Blatt = Sektoren, Achse, Excel. Kanalwahl zeigt fünf Hauptzeilen, der Rest unter „Mehr Kanäle“.
+  Layout‑Profile, Panel‑Anzahl (jetzt automatisch), Zoom‑Knöpfe (Pinch/Doppeltipp) entfallen.
+* **Klartext:** „Abstand“, „Karte“, „Werte am Cursor“, „Sektorzeiten“, „Bestmöglich“ statt Telemetrie‑Begriffen; Session‑Kopf ohne σ.
+* **Ergonomie:** Tippziele ≥ 40 px, Querformat mit Seitenleiste, Zwei‑Finger‑Zoom verschiebt den Cursor nicht mehr.
+* **Race Navigator (App):** ein Verbindungszustand – erreichbar → Verbindung, Steuerung, Import; sonst eine ruhige Karte mit
+  „Erneut suchen“/„Adresse eingeben“. Die Web‑Version hat keinen Geräte‑Tab; der Store‑Hinweis steht im leeren Start und unter Einstellungen.
+* **Import:** gezippte Ordner werden entpackt, umbenannte Videos über die Dateigröße zugeordnet, Fehler in einem Satz.
+* **Standards:** Darstellung „System“, Sprache des Geräts; bestehende Installationen werden einmalig migriert (`settingsVersion`).
+
 ### Tests
 
 * `npm test` – Node‑Tests (`tools/test/unit.test.mjs`): Sprachdateien (Schlüsselparität, Platzhalter, alle in der App benutzten

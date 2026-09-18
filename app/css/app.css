@@ -489,3 +489,12 @@ input.input:focus, textarea.input:focus { outline: none; border-color: rgba(229,
 .play-bar .rewind { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 700; }
 .play-bar .rewind svg { width: 18px; height: 18px; }
 @media (max-width: 700px) { .play-bar .small { display: none; } .play-bar .rewind span:last-child { display: none; } }
+
+/* big video: keep the picture's shape, no black bars */
+.analyzer.video-max .video-panel { max-height: 62%; }
+.videos.max { height: auto; }
+.videos.max .vcell.big { aspect-ratio: 16 / 9; min-height: 0; max-height: 100%; }
+.videos.max .vcell.big video { object-fit: cover; }
+/* selection bar on phones: the dots say how many, the button says what next */
+.sel-summary .count { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { .sel-summary .count { display: none; } .sel-summary .dots { margin-right: auto; } .sel-summary .compare { flex: 1; } }

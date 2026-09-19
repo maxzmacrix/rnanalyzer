@@ -1,6 +1,6 @@
 # RN Analyzer 2.0 – Specification
 
-**As of:** 2026-09-18 · **App version:** 2.1.26 · **Repository:** github.com/maxzmacrix/rnanalyzer
+**As of:** 2026-09-19 · **App version:** 2.1.27 · **Repository:** github.com/maxzmacrix/rnanalyzer
 
 This document is the authoritative description of the software: vision, scope, architecture, data model, interfaces,
 build and quality assurance. It is written so that a person without access to the code or to internal conversations can
@@ -84,7 +84,9 @@ The app has four tabs. The web version has no Race Navigator tab because the bro
 ### 3.2 Analyze (`#/analyze`)
 
 One screen, no mode switch. Top to bottom: videos (up to 4, side by side, tap enlarges, speaker toggles sound), two panels
-(three on large screens), play bar at the bottom. Every video cell takes its video's own aspect ratio (from the
+(three on large screens), play bar at the bottom. Line charts and channel strips in the column reserve one shared right gutter
+(46 px as soon as any chart shows a second curve's axis), so their plots stay aligned vertically; table components keep
+their first column sticky with an opaque background. Every video cell takes its video's own aspect ratio (from the
 metadata, 16:9 until known; RN recordings are 5:3) and is centred in its grid area (sized by `fitVideoCells()` on every
 resize), so no letterbox bars appear inside the cell; the enlarged video uses the same ratio; the cell background is graphite, not
 black, and only shows while a frame loads.
@@ -92,8 +94,9 @@ black, and only shows while a frame loads.
 * **Reference** is always the fastest complete lap of the selection, regardless of tap order.
 * **Panel components** (freely assignable; defaults Panel A = gap with speed as second curve, Panel B = map, Panel C =
   coach): gap to the fastest lap (time mode: distance gap), channel line chart, map (fastest lap painted red/green by the
-  compared lap's time lost, Esri satellite by default or OSM streets, start and sector lines, corner numbers, optional "map follows the
-  cursor"), g-force (scatter lateral vs. longitudinal), values at the cursor, lap overview (min/max, best values
+  compared lap's time lost, Esri satellite by default or OSM streets, start and sector lines, corner numbers; the default view is a
+  close-up of about 320 m around the cursor that follows it, a double tap toggles to the whole track and back, pinch zooms freely),
+  g-force (scatter lateral vs. longitudinal), values at the cursor, lap overview (min/max, best values
   marked), sector times (device sectors, geometric fallback, custom sectors; best possible and fastest contiguous lap),
   corner coach (section 3.5), highlights (section 3.8), channel strips (below).
 * **Channel strips** (`StripChart` in `chart.js`): the classic time-distance view of desktop telemetry tools. The chosen
@@ -468,6 +471,7 @@ material. Whoever shares the software shares this repository plus the store and 
 | 2.1.24 | 2026-09-18 | Guided tour ships the complete lap videos of both sample laps (86 s each, about 4 MB) instead of 20-second clips |
 | 2.1.25 | 2026-09-18 | Video cells and the enlarged video follow the video's own aspect ratio instead of a fixed 16:9 |
 | 2.1.26 | 2026-09-18 | Guided tour lifts a maximised panel for its analysis scenes and restores it afterwards; the analyzer applies a maximise change made from outside |
+| 2.1.27 | 2026-09-19 | Map opens as a close-up around the cursor (double tap toggles the whole track); charts share one right gutter so a second axis no longer shifts a plot against the others; sticky first table column is opaque |
 | 2.1.20 | 2026-09-18 | Android build fix: the share sheet uses the app template's FileProvider instead of declaring a second one (manifest merge conflict in 2.1.19, whose Android build failed) |
 | 2.1.19 | 2026-09-18 | Android: native share sheet for diagnostics, lap data and videos through the plugin (the WebView has no Web Share API, the mail fallback cut the log at 1800 characters); device timeouts are logged as such |
 | 2.1.18 | 2026-09-18 | Satellite imagery is the default map style; existing installs on the old default follow (settings migration 4) |

@@ -11,7 +11,7 @@ import { installUpdateChecks } from './update.js';
 import { initTabbar } from './tabbar.js';
 import { installGlobalErrorLog, setAppVersion } from './diag.js';
 
-export const APP_VERSION = '2.1.26';
+export const APP_VERSION = '2.1.27';
 
 const views = { laps: lapsView, analyze: analyzeView, device: deviceView, settings: settingsView };
 const nativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());

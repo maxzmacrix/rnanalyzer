@@ -18,6 +18,8 @@ export function providerFor(settings) {
 function tileUrl(p, z, x, y) { return p.url.replace('{z}', z).replace('{x}', x).replace('{y}', y).replace('{s}', 'a'); }
 
 function lngToWorld(lng) { return ((lng + 180) / 360) * TILE; }
+function worldToLng(x) { return (x / TILE) * 360 - 180; }
+function worldToLat(y) { const n = Math.PI - (2 * Math.PI * y) / TILE; return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))); }
 function latToWorld(lat) {
   const s = Math.sin((lat * Math.PI) / 180);
   return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * TILE;
@@ -64,9 +66,24 @@ export class TrackMap {
     const changed = !this.tracks.length || tracks.length !== this.tracks.length || (this.def !== def);
     this.tracks = tracks || []; this.def = def || null; this.cursors = cursors || [];
     this.showSectors = showSectors !== false; this.splitPositions = splitPositions || [];
-    if (changed || !this.fitted) this.fit(); else this.requestDraw();
+    if (changed || !this.fitted) { this.fit(); this.closeUp(); } else this.requestDraw();
   }
   setCursors(cursors) { this.cursors = cursors || []; this.requestDraw(); }
+  /** Default view: the corner around the cursor, CLOSE_UP_M metres across the panel's shorter side, instead of the whole track. */
+  closeUp() {
+    const c = this.cursors[0];
+    const b = this.bounds();
+    if (!b) return;
+    const lat = c && Number.isFinite(c.lat) ? c.lat : worldToLat((b.minY + b.maxY) / 2);
+    const lng = c && Number.isFinite(c.lng) ? c.lng : worldToLng((b.minX + b.maxX) / 2);
+    const worldPerM = TILE / (40075016.686 * Math.cos((lat * Math.PI) / 180)); // world units per metre at this latitude
+    const z = Math.log2(Math.min(this.w, this.h) / (TrackMap.CLOSE_UP_M * worldPerM));
+    if (z <= this.fitZoom + 0.5) return; // a tiny track: the whole-track view is already close enough
+    this.zoom = Math.min(21, z);
+    this.center = { x: lngToWorld(lng), y: latToWorld(lat) };
+    this.requestDraw();
+  }
+  static get CLOSE_UP_M() { return 320; }
 
   bounds() {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -320,7 +337,7 @@ export class TrackMap {
       else if (this.pointers.size === 1) { const [p] = [...this.pointers.values()]; this.gesture = { type: 'pan', last: { ...p }, start: { ...p }, moved: true }; }
     };
     this._onWheel = (e) => { e.preventDefault(); this._zoomAt(-e.deltaY * 0.0025, { x: e.offsetX, y: e.offsetY }); this.requestDraw(); };
-    this._onDbl = () => this.fit();
+    this._onDbl = () => { if (this.zoom > this.fitZoom + 0.3) this.fit(); else this.closeUp(); }; // whole track ⇄ corner
     c.addEventListener('pointerdown', this._onDown);
     c.addEventListener('pointermove', this._onMove);
     c.addEventListener('pointerup', this._onUp);

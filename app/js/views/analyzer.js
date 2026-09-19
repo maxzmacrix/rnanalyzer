@@ -412,6 +412,13 @@ function configurePanel(p) {
   p.chanBtn.classList.toggle('hidden', !(kind === 'number' || kind === 'timeslip' || kind === 'strips'));
   requestAnimationFrame(() => { if (p.chart) p.chart.setReserveRight(p.titleChip.parentElement.offsetWidth + 20); });
   renderPanel(p);
+  syncChartGutters();
+}
+/** Charts stacked in the column share one right gutter: a second curve's axis in one panel must not shift its plot against the others. */
+function syncChartGutters() {
+  const list = Object.values(panels).filter((o) => o.chart);
+  const wide = list.some((o) => o.chart.series2 && o.chart.series2.length);
+  for (const o of list) o.chart.setRightGutter(wide ? 46 : 0);
 }
 
 function renderPanel(p) {

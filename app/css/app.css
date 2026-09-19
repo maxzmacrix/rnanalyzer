@@ -326,9 +326,10 @@ canvas { display: block; touch-action: none; }
 .table-wrap { overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
 table.data { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
 table.data th, table.data td { padding: 6px 8px; border-bottom: 1px solid var(--fg-08); text-align: right; white-space: nowrap; }
-table.data th { text-align: left; font-weight: 600; color: var(--text-dim); background: var(--fg-05); position: sticky; left: 0; }
-table.data thead th { position: sticky; top: 0; z-index: 1; text-align: right; background: var(--thead-bg); }
-table.data thead th:first-child { left: 0; z-index: 2; }
+/* the sticky first column needs an opaque background: the tint alone let the scrolled columns show through it */
+table.data th { text-align: left; font-weight: 600; color: var(--text-dim); background: linear-gradient(var(--fg-05), var(--fg-05)), var(--bg2); position: sticky; left: 0; z-index: 1; }
+table.data thead th { position: sticky; top: 0; left: auto; z-index: 1; text-align: right; background: var(--thead-bg); } /* header cells stick to the top only; `left: 0` from the rule above made every header cell pile up at the left edge when scrolling sideways */
+table.data thead th:first-child { left: 0; z-index: 2; background: linear-gradient(var(--fg-05), var(--fg-05)), var(--bg2); }
 table.data td .v { display: inline-block; padding: 1px 8px; border: 2px solid transparent; border-radius: 999px; }
 table.data td .v.best { border-color: var(--red); }
 table.data td .v.best2 { border-color: var(--blue-soft); }

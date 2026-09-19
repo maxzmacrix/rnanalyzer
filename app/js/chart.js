@@ -30,6 +30,7 @@ export class LineChart {
     this.gesture = null;
     this.raf = 0;
     this.reserveRight = 0;
+    this.rightGutter = 0; // set by the view so every chart in the column reserves the same right axis width
     this.dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     this._bind();
     this.ro = new ResizeObserver(() => this.resize());
@@ -71,6 +72,9 @@ export class LineChart {
 
   setCursor(x) { this.cursor = x; this.requestDraw(); }
   setReserveRight(px) { this.reserveRight = Math.max(0, px || 0); this.requestDraw(); }
+  /** Right axis width every chart on screen reserves (46 px when any chart has a second curve), so the plots line up vertically. */
+  setRightGutter(px) { const v = Math.max(0, px || 0); if (v === this.rightGutter) return; this.rightGutter = v; this.requestDraw(); }
+  rightPad() { return Math.max(this.series2.length ? 46 : PAD.right, this.rightGutter); }
   getView() { return this.view ? [...this.view] : [0, this.xMax]; }
   setView(x0, x1, silent = false) {
     if (x1 - x0 >= this.xMax - 1e-9 || x1 - x0 <= 0) this.view = null;
@@ -114,7 +118,7 @@ export class LineChart {
 
   // ---- geometry helpers ------------------------------------------------------------
   plotRect() {
-    const right = this.series2.length ? 46 : PAD.right;
+    const right = this.rightPad();
     return { x: PAD.left, y: PAD.top, w: Math.max(10, this.w - PAD.left - right), h: Math.max(10, this.h - PAD.top - PAD.bottom) };
   }
   xToPx(x, r, v) { return r.x + ((x - v[0]) / (v[1] - v[0])) * r.w; }
@@ -515,7 +519,7 @@ export class StripChart extends LineChart {
 
   plotRect() {
     const top = StripChart.BAND_TOP + StripChart.BAND + 4;
-    return { x: PAD.left, y: top, w: Math.max(10, this.w - PAD.left - PAD.right), h: Math.max(10, this.h - top - PAD.bottom) };
+    return { x: PAD.left, y: top, w: Math.max(10, this.w - PAD.left - this.rightPad()), h: Math.max(10, this.h - top - PAD.bottom) };
   }
 
   draw() {
